@@ -1278,7 +1278,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="usage: %prog [options]")
+    parser = argparse.ArgumentParser(description="DORIS (Detection of Objects Research Interactive Software)")
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
     parser.add_argument("-i", action="store",  dest="video_file", help="path of video file")

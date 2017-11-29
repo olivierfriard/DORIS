@@ -12,3 +12,11 @@ Requirements
 * opencv
 
 
+Usage
+========
+
+python3 doris.py
+
+
+
+
