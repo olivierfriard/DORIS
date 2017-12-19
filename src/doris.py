@@ -31,6 +31,10 @@ TODO:
 * add choice for backgroung algo
 * implement check of position when 1 object must be detected
 * automatic determination
+
+match shape
+http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contours_more_functions/py_contours_more_functions.html
+
 """
 
 
