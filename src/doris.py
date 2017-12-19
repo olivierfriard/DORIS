@@ -39,7 +39,7 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 
 THRESHOLD_DEFAULT = 50
-VIEWER_WIDTH = 640
+VIEWER_WIDTH = 480
 
 # BGR colors
 RED = (0,0,255)
@@ -87,6 +87,12 @@ import math
 import matplotlib
 matplotlib.use("Qt4Agg" if QT_VERSION_STR[0] == "4" else "Qt5Agg")
 import matplotlib.pyplot as plt
+
+try:
+    import mpl_scatter_density
+    flag_mpl_scatter_density = True
+except:
+    flag_mpl_scatter_density = False
 
 import argparse
 
@@ -178,9 +184,21 @@ def toQImage(frame, copy=False):
 
 def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
 
-    try:
-        import mpl_scatter_density
-    except:
+    if flag_mpl_scatter_density:
+        x = np.array(x)
+        y = np.array(y)
+    
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
+        ax.scatter_density(x, y)
+        if x_lim != (0,0):
+            ax.set_xlim(x_lim)
+        if y_lim != (0,0):
+            ax.set_ylim(y_lim[::-1])
+    
+        plt.show()
+
+    else:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setWindowTitle("DORIS")
@@ -188,18 +206,7 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
         return
-    x = np.array(x)
-    y = np.array(y)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-    ax.scatter_density(x, y)
-    if x_lim != (0,0):
-        ax.set_xlim(x_lim)
-    if y_lim != (0,0):
-        ax.set_ylim(y_lim[::-1])
-
-    plt.show()
 
 
 def plot_path(verts, x_lim, y_lim, color):
@@ -459,6 +466,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_save_xy.clicked.connect(self.save_xy)
         self.pb_plot_path.clicked.connect(self.plot_path)
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
+        self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)
 
         # areas analysis
         menu = QMenu()
@@ -702,7 +710,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         let user choose a width for frame image
         """
-        i, ok_pressed = QInputDialog.getInt(self, "Get integer", "Frame width", self.frame_width, 20, 2000, 1)
+        i, ok_pressed = QInputDialog.getInt(self, "Set frame width", "Frame width", self.frame_width, 20, 2000, 1)
         if ok_pressed:
             self.frame_width = i
         
@@ -848,7 +856,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.capture = cv2.VideoCapture(file_name)
 
             if not self.capture.isOpened(): 
-                QMessageBox.critical(self, "Objects detector", "Could not open {}".format(file_name))
+                QMessageBox.critical(self, "DORIS", "Could not open {}".format(file_name))
                 return
             
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -1241,7 +1249,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         try:
             self.capture
         except:
-            QMessageBox.warning(self, "Objects detector", "No video")
+            QMessageBox.warning(self, "DORIS", "No video")
             return
         
         #self.positions, self.objects_number = [], []
