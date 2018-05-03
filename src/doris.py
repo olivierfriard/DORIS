@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017 Olivier Friard
+Copyright 2017-2018 Olivier Friard
 
 This file is part of DORIS.
 
@@ -25,6 +25,9 @@ pyqt5
 opencv
 numpy
 matplotlib
+
+optional:
+mpl_scatter_density (pip3 install mpl_scatter_density)
 
 TODO:
 
@@ -70,7 +73,6 @@ __version__ = "0.0.1"
 __version_date__ = "2017-11-07"
 
 from PyQt5.QtCore import *
-
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
@@ -298,7 +300,7 @@ def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, 
                     continue
 
             if arena["type"] == "circle":
-                if dist(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
+                if euclidean_distance(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
                     obj_to_del_idx.append(idx)
                     continue
 
@@ -351,34 +353,39 @@ def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, 
     return all_objects, filtered_objects
     
 
-def dist(p1, p2):
+def euclidean_distance(p1, p2):
     """
-    euclidean distance of two points
+    euclidean distance between two points
     """
-    return ((p1[0]-p2[0])**2 + (p1[1]-p2[1])**2)**0.5
+    return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
 
 
 def find_circle(points):
+    """
+    Find circle that pass by 2 points
     
+    Args:
+        points (list): list of points
     
-    x1, y1 = points[0]
-    x2,y2 = points[1]
-    x3,y3 = points[2]
+    Returns:
+        float: x of circle center
+        float: y of circle center
+        float: radius of circle
+    """
 
-    ma = (y2-y1)/(x2-x1)
-    mb = (y3-y2)/(x3-x2)
+    x1, y1 = points[0]
+    x2, y2 = points[1]
+    x3, y3 = points[2]
+
+    ma = (y2 - y1) / (x2 - x1)
+    mb = (y3 - y2) / (x3 - x2)
 
     x = (ma*mb*(y1-y3) + mb*(x1+x2) - ma*(x2+x3))/(2*(mb-ma))
 
-    print(x)
+    y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
 
-    y = -(1/ma)*(x-(x1+x2)/2)+(y1+y2)/2
+    return x, y, euclidean_distance((x, y), (x1, y1))
 
-    print(y)
-    
-    return x, y, dist((x, y), (x1, y1))
-
-    
     
     '''
     (p,t), (q,u), (s,z) = points[0], points[1], points[2]
@@ -436,10 +443,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_forward.clicked.connect(lambda: self.for_back_ward("forward"))
         self.pb_backward.clicked.connect(lambda: self.for_back_ward("backward"))
 
-
+        # menu for arena button
         menu1 = QMenu()
         menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
-        menu1.addAction("Circle arena", lambda: self.define_arena("circle"))
+        menu1.addAction("Circle arena (3 points)", lambda: self.define_arena("circle (3 points)"))
+        menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
 
         self.pb_define_arena.setMenu(menu1)
 
@@ -468,9 +476,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
         self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)
 
-        # areas analysis
+        # menu for area button
         menu = QMenu()
-        menu.addAction("Circle", lambda: self.add_area_func("circle"))
+        menu.addAction("Circle (center radius)", lambda: self.add_area_func("circle (center radius)"))
+        menu.addAction("Circle (3 points)", lambda: self.add_area_func("circle (3 points)"))
         menu.addAction("Rectangle", lambda: self.add_area_func("rectangle"))
         menu.addAction("Polygon", lambda: self.add_area_func("polygon"))
 
@@ -562,10 +571,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 pass
             self.pb()
 
+
     def add_area_func(self, shape):
-        
         if shape:
-            text, ok = QInputDialog.getText(self, 'New area', 'Area name:')
+            text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
                 self.add_area = {"type": shape, "name": text}
 
@@ -598,11 +607,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_define_arena = False
         self.arena = []
         self.le_arena.setText("")
-        
+
         self.pb_define_arena.setEnabled(True)
         self.pb_clear_arena.setEnabled(False)
-        
-        
+
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
         self.pb()
 
@@ -623,16 +631,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
 
-        
+        print(self.add_area["type"])
+
         if self.add_area:
-            if self.add_area["type"] == "circle":
+            if self.add_area["type"] == "circle (center radius)":
                 if "center" not in self.add_area:
                     self.add_area["center"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
                 else:
+                    self.add_area["type"] = "circle"
                     self.add_area["radius"] = int((( event.pos().x() * conversion - self.add_area["center"][0] )**2 + ( event.pos().y() * conversion - self.add_area["center"][1] )**2)**0.5)
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+
+            if self.add_area["type"] == "circle (3 points)":
+                if "points" not in self.add_area:
+                    self.add_area["points"] = []
+                if len(self.add_area["points"]) < 3:
+                    self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                    print(len(self.add_area["points"]))
+
+                if len(self.add_area["points"]) == 3:
+                    cx, cy, radius = find_circle(self.add_area["points"])
+                    self.add_area["type"] = "circle"
+                    self.add_area["center"] = [int(cx), int(cy)]
+                    self.add_area["radius"] = int(radius)
+                    print(self.add_area)
+                    del self.add_area["points"]
+                    print(self.add_area)
+                    self.lw_area_definition.addItem(str(self.add_area))
+                    self.activate_areas()
+                    self.add_area = {}
+
 
         if self.add_area:
             if self.add_area["type"] == "rectangle":
@@ -662,7 +692,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.show_frame(self.frame)
 
 
-
         if self.flag_define_arena:
  
             if self.flag_define_arena == "polygon":
@@ -687,14 +716,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.show_frame(self.frame)
 
 
-            if self.flag_define_arena == "circle":
-                
+            if self.flag_define_arena == "circle (3 points)":
+
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                
+
                 if len(self.arena) == 3:
                     cx, cy, r = find_circle(self.arena)
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
-        
+
                     self.show_frame(self.frame)
 
                     self.flag_define_arena = ""
@@ -702,6 +731,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
 
                     self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(r), 'name': 'arena'}
+                    self.le_arena.setText("{}".format(self.arena))
+
+
+            if self.flag_define_arena == "circle (center radius)":
+
+                self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+
+                if len(self.arena) == 2:
+                    cx, cy = self.arena[0]
+                    radius = euclidean_distance(self.arena[0], self.arena[1])
+                    cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(radius), color=ARENA_COLOR, thickness=drawing_thickness)
+
+                    self.show_frame(self.frame)
+
+                    self.flag_define_arena = ""
+                    self.pb_define_arena.setEnabled(False)
+                    self.pb_clear_arena.setEnabled(True)
+
+                    self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(radius), 'name': 'arena'}
                     self.le_arena.setText("{}".format(self.arena))
 
 
@@ -935,8 +983,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     r_dist = []
 
                     for mem_idx in self.mem_filtered_objects:
-                        r_dist.append([dist(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
-                        print("dist",new_idx ,mem_idx, dist(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]) ) 
+                        r_dist.append([euclidean_distance(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
+                        print("euclidean_distance",new_idx ,mem_idx, euclidean_distance(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]) ) 
 
                     r_dist = sorted(r_dist)
 
@@ -1158,8 +1206,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     print("previous pos:", self.positions[-1])
 
                     for idx_obj, obj in enumerate(self.positions[-1]):
-                        print(idx, idx_obj, dist(results["objects"][idx]["centroid"], obj))
-                        r_dist.append([dist(results["objects"][idx]["centroid"], obj), idx_obj, idx])
+                        print(idx, idx_obj, euclidean_distance(results["objects"][idx]["centroid"], obj))
+                        r_dist.append([euclidean_distance(results["objects"][idx]["centroid"], obj), idx_obj, idx])
                     r_dist = sorted(r_dist)
 
                     print("r_dist", r_dist)
