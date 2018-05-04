@@ -85,6 +85,7 @@ import copy
 
 import sys
 import time
+import pathlib
 import math
 import matplotlib
 matplotlib.use("Qt4Agg" if QT_VERSION_STR[0] == "4" else "Qt5Agg")
@@ -422,12 +423,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         self.setWindowTitle("DORIS v. {} - (c) Olivier Friard".format(__version__))
-        
+        self.statusBar = QStatusBar()
+        self.statusBar.setStyleSheet("font-size:24px")
+        self.setStatusBar(self.statusBar)
         self.actionAbout.triggered.connect(self.about)
         
         self.label1.mousePressEvent = self.label1_mousepressed
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
+        self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
         self.actionQuit.triggered.connect(self.close)
         
         self.actionFrame_width.triggered.connect(self.frame_width)
@@ -450,9 +454,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
 
         self.pb_define_arena.setMenu(menu1)
-
-        #self.pb_define_arena.clicked.connect(self.define_arena)
-
         self.pb_clear_arena.clicked.connect(self.clear_arena)
         
         self.pbGo.clicked.connect(self.run_analysis)
@@ -509,21 +510,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.add_area = {}
         self.arena = []
         self.mem_filtered_objects = {}
+
+        self.dir_images = []
+        self.dir_images_index = 0
         
         self.positions, self.objects_number = [], []
 
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
+
     def about(self):
 
-        players = []
-        players.append("OpenCV")
-        players.append("version {}".format(cv2.__version__))
+        modules = []
+        modules.append("OpenCV")
+        modules.append("version {}".format(cv2.__version__))
         
         # matplotlib
-        players.append("\nMatplotlib")
-        players.append("version {}".format(matplotlib.__version__))
+        modules.append("\nMatplotlib")
+        modules.append("version {}".format(matplotlib.__version__))
 
         about_dialog = msg = QMessageBox()
         #about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
@@ -533,21 +538,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setEscapeButton(QMessageBox.Ok)
 
         about_dialog.setInformativeText(("<b>DORIS</b> v. {ver} - {date}"
-        "<p>Copyright &copy; 2017 Olivier Friard<br>"
+        "<p>Copyright &copy; 2017-2018 Olivier Friard<br>"
         "Department of Life Sciences and Systems Biology<br>"
         "University of Torino - Italy<br>").format(ver=__version__,
-                                              date=__version_date__
-                                              ))
+                                                   date=__version_date__))
 
         details = ("Python {python_ver} ({architecture}) - Qt {qt_ver} - PyQt{pyqt_ver} on {system}\n"
         "CPU type: {cpu_info}\n\n"
-        "{players}").format(python_ver=platform.python_version(),
+        "{modules}").format(python_ver=platform.python_version(),
                             architecture="64-bit" if sys.maxsize > 2**32 else "32-bit",
                             pyqt_ver=PYQT_VERSION_STR,
                             system=platform.system(),
                             qt_ver=QT_VERSION_STR,
                             cpu_info=platform.machine(),
-                            players="\n".join(players))
+                            modules="\n".join(modules))
 
         about_dialog.setDetailedText(details)
 
@@ -577,6 +581,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
                 self.add_area = {"type": shape, "name": text}
+                msg = ""
+                if shape == "circle (3 points)":
+                    msg = "New circle area: Click on the video to define 3 points belonging to the circle"
+                if shape == "circle (center radius)":
+                    msg = "New circle area: click on the video to define the center of the circle and then a point belonging to the circle"
+                if shape == "polygon":
+                    msg = "New polygon area: click on the video to define the edges of the polygon. Right click to finish"
+                if shape == "rectangle":
+                    msg = "New rectangle area: click on the video to define the top-lef and bottom right edges of the rectangle."
+
+                self.statusBar.showMessage(msg)
 
 
     def remove_area(self):
@@ -591,14 +606,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def define_arena(self, shape):
         """
-        swith to define area mode
+        switch to define area mode
         """
         if self.flag_define_arena:
             self.flag_define_arena = ""
         else:
             self.flag_define_arena = shape
             self.pb_define_arena.setEnabled(False)
+            msg = ""
+            if shape == "circle (3 points)":
+                msg = "New arena: click on the video to define 3 points belonging to the circle"
+            if shape == "circle (center radius)":
+                msg = "New arena: click on the video to define the center of the circle and then a point belonging to the circle"
+            if shape == "polygon":
+                msg = "New arena: click on the video to define the edges of the polygon"
 
+
+            self.statusBar.showMessage(msg)
 
     def clear_arena(self):
         """
@@ -631,9 +655,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
 
-        print(self.add_area["type"])
+        #print("area type:", self.add_area["type"])
 
         if self.add_area:
+
+            if event.button() == 4:
+                self.add_area = {}
+                self.statusBar.showMessage("New area canceled")
+                return
+
+            if event.button() == 1:
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.show_frame(self.frame)
+
             if self.add_area["type"] == "circle (center radius)":
                 if "center" not in self.add_area:
                     self.add_area["center"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
@@ -643,6 +677,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.statusBar.showMessage("New circle area created")
+                    return
 
             if self.add_area["type"] == "circle (3 points)":
                 if "points" not in self.add_area:
@@ -650,6 +686,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.add_area["points"]) < 3:
                     self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
                     print(len(self.add_area["points"]))
+
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = find_circle(self.add_area["points"])
@@ -662,9 +700,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.statusBar.showMessage("New circle area created")
+                    return
 
-
-        if self.add_area:
             if self.add_area["type"] == "rectangle":
                 if "pt1" not in self.add_area:
                     self.add_area["pt1"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
@@ -673,8 +711,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
-
-        if self.add_area:
+                    self.statusBar.showMessage("New rectangle area created")
+                    return
 
             if self.add_area["type"] == "polygon":
                 
@@ -682,17 +720,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.statusBar.showMessage("The new polygon area is defined")
+                    return
 
-                if "points" not in self.add_area:
-                    self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
-                else:
-                    self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                    cv2.line(self.frame, tuple(self.add_area["points"][-2]), tuple(self.add_area["points"][-1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-
+                if event.button() == 1: # left button
+                    cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                    if "points" not in self.add_area:
+                        self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
+                    else:
+                        self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                        cv2.line(self.frame, tuple(self.add_area["points"][-2]), tuple(self.add_area["points"][-1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+ 
+                    self.statusBar.showMessage("Polygon area: {} point(s) selected. Right click to finish".format(len(self.add_area["points"])))
                     self.show_frame(self.frame)
-
-
+ 
+ 
+        # arena
         if self.flag_define_arena:
+
+            # cancel arena creation (mid button)
+            if event.button() == 4:
+                self.flag_define_arena = ""
+                self.pb_define_arena.setEnabled(True)
+                self.statusBar.showMessage("Arena creation canceled")
+                return
+
  
             if self.flag_define_arena == "polygon":
                 
@@ -707,9 +759,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}
                     self.le_arena.setText("{}".format(self.arena))
 
+                    self.statusBar.showMessage("The new polygon arena is defined")
+
                 else:
-                    
+
                     self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+
+                    cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                    self.show_frame(self.frame)
+
+                    self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len( self.arena)))
 
                     if len(self.arena) >= 2:
                         cv2.line(self.frame, tuple(self.arena[-2]), tuple(self.arena[-1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
@@ -720,10 +779,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.show_frame(self.frame)
+
+                self.statusBar.showMessage("Circle area: {} point(s) selected.".format(len( self.arena)))
+
                 if len(self.arena) == 3:
                     cx, cy, r = find_circle(self.arena)
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
-
                     self.show_frame(self.frame)
 
                     self.flag_define_arena = ""
@@ -733,10 +796,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(r), 'name': 'arena'}
                     self.le_arena.setText("{}".format(self.arena))
 
+                    self.statusBar.showMessage("The new circle arena is defined")
+
 
             if self.flag_define_arena == "circle (center radius)":
 
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.show_frame(self.frame)
 
                 if len(self.arena) == 2:
                     cx, cy = self.arena[0]
@@ -751,6 +819,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(radius), 'name': 'arena'}
                     self.le_arena.setText("{}".format(self.arena))
+
+                    self.statusBar.showMessage("The new circle arena is defined")
 
 
 
@@ -779,6 +849,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         "go to 1st frame"
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
         self.pb()
+
 
     def next_frame(self):
         """
@@ -864,8 +935,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 with open(file_name, "w") as f_in:
                     f_in.write(out)
         else:
-            print("no results to be saved")
-        
+            self.statusBar.showMessage("no results to be saved")
 
 
     def plot_xy_density(self):
@@ -878,7 +948,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     y.append(row[n_object][1])
                 plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
         else:
-            print("no positions to be plotted")
+            self.statusBar.showMessage("no positions to be plotted")
 
     def plot_path(self):
 
@@ -890,7 +960,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     verts.append(row[n_object])
                 plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height), color=COLORS_LIST[n_object % len(COLORS_LIST)])
         else:
-            print("no positions to be plotted")
+            self.statusBar.showMessage("no positions to be plotted")
 
 
     def open_video(self, file_name):
@@ -917,16 +987,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.pb(1)
             self.video_height, self.video_width, _ = self.frame.shape
             self.videoFileName = file_name
-            
-            self.statusBar().showMessage("video dim {}x{}".format(self.video_width, self.video_height))
+
+            self.statusBar.showMessage("video loaded (w: {} h: {})".format(self.video_width, self.video_height))
+
+
+    def load_dir_images(self):
+        """
+        Load directory of images
+        """
+        dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
+        if not dir_images:
+            return
+        p = pathlib.Path(dir_images)
+        self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
+        self.dir_images_index = 0
+
+        self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
 
 
     def update_frame(self):
         """
         update frame number
         """
-
-        self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+        if self.dir_images:
+            self.frame_idx = self.dir_images_index
+        else:
+            self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
         self.leFrame.setText(str(self.frame_idx))
 
 
@@ -995,7 +1081,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     new_filtered[r_dist[0][2]] = copy.deepcopy(filtered_objects[ new_idx ])
                     del self.mem_filtered_objects[r_dist[0][2]]
 
-            
                 filtered_objects = copy.deepcopy(new_filtered)
 
         print("===============")
@@ -1074,7 +1159,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         _ = self.draw_marker_on_objects(modified_frame, self.update_objects(), marker_type="contour")
 
-        # frame from video
+        # frame from videoself.dir_images
         self.show_frame(modified_frame)
 
         # treated frame
@@ -1115,14 +1200,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         read 'nf' frames and do some analysis
         """
-        
-        if self.capture is not None:
-            ret, self.frame = self.capture.read()
-            if not ret:
+        if self.dir_images:
+            if self.dir_images_index < len(self.dir_images) - 1:
+                self.dir_images_index += 1
+            else:
+                self.flag_stop_analysis = False
+                self.statusBar.showMessage("Last image of dir")
                 return False, {}
+            self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+
         else:
-            return False, {}
-    
+
+            if self.capture is not None:
+                ret, self.frame = self.capture.read()
+                if not ret:
+                    return False, {}
+            else:
+                return False, {}
+
         self.update_frame()
 
         self.treatedFrame = self.treatment(self.frame)
@@ -1172,7 +1267,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cv2.line(modified_frame, tuple(point), tuple(self.arena[idx + 1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 cv2.line(modified_frame, tuple(self.arena[-1]), tuple(self.arena[0]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 '''
-
 
         # frame from video
         if self.cb_display_analysis.isChecked():
@@ -1294,11 +1388,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.flag_stop_analysis:
             return
 
-        try:
-            self.capture
-        except:
-            QMessageBox.warning(self, "DORIS", "No video")
-            return
+        if not self.dir_images:
+            try:
+                self.capture
+            except:
+                QMessageBox.warning(self, "DORIS", "No video")
+                return
         
         #self.positions, self.objects_number = [], []
 
@@ -1310,7 +1405,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             app.processEvents()
             if self.flag_stop_analysis:
                 break
-                
+
             self.analysis(results)
 
         '''
