@@ -624,6 +624,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.statusBar.showMessage(msg)
 
+    def reload_frame(self):
+        if self.dir_images:
+            self.dir_images.index -= 1
+        else:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
+        self.pb()
+        
+
     def clear_arena(self):
         """
         clear the arena
@@ -635,8 +643,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_define_arena.setEnabled(True)
         self.pb_clear_arena.setEnabled(False)
 
-        self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
-        self.pb()
+        self.reload_frame()
 
 
     def conversion_thickness(self, video_width, frame_width):
@@ -662,6 +669,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if event.button() == 4:
                 self.add_area = {}
                 self.statusBar.showMessage("New area canceled")
+                self.reload_frame()
                 return
 
             if event.button() == 1:
@@ -743,6 +751,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.flag_define_arena = ""
                 self.pb_define_arena.setEnabled(True)
                 self.statusBar.showMessage("Arena creation canceled")
+                self.reload_frame()
+
                 return
 
  
