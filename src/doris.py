@@ -211,7 +211,6 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
         return
 
 
-
 def plot_path(verts, x_lim, y_lim, color):
     
     from matplotlib.path import Path
@@ -630,7 +629,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
         self.pb()
-        
 
     def clear_arena(self):
         """
@@ -741,8 +739,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
  
                     self.statusBar.showMessage("Polygon area: {} point(s) selected. Right click to finish".format(len(self.add_area["points"])))
                     self.show_frame(self.frame)
- 
- 
+
         # arena
         if self.flag_define_arena:
 
@@ -962,8 +959,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def plot_path(self):
 
+        print(self.positions)
         if self.positions:
-            
             for n_object in range(len(self.positions[0])):
                 verts = []
                 for row in self.positions:
