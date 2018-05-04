@@ -957,6 +957,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.statusBar.showMessage("no positions to be plotted")
 
+
     def plot_path(self):
 
         print(self.positions)
