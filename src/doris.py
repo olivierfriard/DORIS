@@ -90,6 +90,9 @@ import math
 import matplotlib
 matplotlib.use("Qt4Agg" if QT_VERSION_STR[0] == "4" else "Qt5Agg")
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
+
 
 try:
     import mpl_scatter_density
@@ -213,8 +216,10 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
 
 def plot_path(verts, x_lim, y_lim, color):
     
-    from matplotlib.path import Path
-    import matplotlib.patches as patches
+    print("verts", verts)
+    
+    # invert verts y
+    verts = [(x[0], y_lim[1] - x[1]) for x in verts]
     
     codes = [Path.MOVETO]
     codes.extend([Path.LINETO] * (len(verts)-1))
@@ -268,7 +273,7 @@ def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, 
             print("deleted #{} for max size".format(idx))
             obj_to_del_idx.append(idx)
             continue
-            
+
         # check if object extension <= max extension
         if max_extension:
             n = np.vstack(all_objects[idx]["contour"]).squeeze()
@@ -277,16 +282,24 @@ def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, 
                 obj_to_del_idx.append(idx)
                 continue
 
+        # check if objects in arena
         if arena:
 
-            # check if centroid of object in arena
+            if arena["type"] == "rectangle":
+                np_arena = np.array(arena["points"])
+                if not (np_arena[0][0] <= all_objects[idx]["centroid"][0] <= np_arena[1][0] 
+                    and np_arena[0][1] <= all_objects[idx]["centroid"][1] <= np_arena[1][1]):
+                    obj_to_del_idx.append(idx)
+                    continue
+
+            # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "polygon":
-                
+
                 np_arena = np.array(arena["points"])
                 if cv2.pointPolygonTest(np_arena, all_objects[idx]["centroid"], False) < 0:
                     obj_to_del_idx.append(idx)
                     continue
-                # check if all contour points are in polygon arena (5% tolerance)
+                
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
                 nl = len(n)
                 count_out = 0
@@ -299,12 +312,12 @@ def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, 
                     obj_to_del_idx.append(idx)
                     continue
 
+            # check if all contour points are in circle arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "circle":
                 if euclidean_distance(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
                     obj_to_del_idx.append(idx)
                     continue
 
-                # check if all contour points are in circle arena (5% tolerance)
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
                 dist_ = ((n[:,0] - arena["center"][0])**2 + (n[:,1] - arena["center"][1])**2)**0.5
 
@@ -427,7 +440,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.setStatusBar(self.statusBar)
         self.actionAbout.triggered.connect(self.about)
         
-        self.label1.mousePressEvent = self.label1_mousepressed
+        self.label1.mousePressEvent = self.frame_mousepressed
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
@@ -448,9 +461,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # menu for arena button
         menu1 = QMenu()
-        menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
+        menu1.addAction("Rectangle arena", lambda: self.define_arena("rectangle"))
         menu1.addAction("Circle arena (3 points)", lambda: self.define_arena("circle (3 points)"))
         menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
+        menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
 
         self.pb_define_arena.setMenu(menu1)
         self.pb_clear_arena.clicked.connect(self.clear_arena)
@@ -478,9 +492,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # menu for area button
         menu = QMenu()
+        menu.addAction("Rectangle", lambda: self.add_area_func("rectangle"))
         menu.addAction("Circle (center radius)", lambda: self.add_area_func("circle (center radius)"))
         menu.addAction("Circle (3 points)", lambda: self.add_area_func("circle (3 points)"))
-        menu.addAction("Rectangle", lambda: self.add_area_func("rectangle"))
         menu.addAction("Polygon", lambda: self.add_area_func("polygon"))
 
         self.pb_add_area.setMenu(menu)
@@ -588,7 +602,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if shape == "polygon":
                     msg = "New polygon area: click on the video to define the edges of the polygon. Right click to finish"
                 if shape == "rectangle":
-                    msg = "New rectangle area: click on the video to define the top-lef and bottom right edges of the rectangle."
+                    msg = "New rectangle area: click on the video to define the top-lef and bottom-right edges of the rectangle."
 
                 self.statusBar.showMessage(msg)
 
@@ -613,6 +627,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_define_arena = shape
             self.pb_define_arena.setEnabled(False)
             msg = ""
+            if shape == "rectangle":
+                msg = "New arena: click on the video to define the top-lef and bottom-right edges of the rectangle."
             if shape == "circle (3 points)":
                 msg = "New arena: click on the video to define 3 points belonging to the circle"
             if shape == "circle (center radius)":
@@ -623,12 +639,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.statusBar.showMessage(msg)
 
+
     def reload_frame(self):
         if self.dir_images:
-            self.dir_images.index -= 1
+            self.dir_images_index -= 1
         else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
         self.pb()
+
 
     def clear_arena(self):
         """
@@ -653,7 +671,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return conversion, drawing_thickness
 
 
-    def label1_mousepressed(self, event):
+    def frame_mousepressed(self, event):
         """
         record clicked coordinates if arena mode activated
         """
@@ -749,18 +767,36 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.pb_define_arena.setEnabled(True)
                 self.statusBar.showMessage("Arena creation canceled")
                 self.reload_frame()
-
                 return
 
- 
+            if self.flag_define_arena == "rectangle":
+                self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.show_frame(self.frame)
+                self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len( self.arena)))
+
+
+                if len(self.arena) == 2:
+                    self.flag_define_arena = ""
+                    self.pb_define_arena.setEnabled(False)
+                    self.pb_clear_arena.setEnabled(True)
+                    self.pb_define_arena.setText("Define arena")
+                    self.arena = {"type": "rectangle", "points": self.arena, "name": "arena"}
+                    self.le_arena.setText("{}".format(self.arena))
+
+                    cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]), color=ARENA_COLOR, thickness=drawing_thickness)
+                    self.show_frame(self.frame)
+
+                    self.statusBar.showMessage("The rectangle arena is defined")
+
             if self.flag_define_arena == "polygon":
-                
+
                 if event.button() == 2: # right click to finish
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
-
                     self.pb_define_arena.setText("Define arena")
 
                     self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}
@@ -781,7 +817,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         cv2.line(self.frame, tuple(self.arena[-2]), tuple(self.arena[-1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                         self.show_frame(self.frame)
 
-
             if self.flag_define_arena == "circle (3 points)":
 
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
@@ -789,7 +824,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.show_frame(self.frame)
 
-                self.statusBar.showMessage("Circle area: {} point(s) selected.".format(len( self.arena)))
+                self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len( self.arena)))
 
                 if len(self.arena) == 3:
                     cx, cy, r = find_circle(self.arena)
@@ -804,7 +839,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.le_arena.setText("{}".format(self.arena))
 
                     self.statusBar.showMessage("The new circle arena is defined")
-
 
             if self.flag_define_arena == "circle (center radius)":
 
@@ -854,7 +888,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def reset(self):
         "go to 1st frame"
-        self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        
+        if self.dir_images:
+            self.dir_images_index = 0
+        else:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
         self.pb()
 
 
@@ -915,8 +953,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         self.objects_number = []
         self.te_number_objects.clear()
-        
-        
+
 
     def save_areas(self):
         """
@@ -927,7 +964,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             with open(file_name, "w") as f_out:
                 for idx in range(self.lw_area_definition.count()):
                     f_out.write(self.lw_area_definition.item(idx).text() + "\n")
-        
+
 
     def save_objects_number(self):
         """
@@ -984,13 +1021,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if not self.capture.isOpened(): 
                 QMessageBox.critical(self, "DORIS", "Could not open {}".format(file_name))
                 return
-            
+
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            
             self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
             
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
-        
+
             self.frame_idx = 0
             self.pb(1)
             self.video_height, self.video_width, _ = self.frame.shape
@@ -999,18 +1035,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.statusBar.showMessage("video loaded (w: {} h: {})".format(self.video_width, self.video_height))
 
 
-    def load_dir_images(self):
+    def load_dir_images(self, dir_images):
         """
         Load directory of images
         """
-        dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
         if not dir_images:
-            return
-        p = pathlib.Path(dir_images)
-        self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
-        self.dir_images_index = 0
+            dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
+        if dir_images:
+            p = pathlib.Path(dir_images)
+            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
 
-        self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
+            self.lb_total_frames_nb.setText("Total number of images: <b>{}</b>".format(len(self.dir_images)))
+
+            self.dir_images_index = 0
+            self.pb(1)
+
+            print("self.frame.shape", self.frame.shape)
+            
+            self.video_height, self.video_width, _ = self.frame.shape
+    
+            self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
 
 
     def update_frame(self):
@@ -1269,6 +1313,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cv2.circle(modified_frame, tuple(self.arena["center"]), self.arena["radius"], color=ARENA_COLOR, thickness=drawing_thickness)
                     #cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
+                if self.arena["type"] == "rectangle":
+                    cv2.rectangle(modified_frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]), color=ARENA_COLOR, thickness=drawing_thickness)
+
 
                 '''
                 for idx, point in enumerate(self.arena[:-1]):
@@ -1445,6 +1492,7 @@ if __name__ == "__main__":
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
     parser.add_argument("-i", action="store",  dest="video_file", help="path of video file")
+    parser.add_argument("-d", action="store",  dest="directory", help="path of images directory")
     parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
     parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
     parser.add_argument("--threshold", action="store", dest="threshold", help="Threshold value")
@@ -1470,6 +1518,13 @@ if __name__ == "__main__":
             w.open_video(results.video_file)
         else:
             print("{} not found".format(results.video_file))
+            sys.exit()
+
+    if results.directory:
+        if os.path.isdir(results.directory):
+            w.load_dir_images(results.directory)
+        else:
+            print("{} directory not found".format(results.directory))
             sys.exit()
 
 
