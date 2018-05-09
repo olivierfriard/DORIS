@@ -102,7 +102,7 @@ except:
 
 import argparse
 
-from doris_ui import *
+from doris_ui import Ui_MainWindow
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 
