@@ -70,11 +70,11 @@ RECTANGLE_THICKNESS = 2
 TOLERANCE_OUTSIDE_ARENA = 0.05
 
 __version__ = "0.0.1"
-__version_date__ = "2017-11-07"
+__version_date__ = "2018-05-10"
 
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
+from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
+from PyQt5.QtGui import (QPixmap, QImage, qRgb)
+from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileDialog, QMessageBox, QInputDialog)
 
 import os
 import platform
