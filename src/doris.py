@@ -1496,6 +1496,7 @@ if __name__ == "__main__":
     parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
     parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
     parser.add_argument("--threshold", action="store", dest="threshold", help="Threshold value")
+    parser.add_argument("--blur", action="store", dest="blur", help="Blur value")
     parser.add_argument("--invert", action="store_true", default=50, dest="invert", help="Invert B/W")
 
     results = parser.parse_args()
@@ -1506,9 +1507,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     w = Ui_MainWindow()
 
+    if results.blur:
+        w.sb_blur.setValue(int(results.blur))
+
     if results.threshold:
         w.sb_threshold.setValue(int(results.threshold))
-
 
     if results.invert:
         w.cb_invert.setChecked(True)
@@ -1526,7 +1529,6 @@ if __name__ == "__main__":
         else:
             print("{} directory not found".format(results.directory))
             sys.exit()
-
 
     if results.areas_file:
         if os.path.isfile(results.areas_file):
