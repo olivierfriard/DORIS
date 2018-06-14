@@ -72,7 +72,7 @@ TOLERANCE_OUTSIDE_ARENA = 0.05
 __version__ = "0.0.1"
 __version_date__ = "2018-05-10"
 
-from PyQt5.QtCore import QT_VERSION_STR, PYQT_VERSION_STR
+from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
 from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileDialog, QMessageBox, QInputDialog)
 
@@ -1184,7 +1184,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         # frame from video
         pm = frame2pixmap(frame)
-        pm_resized = pm.scaled(self.frame_width, self.frame_width, QtCore.Qt.KeepAspectRatio)
+        pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
         self.label1.setPixmap(pm_resized)
 
 
@@ -1193,7 +1193,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         show treated frame
         """
         pm = QPixmap.fromImage(toQImage(frame))
-        pm_resized = pm.scaled(self.frame_width, self.frame_width, QtCore.Qt.KeepAspectRatio)
+        pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
         self.label2.setPixmap(pm_resized)
 
 
