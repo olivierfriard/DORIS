@@ -69,12 +69,13 @@ RECTANGLE_THICKNESS = 2
 
 TOLERANCE_OUTSIDE_ARENA = 0.05
 
-__version__ = "0.0.1"
-__version_date__ = "2018-05-10"
+__version__ = "0.0.2"
+__version_date__ = "2018-02-25"
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
-from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileDialog, QMessageBox, QInputDialog)
+from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileDialog, QMessageBox, QInputDialog,
+                             QWidget, QVBoxLayout, QLabel)
 
 import os
 import platform
@@ -103,6 +104,27 @@ except:
 import argparse
 
 from doris_ui import Ui_MainWindow
+
+
+class FrameViewer(QWidget):
+    """
+    widget for visualizing frame
+    """
+    def __init__(self):
+        super(FrameViewer, self).__init__()
+
+        self.setWindowTitle("")
+
+        hbox = QVBoxLayout()
+
+        self.lb_frame = QLabel("")
+        hbox.addWidget(self.lb_frame)
+
+        self.setLayout(hbox)
+
+    def pbOK_clicked(self):
+        self.close()
+
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -439,7 +461,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
         self.actionAbout.triggered.connect(self.about)
-        
+
         self.label1.mousePressEvent = self.frame_mousepressed
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
@@ -531,6 +553,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
+
+        self.fw1 = FrameViewer()
+        self.fw1.setGeometry(100, 100, 256, 256)
+        self.fw1.show()
+
+        self.fw2 = FrameViewer()
+        self.fw2.setGeometry(120, 120, 256, 256)
+        self.fw2.show()
 
 
     def about(self):
@@ -864,7 +894,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage("The new circle arena is defined")
 
 
-
     def frame_width(self):
         """
         let user choose a width for frame image
@@ -905,6 +934,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             return
 
         self.analysis(results)
+
 
     def reset_xy_analysis(self):
         """
@@ -1180,22 +1210,29 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def show_frame(self, frame):
         """
-        show the current frame in label pixmap
+        display the current frame in label pixmap
         """
-        # frame from video
+
+        '''
         pm = frame2pixmap(frame)
         pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
         self.label1.setPixmap(pm_resized)
+        '''
+
+        self.fw1.lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw1.lb_frame.size(), Qt.KeepAspectRatio))
 
 
     def show_treated_frame(self, frame):
         """
         show treated frame
         """
+        '''
         pm = QPixmap.fromImage(toQImage(frame))
         pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
         self.label2.setPixmap(pm_resized)
+        '''
 
+        self.fw2.lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw2.lb_frame.size(), Qt.KeepAspectRatio))
 
     def treat_and_show(self):
         """
@@ -1323,7 +1360,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.line(modified_frame, tuple(self.arena[-1]), tuple(self.arena[0]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 '''
 
-        # frame from video
+        # display frames
         if self.cb_display_analysis.isChecked():
             self.show_frame(modified_frame)
             self.show_treated_frame(self.treatedFrame)
