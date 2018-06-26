@@ -72,10 +72,10 @@ TOLERANCE_OUTSIDE_ARENA = 0.05
 __version__ = "0.0.2"
 __version_date__ = "2018-02-25"
 
-from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR
+from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
 from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileDialog, QMessageBox, QInputDialog,
-                             QWidget, QVBoxLayout, QLabel)
+                             QWidget, QVBoxLayout, QLabel, QSpacerItem, QSizePolicy)
 
 import os
 import platform
@@ -105,6 +105,18 @@ import argparse
 
 from doris_ui import Ui_MainWindow
 
+class Click_label(QLabel):
+
+    mouse_pressed_signal = pyqtSignal(QEvent)
+
+    def __init__(self, parent= None):
+        QLabel.__init__(self, parent)
+
+    def mousePressEvent(self, event):
+        """
+        label clicked
+        """
+        self.mouse_pressed_signal.emit(event)
 
 class FrameViewer(QWidget):
     """
@@ -115,12 +127,13 @@ class FrameViewer(QWidget):
 
         self.setWindowTitle("")
 
-        hbox = QVBoxLayout()
+        vbox = QVBoxLayout()
 
-        self.lb_frame = QLabel("")
-        hbox.addWidget(self.lb_frame)
+        self.lb_frame = Click_label()
+        self.lb_frame.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        vbox.addWidget(self.lb_frame)
 
-        self.setLayout(hbox)
+        self.setLayout(vbox)
 
     def pbOK_clicked(self):
         self.close()
@@ -449,6 +462,7 @@ def find_circle(points):
     
     '''(x%+.3f)^2+(y%+.3f)^2 = %.3f^2' % (c.real, c.imag, abs(c+x))'''
 
+
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def __init__(self, parent=None):
@@ -462,13 +476,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.setStatusBar(self.statusBar)
         self.actionAbout.triggered.connect(self.about)
 
-        self.label1.mousePressEvent = self.frame_mousepressed
+        # self.label1.mousePressEvent = self.frame_mousepressed
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
         self.actionQuit.triggered.connect(self.close)
         
-        self.actionFrame_width.triggered.connect(self.frame_width)
+        # self.actionFrame_width.triggered.connect(self.frame_width)
 
         self.pb_next_frame.clicked.connect(self.next_frame)
         #self.pb_next_frame.clicked.connect(lambda: self.pb(1))
@@ -555,6 +569,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
         self.fw1 = FrameViewer()
+        self.fw1.lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
         self.fw1.setGeometry(100, 100, 256, 256)
         self.fw1.show()
 
@@ -562,6 +577,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw2.setGeometry(120, 120, 256, 256)
         self.fw2.show()
 
+    def click_on_frame(self, id_, event):
+        print(event)
 
     def about(self):
 
@@ -703,10 +720,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def frame_mousepressed(self, event):
         """
-        record clicked coordinates if arena mode activated
+        record clicked coordinates if arena or area mode activated
         """
 
-        conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
+        # conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
+
+        conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.fw1.lb_frame.pixmap().width())
 
         #print("area type:", self.add_area["type"])
 
@@ -720,7 +739,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if event.button() == 1:
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.show_frame(self.frame)
+                self.display_frame(self.frame)
 
             if self.add_area["type"] == "circle (center radius)":
                 if "center" not in self.add_area:
@@ -786,7 +805,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         cv2.line(self.frame, tuple(self.add_area["points"][-2]), tuple(self.add_area["points"][-1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
  
                     self.statusBar.showMessage("Polygon area: {} point(s) selected. Right click to finish".format(len(self.add_area["points"])))
-                    self.show_frame(self.frame)
+                    self.display_frame(self.frame)
 
         # arena
         if self.flag_define_arena:
@@ -803,7 +822,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.show_frame(self.frame)
+                self.display_frame(self.frame)
                 self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len( self.arena)))
 
 
@@ -816,7 +835,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.le_arena.setText("{}".format(self.arena))
 
                     cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]), color=ARENA_COLOR, thickness=drawing_thickness)
-                    self.show_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.statusBar.showMessage("The rectangle arena is defined")
 
@@ -839,27 +858,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                     cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                    self.show_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len( self.arena)))
 
                     if len(self.arena) >= 2:
                         cv2.line(self.frame, tuple(self.arena[-2]), tuple(self.arena[-1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                        self.show_frame(self.frame)
+                        self.display_frame(self.frame)
 
             if self.flag_define_arena == "circle (3 points)":
 
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.show_frame(self.frame)
+                self.display_frame(self.frame)
 
                 self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len( self.arena)))
 
                 if len(self.arena) == 3:
                     cx, cy, r = find_circle(self.arena)
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
-                    self.show_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
@@ -875,14 +894,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.show_frame(self.frame)
+                self.display_frame(self.frame)
 
                 if len(self.arena) == 2:
                     cx, cy = self.arena[0]
                     radius = euclidean_distance(self.arena[0], self.arena[1])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(radius), color=ARENA_COLOR, thickness=drawing_thickness)
 
-                    self.show_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
@@ -894,6 +913,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage("The new circle arena is defined")
 
 
+    '''
     def frame_width(self):
         """
         let user choose a width for frame image
@@ -903,7 +923,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.frame_width = i
         
         self.treat_and_show()
-        
+    '''
+
 
     def background(self):
         if self.cb_background.isChecked():
@@ -943,6 +964,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.positions = []
         self.te_xy.clear()
 
+
     def save_xy(self):
         """
         save results of recorded positions in TSV file
@@ -976,6 +998,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for line in f_in.readlines():
                     self.lw_area_definition.addItem(line.strip())
             self.activate_areas()
+
 
     def reset_areas_analysis(self):
         """
@@ -1151,8 +1174,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     r_dist = []
 
                     for mem_idx in self.mem_filtered_objects:
-                        r_dist.append([euclidean_distance(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
-                        print("euclidean_distance",new_idx ,mem_idx, euclidean_distance(filtered_objects[new_idx]["centroid"], self.mem_filtered_objects[mem_idx]["centroid"]) ) 
+                        r_dist.append([euclidean_distance(filtered_objects[new_idx]["centroid"],
+                                       self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
 
                     r_dist = sorted(r_dist)
 
@@ -1208,31 +1231,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-    def show_frame(self, frame):
+    def display_frame(self, frame):
         """
         display the current frame in label pixmap
         """
 
-        '''
-        pm = frame2pixmap(frame)
-        pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
-        self.label1.setPixmap(pm_resized)
-        '''
-
         self.fw1.lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw1.lb_frame.size(), Qt.KeepAspectRatio))
 
 
-    def show_treated_frame(self, frame):
+    def display_treated_frame(self, frame):
         """
         show treated frame
         """
-        '''
-        pm = QPixmap.fromImage(toQImage(frame))
-        pm_resized = pm.scaled(self.frame_width, self.frame_width, Qt.KeepAspectRatio)
-        self.label2.setPixmap(pm_resized)
-        '''
 
         self.fw2.lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw2.lb_frame.size(), Qt.KeepAspectRatio))
+
 
     def treat_and_show(self):
         """
@@ -1249,16 +1262,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         _ = self.draw_marker_on_objects(modified_frame, self.update_objects(), marker_type="contour")
 
         # frame from videoself.dir_images
-        self.show_frame(modified_frame)
+        self.display_frame(modified_frame)
 
         # treated frame
-        self.show_treated_frame(self.treatedFrame)
-        
-        '''
-        pm = frame2pixmap(self.treatedFrame)
-        pm_resized = pm.scaled(self.frame_width, self.frame_width, QtCore.Qt.KeepAspectRatio)
-        self.label2.setPixmap(pm_resized)
-        '''
+        self.display_treated_frame(self.treatedFrame)
 
 
     def closeEvent(self, event):
@@ -1336,7 +1343,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         cv2.line(modified_frame, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]), color=RED, lineType=8, thickness=drawing_thickness)                        
                         cv2.putText(modified_frame, self.areas[area]["name"], tuple(self.areas[area]["points"][0]), font, 0.5, AREA_COLOR, 1, cv2.LINE_AA)
 
-            
             # draw arena
             if self.arena:
 
@@ -1362,8 +1368,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # display frames
         if self.cb_display_analysis.isChecked():
-            self.show_frame(modified_frame)
-            self.show_treated_frame(self.treatedFrame)
+            self.display_frame(modified_frame)
+            self.display_treated_frame(self.treatedFrame)
         
         if self.cb_display_analysis.isChecked():
             app.processEvents()
@@ -1469,7 +1475,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for area in sorted(self.areas.keys()):
                 out += "{area}: {nb}\t".format(area=area, nb=nb[area])
             self.te_number_objects.append(out)
-
 
 
     def run_analysis(self):
