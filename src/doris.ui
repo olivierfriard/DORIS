@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1186</width>
-    <height>1067</height>
+    <height>787</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,44 +21,7 @@
        <enum>Qt::Vertical</enum>
       </property>
       <widget class="QWidget" name="layoutWidget">
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QLabel" name="label1">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label2">
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_4">
-        <item>
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_5">
           <item>
@@ -462,6 +425,13 @@
               </item>
               <item>
                <widget class="QTextEdit" name="te_all_objects"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="pb_show_all_objects">
+                <property name="text">
+                 <string>Show all objects</string>
+                </property>
+               </widget>
               </item>
              </layout>
             </item>

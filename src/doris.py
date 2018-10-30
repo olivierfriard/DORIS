@@ -67,10 +67,10 @@ AREA_COLOR = GREEN
 CIRCLE_THICKNESS = 2
 RECTANGLE_THICKNESS = 2
 
-TOLERANCE_OUTSIDE_ARENA = 0.05
+TOLERANCE_OUTSIDE_ARENA = 0.05 # fraction of object
 
-__version__ = "0.0.2"
-__version_date__ = "2018-02-25"
+__version__ = "0.0.3"
+__version_date__ = "2018-10-29"
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
@@ -80,7 +80,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QMenu, QFileD
 import os
 import platform
 import numpy as np
-np.set_printoptions(threshold="nan")
+#np.set_printoptions(threshold="nan")
 import cv2
 import copy
 
@@ -94,7 +94,6 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 
-
 try:
     import mpl_scatter_density
     flag_mpl_scatter_density = True
@@ -102,6 +101,8 @@ except:
     flag_mpl_scatter_density = False
 
 import argparse
+
+import doris_functions
 
 from doris_ui import Ui_MainWindow
 
@@ -191,8 +192,11 @@ def distance_point_line(P, M1, M2):
 '''
 
 def frame2pixmap(frame):
+    """
+    convert np.array (frame) to QT pixmap
+    """
     try:
-        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     except:
         pass
     height, width = frame.shape[:2]
@@ -228,7 +232,7 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
     if flag_mpl_scatter_density:
         x = np.array(x)
         y = np.array(y)
-    
+
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
         ax.scatter_density(x, y)
@@ -236,7 +240,7 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
             ax.set_xlim(x_lim)
         if y_lim != (0,0):
             ax.set_ylim(y_lim[::-1])
-    
+
         plt.show()
 
     else:
@@ -250,17 +254,17 @@ def plot_density(x, y, x_lim=(0,0), y_lim=(0,0)):
 
 
 def plot_path(verts, x_lim, y_lim, color):
-    
+
     print("verts", verts)
-    
+
     # invert verts y
     verts = [(x[0], y_lim[1] - x[1]) for x in verts]
-    
+
     codes = [Path.MOVETO]
     codes.extend([Path.LINETO] * (len(verts)-1))
-    
+
     path = Path(verts, codes)
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     patch = patches.PathPatch(path, edgecolor=tuple((x/255 for x in color)), facecolor="none", lw=1)
@@ -270,151 +274,19 @@ def plot_path(verts, x_lim, y_lim, color):
     ax.set_ylim(y_lim)
 
     plt.show()
-    
-
-def extract_objects(frame, threshold, min_size=0, max_size=0, largest_number=0, arena=[], max_extension=50):
-    """
-    returns all detected objects and filtered objects
-    """
-
-    _, contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    nr_objects = len(contours)
-
-    print("nr objects", nr_objects)
-
-    all_objects = {}
-    for idx, cnt in enumerate(contours):
-        M = cv2.moments(cnt)
-        if M["m00"] != 0:
-            cx = int(M["m10"] / M["m00"])
-            cy = int(M["m01"] / M["m00"])
-        else:
-            cx, cy = 0, 0
-        area = cv2.contourArea(cnt)
-        all_objects[idx] = {"centroid": (cx, cy), "contour": cnt, "area": area}
-
-    # record objects that not match conditions
-    obj_to_del_idx = []
-    for idx in all_objects:
-
-        # check if object size is >= of minimal size
-        if min_size and all_objects[idx]["area"] < min_size:
-            print("deleted #{} for min size".format(idx))
-            obj_to_del_idx.append(idx)
-            continue
-
-        # check if object size is <= of maximal size
-        if max_size and all_objects[idx]["area"] > max_size:
-            print("deleted #{} for max size".format(idx))
-            obj_to_del_idx.append(idx)
-            continue
-
-        # check if object extension <= max extension
-        if max_extension:
-            n = np.vstack(all_objects[idx]["contour"]).squeeze()
-            if (max(n[:,0]) - min(n[:,0]) > max_extension) or (max(n[:,1]) - min(n[:,1]) > max_extension):
-                print("deleted #{} for max extension".format(idx))
-                obj_to_del_idx.append(idx)
-                continue
-
-        # check if objects in arena
-        if arena:
-
-            if arena["type"] == "rectangle":
-                np_arena = np.array(arena["points"])
-                if not (np_arena[0][0] <= all_objects[idx]["centroid"][0] <= np_arena[1][0] 
-                    and np_arena[0][1] <= all_objects[idx]["centroid"][1] <= np_arena[1][1]):
-                    obj_to_del_idx.append(idx)
-                    continue
-
-            # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
-            if arena["type"] == "polygon":
-
-                np_arena = np.array(arena["points"])
-                if cv2.pointPolygonTest(np_arena, all_objects[idx]["centroid"], False) < 0:
-                    obj_to_del_idx.append(idx)
-                    continue
-                
-                n = np.vstack(all_objects[idx]["contour"]).squeeze()
-                nl = len(n)
-                count_out = 0
-                for pt in n:
-                    if cv2.pointPolygonTest(np_arena, tuple(pt), False) < 0:
-                        count_out += 1
-                        if count_out / nl > TOLERANCE_OUTSIDE_ARENA:
-                            break
-                if count_out / nl > TOLERANCE_OUTSIDE_ARENA:
-                    obj_to_del_idx.append(idx)
-                    continue
-
-            # check if all contour points are in circle arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
-            if arena["type"] == "circle":
-                if euclidean_distance(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
-                    obj_to_del_idx.append(idx)
-                    continue
-
-                n = np.vstack(all_objects[idx]["contour"]).squeeze()
-                dist_ = ((n[:,0] - arena["center"][0])**2 + (n[:,1] - arena["center"][1])**2)**0.5
-
-                '''
-                print("distance")
-                print("contour size:", len(dist_))
-                print("% >", np.count_nonzero(dist_ > arena["radius"]) / len(dist_))
-                '''
-                if np.count_nonzero(dist_ > arena["radius"]) / len(dist_) > TOLERANCE_OUTSIDE_ARENA:
-                    obj_to_del_idx.append(idx)
-                    continue
-
-                #print("perimeter", cv2.arcLength(all_objects[idx]["contour"], True))
 
 
-    # delete objects
-    '''
-    for idx in obj_to_del_idx:
-        if idx in all_objects:
-            del all_objects[idx]
-    '''
-
-    # sizes
-    sizes = sorted([all_objects[idx]["area"] for idx in all_objects if idx not in obj_to_del_idx], reverse=True)
-
-    filtered_objects = {}
-    new_idx = 0
-    for idx in all_objects:
-        if idx in obj_to_del_idx:
-            continue
-        obj_size = all_objects[idx]["area"]
-
-        if (sizes.index(obj_size) < largest_number):
-            new_idx += 1
-            # min/max
-            n = np.vstack(all_objects[idx]["contour"]).squeeze()
-            x, y = n[:,0], n[:,1]
-
-            filtered_objects[new_idx] = {"centroid": all_objects[idx]["centroid"],
-                                         "contour": all_objects[idx]["contour"],
-                                         "size": obj_size,
-                                         "min": (int(np.min(x)), int(np.min(y))),
-                                         "max": (int(np.max(x)), int(np.max(y)))}
 
 
-    return all_objects, filtered_objects
-    
-
-def euclidean_distance(p1, p2):
-    """
-    euclidean distance between two points
-    """
-    return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
 
 
 def find_circle(points):
     """
     Find circle that pass by 2 points
-    
+
     Args:
         points (list): list of points
-    
+
     Returns:
         float: x of circle center
         float: y of circle center
@@ -432,9 +304,9 @@ def find_circle(points):
 
     y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
 
-    return x, y, euclidean_distance((x, y), (x1, y1))
+    return x, y, doris_functions.euclidean_distance((x, y), (x1, y1))
 
-    
+
     '''
     (p,t), (q,u), (s,z) = points[0], points[1], points[2]
     A=((u-t)*z**2+(-u**2+t**2-q**2+p**2)*z+t*u**2+(-t**2+s**2-p**2)*u+(q**2-s**2)*t)/((q-p)*z+(p-s)*u+(s-q)*t)
@@ -442,7 +314,7 @@ def find_circle(points):
     B=-((q-p)*z**2+(p-s)*u**2+(s-q)*t**2+(q-p)*s**2+(p**2-q**2)*s+p*q**2-p**2*q)/((q-p)*z+(p-s)*u+(s-q)*t)
 
     C=-((p*u-q*t)*z**2+(-p*u**2+q*t**2-p*q**2+p**2*q)*z+s*t*u**2+(-s*t**2+p*s**2-p**2*s)*u+(q**2*s-q*s**2)*t)/((q-p)*z+(p-s)*u+(s-q)*t)
-    
+
     print(A,B,C)
     '''
 
@@ -451,7 +323,7 @@ def find_circle(points):
     y = complex(points[1][0],points[1][1])
     z = complex(points[2][0],points[2][1])
     print(x,y,z)
-    
+
     w = z-x
     w /= y-x
     c = (x-y)*(w-abs(w)**2)/2j/w.imag-x
@@ -459,7 +331,7 @@ def find_circle(points):
     print(abs(c+x))
     return c.real, c.imag, abs(c+x)
     '''
-    
+
     '''(x%+.3f)^2+(y%+.3f)^2 = %.3f^2' % (c.real, c.imag, abs(c+x))'''
 
 
@@ -481,15 +353,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
         self.actionQuit.triggered.connect(self.close)
-        
+
         # self.actionFrame_width.triggered.connect(self.frame_width)
 
         self.pb_next_frame.clicked.connect(self.next_frame)
         #self.pb_next_frame.clicked.connect(lambda: self.pb(1))
         self.pb_1st_frame.clicked.connect(self.reset)
-        
+
         self.pb_goto_frame.clicked.connect(self.go_to_frame)
-        
+
         #self.pb_forward.clicked.connect(lambda: self.pb(self.sb_frame_offset.value()))
         #self.pb_backward.clicked.connect(lambda: self.pb(-self.sb_frame_offset.value()))
         self.pb_forward.clicked.connect(lambda: self.for_back_ward("forward"))
@@ -504,7 +376,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_define_arena.setMenu(menu1)
         self.pb_clear_arena.clicked.connect(self.clear_arena)
-        
+
         self.pbGo.clicked.connect(self.run_analysis)
         self.pb_stop.clicked.connect(self.stop)
 
@@ -512,12 +384,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_blur.valueChanged.connect(self.treat_and_show)
         self.cb_invert.stateChanged.connect(self.treat_and_show)
         self.cb_background.stateChanged.connect(self.background)
-        
+
         self.sbMin.valueChanged.connect(self.treat_and_show)
         self.sbMax.valueChanged.connect(self.treat_and_show)
 
         self.sb_largest_number.valueChanged.connect(self.treat_and_show)
         self.sb_max_extension.valueChanged.connect(self.treat_and_show)
+
+        self.pb_show_all_objects.clicked.connect(self.show_all_objects)
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
@@ -562,7 +436,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.dir_images = []
         self.dir_images_index = 0
-        
+
         self.positions, self.objects_number = [], []
 
         # default
@@ -570,11 +444,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.fw1 = FrameViewer()
         self.fw1.lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
-        self.fw1.setGeometry(100, 100, 256, 256)
+        self.fw1.setGeometry(100, 100, 512, 512)
         self.fw1.show()
 
         self.fw2 = FrameViewer()
-        self.fw2.setGeometry(120, 120, 256, 256)
+        self.fw2.setGeometry(640, 100, 512, 512)
         self.fw2.show()
 
     def click_on_frame(self, id_, event):
@@ -585,7 +459,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         modules = []
         modules.append("OpenCV")
         modules.append("version {}".format(cv2.__version__))
-        
+
         # matplotlib
         modules.append("\nMatplotlib")
         modules.append("version {}".format(matplotlib.__version__))
@@ -619,15 +493,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def for_back_ward(self, direction="forward"):
-        
+
         step = self.sb_frame_offset.value() if direction == "forward" else -self.sb_frame_offset.value()
-        
+
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1 + step)
         self.pb()
 
 
     def go_to_frame(self):
-        
+
         if self.le_goto_frame.text():
             try:
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.le_goto_frame.text()) - 1)
@@ -658,7 +532,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         remove the selected area
         """
-        
+
         for selected_item in self.lw_area_definition.selectedItems():
             self.lw_area_definition.takeItem(self.lw_area_definition.row(selected_item))
             self.activate_areas()
@@ -709,13 +583,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-    def conversion_thickness(self, video_width, frame_width):
-        conversion = video_width / frame_width
-        if conversion <= 1: 
+    def ratio_thickness(self, video_width, frame_width):
+        """
+        return ratio and pen thickness for contours according to video resolution
+        """
+
+        ratio = video_width / frame_width
+        if ratio <= 1:
             drawing_thickness = 1
         else:
-            drawing_thickness = round(conversion)
-        return conversion, drawing_thickness
+            drawing_thickness = round(ratio)
+        return ratio, drawing_thickness
 
 
     def frame_mousepressed(self, event):
@@ -723,9 +601,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record clicked coordinates if arena or area mode activated
         """
 
-        # conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
-
-        conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.fw1.lb_frame.pixmap().width())
+        conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw1.lb_frame.pixmap().width())
 
         #print("area type:", self.add_area["type"])
 
@@ -788,7 +664,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     return
 
             if self.add_area["type"] == "polygon":
-                
+
                 if event.button() == 2: # right click to finish
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
@@ -803,7 +679,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     else:
                         self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
                         cv2.line(self.frame, tuple(self.add_area["points"][-2]), tuple(self.add_area["points"][-1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
- 
+
                     self.statusBar.showMessage("Polygon area: {} point(s) selected. Right click to finish".format(len(self.add_area["points"])))
                     self.display_frame(self.frame)
 
@@ -898,7 +774,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 if len(self.arena) == 2:
                     cx, cy = self.arena[0]
-                    radius = euclidean_distance(self.arena[0], self.arena[1])
+                    radius = doris_functions.euclidean_distance(self.arena[0], self.arena[1])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(radius), color=ARENA_COLOR, thickness=drawing_thickness)
 
                     self.display_frame(self.frame)
@@ -921,7 +797,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         i, ok_pressed = QInputDialog.getInt(self, "Set frame width", "Frame width", self.frame_width, 20, 2000, 1)
         if ok_pressed:
             self.frame_width = i
-        
+
         self.treat_and_show()
     '''
 
@@ -938,7 +814,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def reset(self):
         "go to 1st frame"
-        
+
         if self.dir_images:
             self.dir_images_index = 0
         else:
@@ -1065,19 +941,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         let user select a video
         """
-        
+
         if not file_name:
             file_name, _ = QFileDialog(self).getOpenFileName(self, "Open video", "", "All files (*)")
         if file_name:
             self.capture = cv2.VideoCapture(file_name)
 
-            if not self.capture.isOpened(): 
+            if not self.capture.isOpened():
                 QMessageBox.critical(self, "DORIS", "Could not open {}".format(file_name))
                 return
 
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
             self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
-            
+
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
 
             self.frame_idx = 0
@@ -1104,15 +980,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.pb(1)
 
             print("self.frame.shape", self.frame.shape)
-            
+
             self.video_height, self.video_width, _ = self.frame.shape
-    
+
             self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
 
 
-    def update_frame(self):
+    def update_frame_index(self):
         """
-        update frame number
+        update frame index
         """
         if self.dir_images:
             self.frame_idx = self.dir_images_index
@@ -1126,11 +1002,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         apply treament to frame
         returns treated frame
         """
+
+        threshold_method = {"name": "adaptive",
+                            "block_size": 81,
+                            "offset": 38}
+
+        # self.sb_threshold.value()
+
+        frame = doris_functions.image_treatment(frame,
+                                        blur=self.sb_blur.value(),
+                                        threshold_method=threshold_method,
+                                        invert=self.cb_invert.isChecked())
+        '''
         if self.frame is None:
-            return
-        
+            return None
+
         if self.fgbg:
             frame = self.fgbg.apply(frame)
+
+        # blur
+        if self.sb_blur.value():
+            frame = cv2.blur(frame, (self.sb_blur.value(), self.sb_blur.value()))
 
         # threshold
         if self.sb_threshold.value():
@@ -1142,27 +1034,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # invert
         if self.cb_invert.isChecked():
             frame = (255 - frame)
-
-        # blur
-        if self.sb_blur.value():
-            frame = cv2.blur(frame, (self.sb_blur.value(), self.sb_blur.value()))
+        '''
 
         return frame
 
 
-    def update_objects(self):
+    def update_objects(self, frame):
         """
         returns filtered objects
         """
 
-        all_objects, filtered_objects = extract_objects(frame=self.treatedFrame,
-                                                        threshold=0,
-                                                        min_size=self.sbMin.value(),
-                                                        max_size=self.sbMax.value(),
-                                                        largest_number=self.sb_largest_number.value(),
-                                                        arena=self.arena,
-                                                        max_extension=self.sb_max_extension.value()
-                                                        )
+        all_objects, filtered_objects = doris_functions.detect_and_filter_objects(frame=frame,
+                                                                  min_size=self.sbMin.value(),
+                                                                  max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  arena=self.arena,
+                                                                  max_extension=self.sb_max_extension.value(),
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                 )
 
         if self.mem_filtered_objects:
 
@@ -1174,13 +1063,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     r_dist = []
 
                     for mem_idx in self.mem_filtered_objects:
-                        r_dist.append([euclidean_distance(filtered_objects[new_idx]["centroid"],
+                        r_dist.append([doris_functions.euclidean_distance(filtered_objects[new_idx]["centroid"],
                                        self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
 
                     r_dist = sorted(r_dist)
 
                     print(r_dist)
-                    print(filtered_objects[ r_dist[0][2] ]["size"])
+                    print(filtered_objects[ r_dist[0][2] ]["area"])
                     print(r_dist[0][2])
 
                     new_filtered[r_dist[0][2]] = copy.deepcopy(filtered_objects[ new_idx ])
@@ -1197,36 +1086,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for idx in sorted(all_objects.keys()):
                 out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
             self.te_all_objects.setText(out)
-    
+
             self.lb_filtered.setText("Filtered (number of objects: {})".format(len(filtered_objects)))
             if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
                 self.lb_filtered.setStyleSheet('color: red')
             else:
                 self.lb_filtered.setStyleSheet('')
-                
+
             out = ""
             for idx in filtered_objects:
-                out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["size"])
+                out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
             self.te_objects.setText(out)
-        
+
         self.mem_filtered_objects = copy.deepcopy(filtered_objects)
+
         return filtered_objects
 
 
     def draw_marker_on_objects(self, frame, objects, marker_type=MARKER_TYPE):
         """
         draw marker (rectangle or contour) around objects
-        marker color from index of object in COLORS_LIST 
+        marker color from index of object in COLORS_LIST
         """
-        _, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
+        ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
+            print(idx)
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
             if marker_type == "rectangle":
                 cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"] , marker_color, drawing_thickness)
             if marker_type == "contour":
                 cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
 
-            cv2.putText(frame, str(idx), objects[idx]["max"], font, 0.5, marker_color, 1, cv2.LINE_AA)
+            cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
 
         return frame
 
@@ -1255,23 +1146,48 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.frame is None:
             return
 
-        self.treatedFrame = self.treatment(self.frame)
+        treated_frame = self.treatment(self.frame)
 
-        modified_frame = self.frame.copy()
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                        self.update_objects(treated_frame),
+                                        marker_type="contour")
 
-        _ = self.draw_marker_on_objects(modified_frame, self.update_objects(), marker_type="contour")
+        self.display_frame(frame_with_objects)
+        self.display_treated_frame(treated_frame)
 
-        # frame from videoself.dir_images
-        self.display_frame(modified_frame)
 
-        # treated frame
-        self.display_treated_frame(self.treatedFrame)
+    def show_all_objects(self):
+        """
+
+        """
+        if self.frame is None:
+            return
+
+        all_objects, _ = doris_functions.detect_and_filter_objects(frame=self.treatment(self.frame),
+                                                                  min_size=self.sbMin.value(),
+                                                                  max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  arena=self.arena,
+                                                                  max_extension=self.sb_max_extension.value(),
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                 )
+
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                         all_objects,
+                                                         marker_type="contour")
+        self.display_frame(frame_with_objects)
 
 
     def closeEvent(self, event):
         try:
             self.capture.release()
             cv2.destroyAllWindows()
+        except:
+            pass
+
+        try:
+            self.fw1.close()
+            self.fw2.close()
         except:
             pass
         print("close")
@@ -1314,50 +1230,52 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 return False, {}
 
-        self.update_frame()
+        self.update_frame_index()
 
-        self.treatedFrame = self.treatment(self.frame)
+        treated_frame = self.treatment(self.frame)
 
-        filtered_objects = self.update_objects()
+        filtered_objects = self.update_objects(treated_frame)
 
         if self.cb_display_analysis.isChecked():
-            modified_frame = self.frame.copy()
-            _ = self.draw_marker_on_objects(modified_frame, filtered_objects, marker_type=MARKER_TYPE)
 
-            conversion, drawing_thickness = self.conversion_thickness(self.video_width, self.frame_width)
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                         filtered_objects,
+                                                         marker_type=MARKER_TYPE)
+
+            _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
             # draw areas
             for area in self.areas:
                 if "type" in self.areas[area]:
                     if self.areas[area]["type"] == "circle":
-                        cv2.circle(modified_frame, tuple(self.areas[area]["center"]), self.areas[area]["radius"], color=AREA_COLOR, thickness=drawing_thickness)
-                        cv2.putText(modified_frame, self.areas[area]["name"], tuple(self.areas[area]["center"]), font, 0.5, AREA_COLOR, 1, cv2.LINE_AA)
+                        cv2.circle(frame_with_objects, tuple(self.areas[area]["center"]), self.areas[area]["radius"], color=AREA_COLOR, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["center"]), font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
                     if self.areas[area]["type"] == "rectangle":
-                        cv2.rectangle(modified_frame, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]), color=AREA_COLOR, thickness=drawing_thickness)
-                        cv2.putText(modified_frame, self.areas[area]["name"], tuple(self.areas[area]["pt1"]), font, 0.5, AREA_COLOR, 1, cv2.LINE_AA)
+                        cv2.rectangle(frame_with_objects, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]), color=AREA_COLOR, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["pt1"]), font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
                     if self.areas[area]["type"] == "polygon":
                         for idx, point in enumerate(self.areas[area]["points"][:-1]):
-                            cv2.line(modified_frame, tuple(point), tuple(self.areas[area]["points"][idx + 1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                        cv2.line(modified_frame, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]), color=RED, lineType=8, thickness=drawing_thickness)                        
-                        cv2.putText(modified_frame, self.areas[area]["name"], tuple(self.areas[area]["points"][0]), font, 0.5, AREA_COLOR, 1, cv2.LINE_AA)
+                            cv2.line(frame_with_objects, tuple(point), tuple(self.areas[area]["points"][idx + 1]), color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                        cv2.line(frame_with_objects, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]), color=RED, lineType=8, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["points"][0]), font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
             # draw arena
             if self.arena:
 
                 if self.arena["type"] == "polygon":
                     for idx, point in enumerate(self.arena["points"][:-1]):
-                        cv2.line(modified_frame, tuple(point), tuple(self.arena["points"][idx + 1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                    cv2.line(modified_frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)                        
+                        cv2.line(frame_with_objects, tuple(point), tuple(self.arena["points"][idx + 1]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                    cv2.line(frame_with_objects, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                     #cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
                 if self.arena["type"] == "circle":
-                    cv2.circle(modified_frame, tuple(self.arena["center"]), self.arena["radius"], color=ARENA_COLOR, thickness=drawing_thickness)
+                    cv2.circle(frame_with_objects, tuple(self.arena["center"]), self.arena["radius"], color=ARENA_COLOR, thickness=drawing_thickness)
                     #cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
                 if self.arena["type"] == "rectangle":
-                    cv2.rectangle(modified_frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]), color=ARENA_COLOR, thickness=drawing_thickness)
+                    cv2.rectangle(frame_with_objects, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]), color=ARENA_COLOR, thickness=drawing_thickness)
 
 
                 '''
@@ -1366,12 +1284,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.line(modified_frame, tuple(self.arena[-1]), tuple(self.arena[0]), color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 '''
 
-        # display frames
-        if self.cb_display_analysis.isChecked():
-            self.display_frame(modified_frame)
-            self.display_treated_frame(self.treatedFrame)
-        
-        if self.cb_display_analysis.isChecked():
+            # display frames
+            self.display_frame(frame_with_objects)
+            self.display_treated_frame(treated_frame)
+
             app.processEvents()
 
         return True, {"frame": self.frame_idx, "objects": filtered_objects}
@@ -1381,7 +1297,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         analyze current frame
         """
-        
+
         if self.cb_record_xy.isChecked():
             pos =  []
 
@@ -1415,7 +1331,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx in results["objects"]:
                     pos.append(results["objects"][idx]["centroid"])
                 self.positions.append(pos)
-                
+
             print("============")
             print()
             '''
@@ -1444,10 +1360,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.areas[area]["type"] == "circle":
                     cx, cy = self.areas[area]["center"]
                     radius = self.areas[area]["radius"]
-                    
+
                     for idx in results["objects"]:
                         x, y = results["objects"][idx]["centroid"]
-                    
+
                         if ((cx - x)**2 + (cy - y)**2)**.5 <= radius:
                             print("object #{} in area {}".format(idx, area))
                             nb[area] += 1
@@ -1458,7 +1374,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     for idx in results["objects"]:
                         x, y = results["objects"][idx]["centroid"]
-                   
+
                         if minx <= x <= maxx and miny <= y <= maxy:
                             print("object #{} in area {}".format(idx, area))
                             nb[area] += 1
@@ -1470,7 +1386,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             nb[area] += 1
 
             self.objects_number.append(nb)
-            
+
             out = "frame: {}\t".format(self.frame_idx)
             for area in sorted(self.areas.keys()):
                 out += "{area}: {nb}\t".format(area=area, nb=nb[area])
@@ -1491,7 +1407,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except:
                 QMessageBox.warning(self, "DORIS", "No video")
                 return
-        
+
         #self.positions, self.objects_number = [], []
 
         while True:
@@ -1508,7 +1424,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         '''
         if self.cb_record_xy.isChecked():
             self.te_xy.setText("{} positions recorded".format(len(self.positions)))
-            
+
         if self.cb_record_number_objects.isChecked():
             self.te_number_objects.setText("{} records".format(len(self.objects_number)))
         '''
@@ -1537,9 +1453,9 @@ if __name__ == "__main__":
     parser.add_argument("-d", action="store",  dest="directory", help="path of images directory")
     parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
     parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
-    parser.add_argument("--threshold", action="store", dest="threshold", help="Threshold value")
+    parser.add_argument("--threshold", action="store", default=50, dest="threshold", help="Threshold value")
     parser.add_argument("--blur", action="store", dest="blur", help="Blur value")
-    parser.add_argument("--invert", action="store_true", default=50, dest="invert", help="Invert B/W")
+    parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
 
     results = parser.parse_args()
     if results.version:
@@ -1555,8 +1471,9 @@ if __name__ == "__main__":
     if results.threshold:
         w.sb_threshold.setValue(int(results.threshold))
 
-    if results.invert:
-        w.cb_invert.setChecked(True)
+    print("results.invert", results.invert)
+    w.cb_invert.setChecked(results.invert)
+
 
     if results.video_file:
         if os.path.isfile(results.video_file):
