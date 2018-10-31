@@ -25,6 +25,9 @@ This file is part of DORIS.
 import cv2
 import numpy as np
 #np.set_printoptions(threshold="nan")
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cdist
+
 
 def image_treatment(frame,
                     blur=5,
@@ -103,6 +106,9 @@ def detect_and_filter_objects(frame,
         arena (list): list of arena
         max_extension (int): maximum extension of object to select
 
+    Returns:
+        dict: all detected objects
+        dict: filtered objects
     """
 
     _, contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -232,3 +238,73 @@ def detect_and_filter_objects(frame,
 
 
     return all_objects, filtered_objects
+
+
+def reorder_objects(mem_objects: dict, objects: dict) -> dict:
+
+    if len(objects) == len(mem_objects):
+
+        mem_positions = [mem_objects[k]["centroid"] for k in mem_objects]
+        positions = [objects[k]["centroid"] for k in objects]
+
+        p1 = np.array(mem_positions)
+        p2 = np.array(positions)
+        print(p1)
+        print(p2)
+
+        distances = cdist(p1, p2)
+
+        row_ind, col_ind = linear_sum_assignment(distances)
+
+        if not np.array_equal(col_ind, list(range(len(col_ind)))):
+
+
+            reordered_object = dict([(idx + 1, objects[k + 1]) for idx, k in enumerate([x for x in col_ind])])
+            return reordered_object
+            '''
+            current_ids = col_ind.copy()
+            reordered = [i[0] for i in sorted(enumerate(current_ids), key=lambda x:x[1])]
+            p2 = [list(x) for (y,x) in sorted(zip(reordered, p2))]
+            '''
+        else:
+            return objects
+
+    else:
+        print("len !=")
+
+        return objects
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

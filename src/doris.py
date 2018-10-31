@@ -45,16 +45,16 @@ THRESHOLD_DEFAULT = 50
 VIEWER_WIDTH = 480
 
 # BGR colors
-RED = (0,0,255)
-GREEN = (0,255,0)
-BLUE = (255,0,0)
-MAGENTA = (255,0,255)
-YELLOW = (255,255,0)
-BLACK = (0,0,0)
-MAROON = (128,0,0)
-TEAL = (0,128,128)
-PURPLE = (128,0,128)
-WHITE = (255,255,255)
+RED = (0, 0, 255)
+GREEN = (0, 255, 0)
+BLUE = (255, 0, 0)
+MAGENTA = (255, 0, 255)
+YELLOW = (255, 255, 0)
+BLACK = (0, 0, 0)
+MAROON = (128, 0, 0)
+TEAL = (0, 128, 128)
+PURPLE = (128, 0, 128)
+WHITE = (255, 255, 255)
 
 # colors list for marker
 COLORS_LIST = [BLUE, MAGENTA, YELLOW, MAROON, TEAL, PURPLE, WHITE]
@@ -67,7 +67,7 @@ AREA_COLOR = GREEN
 CIRCLE_THICKNESS = 2
 RECTANGLE_THICKNESS = 2
 
-TOLERANCE_OUTSIDE_ARENA = 0.05 # fraction of object
+TOLERANCE_OUTSIDE_ARENA = 0.05  # fraction of size of object
 
 __version__ = "0.0.3"
 __version_date__ = "2018-10-29"
@@ -1039,21 +1039,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-    def update_objects(self, frame):
-        """
-        returns filtered objects
-        """
-
-        all_objects, filtered_objects = doris_functions.detect_and_filter_objects(frame=frame,
-                                                                  min_size=self.sbMin.value(),
-                                                                  max_size=self.sbMax.value(),
-                                                                  largest_number=self.sb_largest_number.value(),
-                                                                  arena=self.arena,
-                                                                  max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
-                                                                 )
-
-        if self.mem_filtered_objects:
+    def reorder_objects(mem_objects, objects):
+        if mem_objects:
 
             if len(filtered_objects) == len(self.mem_filtered_objects):
 
@@ -1077,28 +1064,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 filtered_objects = copy.deepcopy(new_filtered)
 
-        print("===============")
-
-
-        if self.cb_display_analysis.isChecked():
-            self.lb_all.setText("All (number of objects: {})".format(len(all_objects)))
-            out = ""
-            for idx in sorted(all_objects.keys()):
-                out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
-            self.te_all_objects.setText(out)
-
-            self.lb_filtered.setText("Filtered (number of objects: {})".format(len(filtered_objects)))
-            if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
-                self.lb_filtered.setStyleSheet('color: red')
-            else:
-                self.lb_filtered.setStyleSheet('')
-
-            out = ""
-            for idx in filtered_objects:
-                out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
-            self.te_objects.setText(out)
 
         self.mem_filtered_objects = copy.deepcopy(filtered_objects)
+
+
+    def update_objects(self, frame):
+        """
+        returns filtered objects
+        """
+
+        all_objects, filtered_objects = doris_functions.detect_and_filter_objects(frame=frame,
+                                                                  min_size=self.sbMin.value(),
+                                                                  max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  arena=self.arena,
+                                                                  max_extension=self.sb_max_extension.value(),
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                 )
+
+        '''
+        if self.mem_filtered_objects:
+            self.reorder_objects(mem_objects, objects)
+        '''
+
+        #self.mem_filtered_objects = copy.deepcopy(filtered_objects)
+        print("===============")
 
         return filtered_objects
 
@@ -1234,10 +1224,45 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         treated_frame = self.treatment(self.frame)
 
-        filtered_objects = self.update_objects(treated_frame)
+        (all_objects, filtered_objects) = doris_functions.detect_and_filter_objects(frame=treated_frame,
+                                                                  min_size=self.sbMin.value(),
+                                                                  max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  arena=self.arena,
+                                                                  max_extension=self.sb_max_extension.value(),
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                 )
+
+        print(filtered_objects)
+
+        if filtered_objects:
+            filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
+            self.mem_filtered_objects = dict(filtered_objects)
+
+        print(filtered_objects)
 
         if self.cb_display_analysis.isChecked():
 
+            # update information on GUI
+            self.lb_all.setText("All (number of objects: {})".format(len(all_objects)))
+            out = ""
+            for idx in sorted(all_objects.keys()):
+                out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
+            self.te_all_objects.setText(out)
+
+            self.lb_filtered.setText("Filtered (number of objects: {})".format(len(filtered_objects)))
+            if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
+                self.lb_filtered.setStyleSheet('color: red')
+            else:
+                self.lb_filtered.setStyleSheet("")
+
+            out = ""
+            for idx in filtered_objects:
+                out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
+            self.te_objects.setText(out)
+
+
+            # draw contour of objects
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                          filtered_objects,
                                                          marker_type=MARKER_TYPE)
