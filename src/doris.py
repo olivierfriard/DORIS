@@ -441,7 +441,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         self.fw[fw_idx].lb_frame.clear()
         self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-        self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(), Qt.KeepAspectRatio))
+        if fw_idx == 0:
+            self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                               Qt.KeepAspectRatio))
+        if fw_idx == 1:
+            treated_frame = self.treatment(self.frame)            
+            self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(treated_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                         Qt.KeepAspectRatio))
         self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
 
 
@@ -1168,13 +1174,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.cb_display_analysis.isChecked():
 
             # update information on GUI
-            self.lb_all.setText("All (number of objects: {})".format(len(all_objects)))
+            self.lb_all.setText("All objects detected ({})".format(len(all_objects)))
             out = ""
             for idx in sorted(all_objects.keys()):
                 out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
             self.te_all_objects.setText(out)
 
-            self.lb_filtered.setText("Filtered (number of objects: {})".format(len(filtered_objects)))
+            self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
             if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
                 self.lb_filtered.setStyleSheet('color: red')
             else:
