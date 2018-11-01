@@ -1164,6 +1164,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                  )
 
         print(filtered_objects)
+        
+        # check filtered objects number
+        if len(filtered_objects) != self.sb_largest_number.value():
+            contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+            new_contours = doris_functions.apply_k_means(contours_list, self.sb_largest_number.value())
+            print(new_contours)
+            filtered_objects = dict([(idx + 1, {"contour": x}) for idx, x in enumerate(new_contours)])
 
         if filtered_objects:
             filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
@@ -1190,7 +1197,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for idx in filtered_objects:
                 out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
             self.te_objects.setText(out)
-
 
             # draw contour of objects
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1258,38 +1264,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             for idx in sorted(list(results["objects"].keys())):
                 pos.append(results["objects"][idx]["centroid"])
-
-            ''''
-            if self.positions:
-                pos = [""] * len(results["objects"])
-                for idx in results["objects"]:
-                    r_dist = []
-
-                    print("idx", idx, "centroid", results["objects"][idx]["centroid"])
-                    print("previous pos:", self.positions[-1])
-
-                    for idx_obj, obj in enumerate(self.positions[-1]):
-                        print(idx, idx_obj, euclidean_distance(results["objects"][idx]["centroid"], obj))
-                        r_dist.append([euclidean_distance(results["objects"][idx]["centroid"], obj), idx_obj, idx])
-                    r_dist = sorted(r_dist)
-
-                    print("r_dist", r_dist)
-
-                    for j in range(len(pos)):
-                        if pos[r_dist[j][1]] == "":
-                            pos[r_dist[j][1]] = results["objects"][idx]["centroid"]
-                            break
-                print("pos", pos)
-                self.positions.append(pos)
-
-            if not self.positions:
-                for idx in results["objects"]:
-                    pos.append(results["objects"][idx]["centroid"])
-                self.positions.append(pos)
-
-            print("============")
-            print()
-            '''
 
             self.positions.append(pos)
 

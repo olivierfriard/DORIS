@@ -27,6 +27,51 @@ import numpy as np
 #np.set_printoptions(threshold="nan")
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
+from sklearn.cluster import KMeans
+
+
+def apply_k_means(contours, n_inds):
+    """
+    This function applies the k-means clustering algorithm to separate merged
+    contours. The algorithm is applied when detected contours are fewer than
+    expected objects(number of animals) in the scene.
+
+    Parameters
+    ----------
+    contours: list
+        a list of all detected contours that pass the area based threhold criterion
+    n_inds: int
+        total number of individuals being tracked
+    meas_now: array_like, dtype=float
+        individual's location on current frame
+
+    Returns
+    -------
+    contours: list
+        a list of all detected contours that pass the area based threhold criterion
+    meas_now: array_like, dtype=float
+        individual's location on current frame
+    """
+    #del meas_now[:]
+    centroids = []
+    # Clustering contours to separate individuals
+    myarray = np.vstack(contours)
+    myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
+
+    kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init = 50).fit(myarray)
+    l = len(kmeans.cluster_centers_)
+
+    new_contours = []
+    for i in range(n_inds):
+        new_contours.append(myarray[kmeans.labels_==i])
+
+    for i in range(l):
+        x = int(tuple(kmeans.cluster_centers_[i])[0])
+        y = int(tuple(kmeans.cluster_centers_[i])[1])
+        centroids.append([x,y])
+
+    
+    return new_contours, centroids
 
 
 def image_treatment(frame,
@@ -115,7 +160,6 @@ def find_circle(points):
     return x, y, euclidean_distance((x, y), (x1, y1))
 
 
-
 def detect_and_filter_objects(frame,
                               min_size=0,
                               max_size=0,
@@ -141,8 +185,6 @@ def detect_and_filter_objects(frame,
 
     _, contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     nr_objects = len(contours)
-
-    print("nr objects", nr_objects)
 
     all_objects = {}
     for idx, cnt in enumerate(contours):
@@ -263,7 +305,6 @@ def detect_and_filter_objects(frame,
                                          "area": all_objects[idx]["area"],
                                          "min": all_objects[idx]["min"],
                                          "max": all_objects[idx]["max"]}
-
 
     return all_objects, filtered_objects
 
