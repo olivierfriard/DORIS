@@ -119,6 +119,7 @@ class Click_label(QLabel):
         """
         self.mouse_pressed_signal.emit(event)
 
+
 class FrameViewer(QWidget):
     """
     widget for visualizing frame
@@ -128,13 +129,13 @@ class FrameViewer(QWidget):
 
         self.setWindowTitle("")
 
-        vbox = QVBoxLayout()
+        self.vbox = QVBoxLayout()
 
         self.lb_frame = Click_label()
         self.lb_frame.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        vbox.addWidget(self.lb_frame)
+        self.vbox.addWidget(self.lb_frame)
 
-        self.setLayout(vbox)
+        self.setLayout(self.vbox)
 
     def pbOK_clicked(self):
         self.close()
@@ -142,54 +143,7 @@ class FrameViewer(QWidget):
 
 font = cv2.FONT_HERSHEY_SIMPLEX
 
-'''
-def distance_point_line(P, M1, M2):
-    """
-    return:
-    * distance from point P to segment M1-M2
-    * coordinates of nearest point on segment
-    """
 
-    EPS = 0
-    EPSEPS = EPS * EPS
-
-    def SqLineMagnitude(x1, y1, x2, y2):
-        return (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1)
-
-    px, py = P
-    x1, y1 = M1
-    x2, y2 = M2
-
-    result = 0
-
-    SqLineMag = SqLineMagnitude(x1, y1, x2, y2)
-    if SqLineMag < EPSEPS:
-        return - 1.0
-
-    u = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / SqLineMag
-
-    if (u < EPS) or (u > 1):
-        ###  Closest point does not fall within the line segment,
-        ###  take the shorter distance to an endpoint
-        d1 = SqLineMagnitude(px, py, x1, y1)
-        d2 = SqLineMagnitude(px, py, x2, y2)
-        if d1 <= d2:
-            result = d1
-            ix, iy = x1, y1
-        else:
-            result = d2
-            ix, iy = x2, y2
-
-    else:
-
-        #  Intersecting point is on the line, use the formula
-        ix = x1 + u * (x2 - x1)
-        iy = y1 + u * (y2 - y1)
-        result = SqLineMagnitude(px, py, ix, iy)
-
-
-    return math.sqrt(result), (ix, iy)
-'''
 
 def frame2pixmap(frame):
     """
@@ -280,31 +234,6 @@ def plot_path(verts, x_lim, y_lim, color):
 
 
 
-def find_circle(points):
-    """
-    Find circle that pass by 2 points
-
-    Args:
-        points (list): list of points
-
-    Returns:
-        float: x of circle center
-        float: y of circle center
-        float: radius of circle
-    """
-
-    x1, y1 = points[0]
-    x2, y2 = points[1]
-    x3, y3 = points[2]
-
-    ma = (y2 - y1) / (x2 - x1)
-    mb = (y3 - y2) / (x3 - x2)
-
-    x = (ma*mb*(y1-y3) + mb*(x1+x2) - ma*(x2+x3))/(2*(mb-ma))
-
-    y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
-
-    return x, y, doris_functions.euclidean_distance((x, y), (x1, y1))
 
 
     '''
@@ -347,6 +276,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
         self.actionAbout.triggered.connect(self.about)
+        
+        self.action1.triggered.connect(lambda: self.frame_viewer_scale(0, 1))
+        self.action1_2.triggered.connect(lambda: self.frame_viewer_scale(0, 0.5))
+        self.action1_4.triggered.connect(lambda: self.frame_viewer_scale(0, 0.25))
+
+        self.action_treated_1.triggered.connect(lambda: self.frame_viewer_scale(1, 1))
+        self.action_treated_1_2.triggered.connect(lambda: self.frame_viewer_scale(1, 0.5))
+        self.action_treated_1_4.triggered.connect(lambda: self.frame_viewer_scale(1, 0.25))
+        
 
         # self.label1.mousePressEvent = self.frame_mousepressed
 
@@ -442,17 +380,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
-        self.fw1 = FrameViewer()
-        self.fw1.lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
-        self.fw1.setGeometry(100, 100, 512, 512)
-        self.fw1.show()
+        self.fw = []
+        self.fw.append(FrameViewer())
+        self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
+        self.fw[0].setGeometry(100, 100, 512, 512)
+        self.fw[0].show()
 
-        self.fw2 = FrameViewer()
-        self.fw2.setGeometry(640, 100, 512, 512)
-        self.fw2.show()
+        self.fw.append(FrameViewer())
+        self.fw[1].setGeometry(640, 100, 512, 512)
+        self.fw[1].show()
+
+
+
 
     def click_on_frame(self, id_, event):
         print(event)
+
 
     def about(self):
 
@@ -490,6 +433,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setDetailedText(details)
 
         _ = about_dialog.exec_()
+
+
+    def frame_viewer_scale(self, fw_idx, scale):
+        """
+        change scale of frame viewer
+        """
+        self.fw[fw_idx].lb_frame.clear()
+        self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
+        self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(), Qt.KeepAspectRatio))
+        self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
 
 
     def for_back_ward(self, direction="forward"):
@@ -601,7 +554,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record clicked coordinates if arena or area mode activated
         """
 
-        conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw1.lb_frame.pixmap().width())
+        conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
         #print("area type:", self.add_area["type"])
 
@@ -639,7 +592,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 if len(self.add_area["points"]) == 3:
-                    cx, cy, radius = find_circle(self.add_area["points"])
+                    cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
                     self.add_area["type"] = "circle"
                     self.add_area["center"] = [int(cx), int(cy)]
                     self.add_area["radius"] = int(radius)
@@ -752,7 +705,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len( self.arena)))
 
                 if len(self.arena) == 3:
-                    cx, cy, r = find_circle(self.arena)
+                    cx, cy, r = doris_functions.find_circle(self.arena)
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
@@ -1039,35 +992,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-    def reorder_objects(mem_objects, objects):
-        if mem_objects:
-
-            if len(filtered_objects) == len(self.mem_filtered_objects):
-
-                new_filtered = dict([[x, {}] for x in filtered_objects])
-
-                for new_idx in filtered_objects:
-                    r_dist = []
-
-                    for mem_idx in self.mem_filtered_objects:
-                        r_dist.append([doris_functions.euclidean_distance(filtered_objects[new_idx]["centroid"],
-                                       self.mem_filtered_objects[mem_idx]["centroid"]), new_idx, mem_idx])
-
-                    r_dist = sorted(r_dist)
-
-                    print(r_dist)
-                    print(filtered_objects[ r_dist[0][2] ]["area"])
-                    print(r_dist[0][2])
-
-                    new_filtered[r_dist[0][2]] = copy.deepcopy(filtered_objects[ new_idx ])
-                    del self.mem_filtered_objects[r_dist[0][2]]
-
-                filtered_objects = copy.deepcopy(new_filtered)
-
-
-        self.mem_filtered_objects = copy.deepcopy(filtered_objects)
-
-
     def update_objects(self, frame):
         """
         returns filtered objects
@@ -1117,7 +1041,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         display the current frame in label pixmap
         """
 
-        self.fw1.lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw1.lb_frame.size(), Qt.KeepAspectRatio))
+        self.fw[0].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[0].lb_frame.size(), Qt.KeepAspectRatio))
 
 
     def display_treated_frame(self, frame):
@@ -1125,7 +1049,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         show treated frame
         """
 
-        self.fw2.lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw2.lb_frame.size(), Qt.KeepAspectRatio))
+        self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
 
 
     def treat_and_show(self):
@@ -1176,8 +1100,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             pass
 
         try:
-            self.fw1.close()
-            self.fw2.close()
+            self.fw[0].close()
+            self.fw[1].close()
         except:
             pass
         print("close")

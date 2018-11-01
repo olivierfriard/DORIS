@@ -88,6 +88,34 @@ def euclidean_distance(p1, p2):
     return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
 
 
+def find_circle(points):
+    """
+    Find circle that pass by 3 points
+
+    Args:
+        points (list): list of points
+
+    Returns:
+        float: x of circle center
+        float: y of circle center
+        float: radius of circle
+    """
+
+    x1, y1 = points[0]
+    x2, y2 = points[1]
+    x3, y3 = points[2]
+
+    ma = (y2 - y1) / (x2 - x1)
+    mb = (y3 - y2) / (x3 - x2)
+
+    x = (ma*mb*(y1-y3) + mb*(x1+x2) - ma*(x2+x3))/(2*(mb-ma))
+
+    y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
+
+    return x, y, euclidean_distance((x, y), (x1, y1))
+
+
+
 def detect_and_filter_objects(frame,
                               min_size=0,
                               max_size=0,
