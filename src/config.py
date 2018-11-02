@@ -1,0 +1,34 @@
+
+import cv2
+
+THRESHOLD_METHODS = ["Adaptive (mean)", "Adaptive (Gaussian)", "Simple"]
+
+
+THRESHOLD_DEFAULT = 50
+VIEWER_WIDTH = 480
+
+# BGR colors
+RED = (0, 0, 255)
+GREEN = (0, 255, 0)
+BLUE = (255, 0, 0)
+MAGENTA = (255, 0, 255)
+YELLOW = (255, 255, 0)
+BLACK = (0, 0, 0)
+MAROON = (128, 0, 0)
+TEAL = (0, 128, 128)
+PURPLE = (128, 0, 128)
+WHITE = (255, 255, 255)
+
+
+MARKER_TYPE = "contour"
+MARKER_COLOR = GREEN
+ARENA_COLOR = RED
+AREA_COLOR = GREEN
+
+CIRCLE_THICKNESS = 2
+RECTANGLE_THICKNESS = 2
+
+TOLERANCE_OUTSIDE_ARENA = 0.05  # fraction of size of object
+
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX
