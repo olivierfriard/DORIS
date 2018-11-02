@@ -24,10 +24,100 @@ This file is part of DORIS.
 
 import cv2
 import numpy as np
+import struct
 #np.set_printoptions(threshold="nan")
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
+
+import matplotlib
+matplotlib.use("Qt5Agg")
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
+
+try:
+    import mpl_scatter_density
+except ModuleNotFoundError:
+    print("mpl_scatter_density not found")
+
+'''
+COLORS_LIST = ["#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941", "#006FA6", "#A30059",
+        "#FFDBE5", "#7A4900", "#0000A6", "#63FFAC", "#B79762", "#004D43", "#8FB0FF", "#997D87",
+        "#5A0007", "#809693", "#FEFFE6", "#1B4400", "#4FC601", "#3B5DFF", "#4A3B53", "#FF2F80",
+        "#61615A", "#BA0900", "#6B7900", "#00C2A0", "#FFAA92", "#FF90C9", "#B903AA", "#D16100",
+        "#DDEFFF", "#000035", "#7B4F4B", "#A1C299", "#300018", "#0AA6D8", "#013349", "#00846F",
+        "#372101", "#FFB500", "#C2FFED", "#A079BF", "#CC0744", "#C0B9B2", "#C2FF99", "#001E09",
+        "#00489C", "#6F0062", "#0CBD66", "#EEC3FF", "#456D75", "#B77B68", "#7A87A1", "#788D66",
+        "#885578", "#FAD09F", "#FF8A9A", "#D157A0", "#BEC459", "#456648", "#0086ED", "#886F4C",
+
+        "#34362D", "#B4A8BD", "#00A6AA", "#452C2C", "#636375", "#A3C8C9", "#FF913F", "#938A81",
+        "#575329", "#00FECF", "#B05B6F", "#8CD0FF", "#3B9700", "#04F757", "#C8A1A1", "#1E6E00",
+        "#7900D7", "#A77500", "#6367A9", "#A05837", "#6B002C", "#772600", "#D790FF", "#9B9700",
+        "#549E79", "#FFF69F", "#201625", "#72418F", "#BC23FF", "#99ADC0", "#3A2465", "#922329",
+        "#5B4534", "#FDE8DC", "#404E55", "#0089A3", "#CB7E98", "#A4E804", "#324E72", "#6A3A4C",
+        "#83AB58", "#001C1E", "#D1F7CE", "#004B28", "#C8D0F6", "#A3A489", "#806C66", "#222800",
+        "#BF5650", "#E83000", "#66796D", "#DA007C", "#FF1A59", "#8ADBB4", "#1E0200", "#5B4E51",
+        "#C895C5", "#320033", "#FF6832", "#66E1D3", "#CFCDAC", "#D0AC94", "#7ED379", "#012C58"]
+'''
+
+RGBSTR_COLORS_LIST = ["FF0000", "00FF00", "0000FF", "FFFF00", "FF00FF", "00FFFF",
+        "800000", "008000", "000080", "808000", "800080", "008080", "808080",
+        "C00000", "00C000", "0000C0", "C0C000", "C000C0", "00C0C0", "C0C0C0",
+        "400000", "004000", "000040", "404000", "400040", "004040", "404040",
+        "200000", "002000", "000020", "202000", "200020", "002020", "202020",
+        "600000", "006000", "000060", "606000", "600060", "006060", "606060",
+        "A00000", "00A000", "0000A0", "A0A000", "A000A0", "00A0A0", "A0A0A0",
+        "E00000", "00E000", "0000E0", "E0E000", "E000E0", "00E0E0", "E0E0E0"]
+
+
+def rgbstr_to_tuple(rgb_str):
+    return struct.unpack('BBB', bytes.fromhex(rgb_str))
+
+COLORS_LIST = [rgbstr_to_tuple(x) for x in RGBSTR_COLORS_LIST]
+
+
+def plot_path(verts, x_lim, y_lim, color):
+
+
+    # invert verts y
+    verts = [(x[0], y_lim[1] - x[1]) for x in verts]
+
+    codes = [Path.MOVETO]
+    codes.extend([Path.LINETO] * (len(verts)-1))
+
+    path = Path(verts, codes)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    patch = patches.PathPatch(path, edgecolor=tuple((x/255 for x in color)), facecolor="none", lw=1)
+    ax.add_patch(patch)
+
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
+
+    plt.show()
+
+
+def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
+
+    try:
+        x = np.array(x)
+        y = np.array(y)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, projection="scatter_density")
+        ax.scatter_density(x, y)
+        if x_lim != (0, 0):
+            ax.set_xlim(x_lim)
+        if y_lim != (0, 0):
+            ax.set_ylim(y_lim[::-1])
+
+        plt.show()
+        return True
+
+    except:
+        return False
 
 
 def apply_k_means(contours, n_inds):
@@ -53,7 +143,9 @@ def apply_k_means(contours, n_inds):
         individual's location on current frame
     """
     #del meas_now[:]
+    print("kmeans")
     centroids = []
+    print("contours[0]", type(contours[0]))
     # Clustering contours to separate individuals
     myarray = np.vstack(contours)
     myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
@@ -65,20 +157,19 @@ def apply_k_means(contours, n_inds):
     for i in range(n_inds):
         new_contours.append(myarray[kmeans.labels_==i])
 
+    '''
     for i in range(l):
         x = int(tuple(kmeans.cluster_centers_[i])[0])
         y = int(tuple(kmeans.cluster_centers_[i])[1])
         centroids.append([x,y])
+    '''
 
-    
-    return new_contours, centroids
+    return new_contours #, centroids
 
 
-def image_treatment(frame,
+def image_processing(frame,
                     blur=5,
-                    threshold_method={"name": "adaptive",
-                                      "block_size": 81,
-                                      "offset": 38},
+                    threshold_method={},
                     invert=False):
     """
     apply treament to frame
@@ -104,24 +195,22 @@ def image_treatment(frame,
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     '''
 
-
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    #ret, frame = cv2.threshold(frame, threshold, 255, cv2.THRESH_BINARY)
 
-    # invert
+    if threshold_method["name"] == "Simple":
+        ret, frame = cv2.threshold(frame, threshold_method["cut-off"], 255, cv2.THRESH_BINARY)
 
-    if threshold_method["name"] == "adaptive":
+    if threshold_method["name"] in ["Adaptive (mean)", "Adaptive (Gaussian)"]:
+        tm = cv2.ADAPTIVE_THRESH_MEAN_C if threshold_method["name"] == "Adaptive (mean)" else cv2.ADAPTIVE_THRESH_GAUSSIAN_C
         frame = cv2.adaptiveThreshold(frame,
                                       255,
-                                      cv2.ADAPTIVE_THRESH_MEAN_C,
+                                      tm,
                                       cv2.THRESH_BINARY,
-                                      threshold_method["block_size"],
+                                      threshold_method["block_size"] if threshold_method["block_size"] % 2 else threshold_method["block_size"] + 1,
                                       threshold_method["offset"])
-
 
     if invert:
         frame = (255 - frame)
-
 
     return frame
 
@@ -130,7 +219,7 @@ def euclidean_distance(p1, p2):
     """
     euclidean distance between two points
     """
-    return ((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)**0.5
+    return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
 
 
 def find_circle(points):
@@ -153,7 +242,7 @@ def find_circle(points):
     ma = (y2 - y1) / (x2 - x1)
     mb = (y3 - y2) / (x3 - x2)
 
-    x = (ma*mb*(y1-y3) + mb*(x1+x2) - ma*(x2+x3))/(2*(mb-ma))
+    x = (ma * mb * (y1 - y3) + mb * (x1 + x2) - ma * (x2 + x3)) / (2 * (mb - ma))
 
     y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
 
@@ -215,13 +304,13 @@ def detect_and_filter_objects(frame,
 
         # check if object area is >= of minimal size
         if min_size and all_objects[idx]["area"] < min_size:
-            print("skipped #{} for min area".format(idx))
+            # print("skipped #{} for min area".format(idx))
             obj_to_del_idx.append(idx)
             continue
 
         # check if object area is <= of maximal size
         if max_size and all_objects[idx]["area"] > max_size:
-            print("skipped #{} for max area".format(idx))
+            # print("skipped #{} for max area".format(idx))
             obj_to_del_idx.append(idx)
             continue
 
@@ -233,7 +322,7 @@ def detect_and_filter_objects(frame,
             '''
             if ((all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension
                 or (all_objects[idx]["max"][1] - all_objects[idx]["min"][1]) > max_extension):
-                print("skipped #{} for max extension".format(idx))
+                # print("skipped #{} for max extension".format(idx))
                 obj_to_del_idx.append(idx)
                 continue
 
