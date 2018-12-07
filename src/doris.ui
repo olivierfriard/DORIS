@@ -441,7 +441,7 @@
           <item>
            <widget class="QSpinBox" name="sb_max_extension">
             <property name="maximum">
-             <number>999</number>
+             <number>9999999</number>
             </property>
            </widget>
           </item>

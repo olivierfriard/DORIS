@@ -199,7 +199,7 @@ class Ui_MainWindow(object):
         self.label_13.setObjectName("label_13")
         self.horizontalLayout_17.addWidget(self.label_13)
         self.sb_max_extension = QtWidgets.QSpinBox(self.centralwidget)
-        self.sb_max_extension.setMaximum(999)
+        self.sb_max_extension.setMaximum(9999999)
         self.sb_max_extension.setObjectName("sb_max_extension")
         self.horizontalLayout_17.addWidget(self.sb_max_extension)
         spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
