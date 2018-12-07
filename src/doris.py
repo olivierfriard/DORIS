@@ -40,8 +40,8 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 """
 
-__version__ = "0.0.3"
-__version_date__ = "2018-10-29"
+__version__ = "0.0.5"
+__version_date__ = "2018-12-07"
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
@@ -52,6 +52,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar,
 
 import os
 import platform
+import json
 import numpy as np
 #np.set_printoptions(threshold="nan")
 import cv2
@@ -228,6 +229,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
+        self.actionOpen_project.triggered.connect(self.open_project)
         self.actionSave_project.triggered.connect(self.save_project)
         self.actionQuit.triggered.connect(self.close)
 
@@ -390,9 +392,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         save parameters of current project in a text file
         """
 
-        project_file_path, filtr = QFileDialog().getSaveFileName(self, "Save project", "",
+        project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
                                                                     "All files (*)")
 
+        config = {}
+        if self.videoFileName:
+            config["video_file_path"] = self.videoFileName
+        config["blur"] = self.sb_blur.value()
+        config["invert"] = self.cb_invert.isChecked()
+        config["arena"] = self.le_arena.text()
+        config["min_object_size"] = self.sbMin.value()
+        config["max_object_size"] = self.sbMax.value()
+        config["number_of_objects_to_detect"] = self.sb_largest_number.value()
+        config["object_max_extension"] = self.sb_max_extension.value()
+        config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
+        config["block_size"] = self.sb_block_size.value()
+        config["offset"] = self.sb_offset.value()
+        config["cut_off"] = self.sb_threshold.value()
+
+        '''
         with open(project_file_path, "w") as f_out:
 
             if self.videoFileName:
@@ -410,6 +428,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             f_out.write("block_size = {}\n".format(self.sb_block_size.value()))
             f_out.write("offset = {}\n".format(self.sb_offset.value()))
             f_out.write("cut_off = {}\n".format(self.sb_threshold.value()))
+        '''
+        with open(project_file_path, "w") as f_out:
+            f_out.write(json.dumps(config))
 
 
     def frame_viewer_scale(self, fw_idx, scale):
@@ -1321,6 +1342,79 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_stop_analysis = True
 
 
+    def open_project(self, file_name=""):
+        """
+        open a project file and load parameters
+        """
+        if not file_name:
+            file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
+        if file_name:
+            try:
+                with open(file_name) as f_in:
+                    config = json.loads(f_in.read())
+                try:
+                    self.sb_blur.setValue(config["blur"])
+                except:
+                    pass
+                try:
+                    self.cb_invert.setChecked(config["invert"])
+                except:
+                    pass
+                try:
+                    self.le_arena.setText(str(config["arena"]))
+                    self.arena = config["arena"]
+                    self.pb_define_arena.setEnabled(False)
+                    self.pb_clear_arena.setEnabled(True)
+                except:
+                    pass
+                try:
+                    self.sbMin.setValue(config["min_object_size"])
+                except:
+                    pass
+                try:
+                    self.sbMax.setValue(config["max_object_size"])
+                except:
+                    pass
+                try:
+                    self.sb_largest_number.setValue(config["number_of_objects_to_detect"])
+                except:
+                    pass
+                try:
+                    self.sb_max_extension.setValue(config["object_max_extension"])
+                except:
+                    pass
+
+                try:
+                    self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
+                except:
+                    pass
+
+                try:
+                    self.sb_block_size.setValue(config["block_size"])
+                except:
+                    pass
+
+                try:
+                    self.sb_offset.setValue(config["offset"])
+                except:
+                    pass
+
+                try:
+                    self.sb_threshold.setValue(config["cut_off"])
+                except:
+                    pass
+
+                try:
+                    if os.path.isfile(config["video_file_path"]):
+                        self.open_video(config["video_file_path"])
+                except Exception:
+                    pass
+
+            except Exception:
+                print("Error in project file")
+                raise
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="DORIS (Detection of Objects Research Interactive Software)")
@@ -1346,71 +1440,7 @@ if __name__ == "__main__":
 
     if options.project_file:
         if os.path.isfile(options.project_file):
-            try:
-                exec(open(options.project_file).read())
-
-                try:
-                    w.sb_blur.setValue(blur)
-                except:
-                    pass
-                try:
-                    w.cb_invert.setChecked(invert)
-                except:
-                    pass
-                try:
-                    w.le_arena.setText(str(arena))
-                    w.arena = arena
-                    w.pb_define_arena.setEnabled(False)
-                    w.pb_clear_arena.setEnabled(True)
-                except:
-                    pass
-                try:
-                    w.sbMin.setValue(min_object_size)
-                except:
-                    pass
-                try:
-                    w.sbMax.setValue(max_object_size)
-                except:
-                    pass
-                try:
-                    w.sb_largest_number.setValue(number_of_objects_to_detect)
-                except:
-                    pass
-                try:
-                    w.sb_max_extension.setValue(object_max_extension)
-                except:
-                    pass
-
-                try:
-                    w.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(threshold_method))
-                except:
-                    pass
-
-                try:
-                    w.sb_block_size.setValue(block_size)
-                except:
-                    pass
-
-                try:
-                    w.sb_offset.setValue(offset)
-                except:
-                    pass
-
-                try:
-                    w.sb_threshold.setValue(cut_off)
-                except:
-                    pass
-
-                try:
-                    if os.path.isfile(video_file_path):
-                        w.open_video(video_file_path)
-                except Exception:
-                    pass
-
-
-            except Exception:
-                print("Error in project file")
-                sys.exit()
+            w.open_project(options.project_file)
 
     else:
 

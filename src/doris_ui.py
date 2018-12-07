@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.11.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -200,6 +200,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_17.addWidget(self.label_13)
         self.sb_max_extension = QtWidgets.QSpinBox(self.centralwidget)
         self.sb_max_extension.setMaximum(9999999)
+        self.sb_max_extension.setSingleStep(100)
         self.sb_max_extension.setObjectName("sb_max_extension")
         self.horizontalLayout_17.addWidget(self.sb_max_extension)
         spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -385,9 +386,12 @@ class Ui_MainWindow(object):
         self.action2.setObjectName("action2")
         self.action_treated_2 = QtWidgets.QAction(MainWindow)
         self.action_treated_2.setObjectName("action_treated_2")
+        self.actionOpen_project = QtWidgets.QAction(MainWindow)
+        self.actionOpen_project.setObjectName("actionOpen_project")
         self.menuFile.addAction(self.actionOpen_video)
         self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionOpen_project)
         self.menuFile.addAction(self.actionSave_project)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionQuit)
@@ -485,4 +489,5 @@ class Ui_MainWindow(object):
         self.actionSave_project.setText(_translate("MainWindow", "Save project"))
         self.action2.setText(_translate("MainWindow", "2"))
         self.action_treated_2.setText(_translate("MainWindow", "2"))
+        self.actionOpen_project.setText(_translate("MainWindow", "Open project"))
 
