@@ -543,7 +543,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def reload_frame(self):
         if self.dir_images:
             self.dir_images_index -= 1
-        else:
+        elif self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1)
         self.pb()
 
