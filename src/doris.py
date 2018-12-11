@@ -1263,7 +1263,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        analyze current frame
+        analyze current frame and write info in widgets
         """
 
         if self.cb_record_xy.isChecked():
@@ -1318,8 +1318,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.objects_number.append(nb)
 
             out = "frame: {}\t".format(self.frame_idx)
-            for area in sorted(self.areas.keys()):
+            '''for area in sorted(self.areas.keys()):
                 out += "{area}: {nb}\t".format(area=area, nb=nb[area])
+            '''
+            out = "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
+            # header
+            if len(self.te_number_objects) == 0:
+                self.te_number_objects.append("frame\t" + "\t".join(list(sorted(self.areas.keys()))))
+
             self.te_number_objects.append(out)
 
 
