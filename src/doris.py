@@ -413,6 +413,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["offset"] = self.sb_offset.value()
         config["cut_off"] = self.sb_threshold.value()
 
+        config["areas"] = self.areas
+        config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
+        config["record_objects_coordinates"] = self.cb_record_xy.isChecked()
+
+
         '''
         with open(project_file_path, "w") as f_out:
 
@@ -454,9 +459,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def for_back_ward(self, direction="forward"):
 
-        step = self.sb_frame_offset.value() if direction == "forward" else -self.sb_frame_offset.value()
+        step = self.sb_frame_offset.value() - 1 if direction == "forward" else -self.sb_frame_offset.value() - 1
 
-        self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 1 + step)
+        if self.dir_images:
+            if 0 < self.dir_images_index + step < len(self.dir_images):
+                self.dir_images_index += step
+            self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+        elif self.capture is not None:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step)
+
         self.pb()
 
 
@@ -464,9 +475,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.le_goto_frame.text():
             try:
-                self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.le_goto_frame.text()) - 1)
-            except Exception:
-                pass
+                int(self.le_goto_frame.text())
+            except:
+                return
+
+            if self.dir_images:
+                self.dir_images_index = int(self.le_goto_frame.text()) - 1
+                self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+            elif self.capture is not None:
+                try:
+                    self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.le_goto_frame.text()) - 1)
+                except Exception:
+                    pass
             self.pb()
 
 
@@ -1317,13 +1337,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.objects_number.append(nb)
 
-            out = "frame: {}\t".format(self.frame_idx)
+            out = "{}\t".format(self.frame_idx)
             '''for area in sorted(self.areas.keys()):
                 out += "{area}: {nb}\t".format(area=area, nb=nb[area])
             '''
-            out = "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
+            out += "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
             # header
-            if len(self.te_number_objects) == 0:
+            if not self.te_number_objects.toPlainText():
                 self.te_number_objects.append("frame\t" + "\t".join(list(sorted(self.areas.keys()))))
 
             self.te_number_objects.append(out)
@@ -1426,6 +1446,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except:
                     pass
 
+                try:
+                    self.areas = config["areas"]
+                    if self.areas:
+                        self.lw_area_definition.clear()
+                        for area in self.areas:
+                            self.lw_area_definition.addItem(str(self.areas[area]))
+                except:
+                    self.areas = {}
+
+                try:
+                    self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
+                except:
+                    pass
+
+                try:
+                    self.cb_record_xy.setChecked(config["record_objects_coordinates"])
+                except:
+                    pass
+
                 if "video_file_path" in config:
                     try:
                         if os.path.isfile(config["video_file_path"]):
@@ -1439,7 +1478,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             self.load_dir_images(config["dir_images"])
                     except Exception:
                         pass
-                        raise
 
             except Exception:
                 print("Error in project file")
