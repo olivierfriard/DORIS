@@ -40,8 +40,8 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 """
 
-__version__ = "0.0.5"
-__version_date__ = "2018-12-07"
+__version__ = "0.0.6"
+__version_date__ = "2018-12-11"
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
@@ -311,7 +311,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas = {}
         self.flag_define_arena = False
         self.add_area = {}
-        self.arena = []
+        self.arena = {}
         self.mem_filtered_objects = {}
 
         self.dir_images = []
@@ -398,9 +398,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config = {}
         if self.videoFileName:
             config["video_file_path"] = self.videoFileName
+        if self.dir_images:
+            config["dir_images"] = str(self.dir_images[0].parent)
+
         config["blur"] = self.sb_blur.value()
         config["invert"] = self.cb_invert.isChecked()
-        config["arena"] = self.le_arena.text()
+        config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
         config["number_of_objects_to_detect"] = self.sb_largest_number.value()
@@ -497,7 +500,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def define_arena(self, shape):
         """
-        switch to define area mode
+        switch to define arena mode
         """
         if self.flag_define_arena:
             self.flag_define_arena = ""
@@ -513,7 +516,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 msg = "New arena: click on the video to define the center of the circle and then a point belonging to the circle"
             if shape == "polygon":
                 msg = "New arena: click on the video to define the edges of the polygon"
-
 
             self.statusBar.showMessage(msg)
 
@@ -654,20 +656,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             if self.flag_define_arena == "rectangle":
-                self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                if "points" not in self.arena:
+                    self.arena["points"] = []
+                self.arena["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
-                self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len(self.arena)))
+                self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len(self.arena["points"])))
 
 
-                if len(self.arena) == 2:
+                if len(self.arena["points"]) == 2:
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
-                    self.arena = {"type": "rectangle", "points": self.arena, "name": "arena"}
+                    self.arena = {**self.arena, **{"type": "rectangle", "name": "arena"}}
                     self.le_arena.setText("{}".format(self.arena))
 
                     cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
@@ -685,38 +689,43 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
 
-                    self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}
-                    self.le_arena.setText("{}".format(self.arena))
+                    '''self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}'''
+                    self.arena = {**self.arena, **{"type": "polygon", "name": "arena"}}
 
+                    self.le_arena.setText("{}".format(self.arena))
                     self.statusBar.showMessage("The new polygon arena is defined")
 
                 else:
+                    if "points" not in self.arena:
+                        self.arena["points"] = []
 
-                    self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                    self.arena["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                     cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                                color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
-                    self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len(self.arena)))
+                    self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len(self.arena["points"])))
 
-                    if len(self.arena) >= 2:
+                    if len(self.arena["points"]) >= 2:
                         cv2.line(self.frame, tuple(self.arena[-2]), tuple(self.arena[-1]),
                                  color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                         self.display_frame(self.frame)
 
             if self.flag_define_arena == "circle (3 points)":
+                if "points" not in self.arena:
+                    self.arena["points"] = []
 
-                self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                self.arena["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
 
-                self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len(self.arena)))
+                self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len(self.arena["points"])))
 
-                if len(self.arena) == 3:
-                    cx, cy, r = doris_functions.find_circle(self.arena)
+                if len(self.arena["points"]) == 3:
+                    cx, cy, r = doris_functions.find_circle(self.arena["points"])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
@@ -725,21 +734,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
 
                     self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(r), 'name': 'arena'}
+
                     self.le_arena.setText("{}".format(self.arena))
 
                     self.statusBar.showMessage("The new circle arena is defined")
 
             if self.flag_define_arena == "circle (center radius)":
+                if "points" not in self.arena:
+                    self.arena["points"] = []
 
-                self.arena.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                self.arena["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
 
-                if len(self.arena) == 2:
-                    cx, cy = self.arena[0]
-                    radius = doris_functions.euclidean_distance(self.arena[0], self.arena[1])
+                if len(self.arena["points"]) == 2:
+                    cx, cy = self.arena["points"][0]
+                    radius = doris_functions.euclidean_distance(self.arena["points"][0], self.arena["points"][1])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(radius), color=ARENA_COLOR, thickness=drawing_thickness)
 
                     self.display_frame(self.frame)
@@ -748,7 +760,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
 
-                    self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(radius), 'name': 'arena'}
+                    self.arena = {"type": "circle", "center": [round(cx), round(cy)], "radius": round(radius), "name": "arena"}
                     self.le_arena.setText("{}".format(self.arena))
 
                     self.statusBar.showMessage("The new circle arena is defined")
@@ -925,13 +937,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         Load directory of images
         """
+        print("loading dir images")
         if not dir_images:
             dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
         if dir_images:
             p = pathlib.Path(dir_images)
             self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
 
-            self.lb_total_frames_nb.setText("Total number of images: <b>{}</b>".format(len(self.dir_images)))
+            self.total_frame_nb = len(self.dir_images)
+            self.lb_frames.setText("<b>{}</b> images".format(self.total_frame_nb))
 
             self.dir_images_index = 0
             self.pb(1)
@@ -1278,8 +1292,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cx, cy = self.areas[area]["center"]
                     radius = self.areas[area]["radius"]
 
-                    for idx in results["objects"]:
-                        x, y = results["objects"][idx]["centroid"]
+                    for idx in sorted(list(objects.keys())):
+                        x, y = objects[idx]["centroid"]
 
                         if ((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius:
                             nb[area] += 1
@@ -1361,12 +1375,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except:
                     pass
                 try:
-                    self.le_arena.setText(str(config["arena"]))
                     self.arena = config["arena"]
-                    self.pb_define_arena.setEnabled(False)
-                    self.pb_clear_arena.setEnabled(True)
+                    if self.arena:
+                        self.pb_define_arena.setEnabled(False)
+                        self.pb_clear_arena.setEnabled(True)
+                        self.le_arena.setText(str(config["arena"]))
                 except:
-                    pass
+                    print("arena not found")
+
                 try:
                     self.sbMin.setValue(config["min_object_size"])
                 except:
@@ -1404,11 +1420,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except:
                     pass
 
-                try:
-                    if os.path.isfile(config["video_file_path"]):
-                        self.open_video(config["video_file_path"])
-                except Exception:
-                    pass
+                if "video_file_path" in config:
+                    try:
+                        if os.path.isfile(config["video_file_path"]):
+                            self.open_video(config["video_file_path"])
+                    except Exception:
+                        pass
+
+                if "dir_images" in config:
+                    try:
+                        if os.path.isdir(config["dir_images"]):
+                            self.load_dir_images(config["dir_images"])
+                    except Exception:
+                        pass
+                        raise
 
             except Exception:
                 print("Error in project file")
