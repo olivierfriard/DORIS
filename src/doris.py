@@ -40,8 +40,6 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 """
 
-__version__ = "0.0.6"
-__version_date__ = "2018-12-11"
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
@@ -77,6 +75,7 @@ except ModuleNotFoundError:
 import argparse
 
 import doris_functions
+import version
 from config import *
 from doris_ui import Ui_MainWindow
 
@@ -180,29 +179,6 @@ def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
         return
 
 
-'''
-def plot_path(verts, x_lim, y_lim, color):
-
-
-    # invert verts y
-    verts = [(x[0], y_lim[1] - x[1]) for x in verts]
-
-    codes = [Path.MOVETO]
-    codes.extend([Path.LINETO] * (len(verts)-1))
-
-    path = Path(verts, codes)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    patch = patches.PathPatch(path, edgecolor=tuple((x/255 for x in color)), facecolor="none", lw=1)
-    ax.add_patch(patch)
-
-    ax.set_xlim(x_lim)
-    ax.set_ylim(y_lim)
-
-    plt.show()
-'''
-
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
@@ -211,7 +187,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         super(Ui_MainWindow, self).__init__(parent)
         self.setupUi(self)
 
-        self.setWindowTitle("DORIS v. {} - (c) Olivier Friard".format(__version__))
+        self.setWindowTitle("DORIS v. {} - (c) Olivier Friard".format(version.__version__))
         self.statusBar = QStatusBar()
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
@@ -226,6 +202,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.action_treated_1_2.triggered.connect(lambda: self.frame_viewer_scale(1, 0.5))
         self.action_treated_1_4.triggered.connect(lambda: self.frame_viewer_scale(1, 0.25))
         self.action_treated_2.triggered.connect(lambda: self.frame_viewer_scale(1, 2))
+
+        self.actionDraw_reference.triggered.connect(self.draw_reference)
+        self.actionDefine_coordinate_center.triggered.connect(self.define_coordinate_center)
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
@@ -310,6 +289,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fps = 0
         self.areas = {}
         self.flag_define_arena = False
+        self.flag_define_coordinate_center = False
+        self.coordinate_center = (0, 0)
         self.add_area = {}
         self.arena = {}
         self.mem_filtered_objects = {}
@@ -355,8 +336,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setInformativeText(("<b>DORIS</b> v. {ver} - {date}"
         "<p>Copyright &copy; 2017-2018 Olivier Friard<br>"
         "Department of Life Sciences and Systems Biology<br>"
-        "University of Torino - Italy<br>").format(ver=__version__,
-                                                   date=__version_date__))
+        "University of Torino - Italy<br>").format(ver=version.__version__,
+                                                   date=version.__version_date__))
 
         details = ("Python {python_ver} ({architecture}) - Qt {qt_ver} - PyQt{pyqt_ver} on {system}\n"
         "CPU type: {cpu_info}\n\n"
@@ -553,7 +534,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         clear the arena
         """
         self.flag_define_arena = False
-        self.arena = []
+        self.arena = {}
         self.le_arena.setText("")
 
         self.pb_define_arena.setEnabled(True)
@@ -580,7 +561,29 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record clicked coordinates if arena or area mode activated
         """
 
+        print("mouse pressed on frame")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
+
+        # set coordinate center
+        if self.flag_define_coordinate_center:
+            self.coordinate_center = (int(event.pos().x() * conversion), int(event.pos().y() * conversion))
+            cv2.circle(self.frame, self.coordinate_center, 8,
+                       color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
+                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
+                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0] - 20, self.coordinate_center[1]),
+                                 (self.coordinate_center[0] + 20, self.coordinate_center[1]),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+
+            self.display_frame(self.frame)
+            self.flag_define_coordinate_center = False
+            self.actionDefine_coordinate_center.setChecked(False)
+            self.statusBar.showMessage("Center of coordinates defined: {}".format(self.coordinate_center))
+
 
         if self.add_area:
 
@@ -728,7 +731,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len(self.arena["points"])))
 
                     if len(self.arena["points"]) >= 2:
-                        cv2.line(self.frame, tuple(self.arena[-2]), tuple(self.arena[-1]),
+                        cv2.line(self.frame, tuple(self.arena["points"][-2]), tuple(self.arena["points"][-1]),
                                  color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                         self.display_frame(self.frame)
 
@@ -871,7 +874,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         save defined areas to file
         """
-        file_name, _ = QFileDialog(self).getSaveFileName(self, "Save areas to file", "", "All files (*)")
+        file_name, _ = QFileDialog().getSaveFileName(self, "Save areas to file", "", "All files (*)")
         if file_name:
             with open(file_name, "w") as f_out:
                 for idx in range(self.lw_area_definition.count()):
@@ -883,7 +886,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         save results of objects number by area
         """
         if self.objects_number:
-            file_name, _ = QFileDialog(self).getSaveFileName(self, "Save objects number", "", "All files (*)")
+            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects number", "", "All files (*)")
             out = "\t".join(list(sorted(self.areas.keys()))) + "\n"
             if file_name:
                 for row in self.objects_number:
@@ -908,6 +911,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def plot_path_clicked(self):
+        """
+        plot the path based on recorded coordinates
+        """
 
         if self.positions:
             for n_object in range(len(self.positions[0])):
@@ -1011,16 +1017,43 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                invert=self.cb_invert.isChecked())
 
 
+    def define_coordinate_center(self):
+        """
+        define coordinate system
+        """
+        if self.frame is not None:
+            self.flag_define_coordinate_center = self.actionDefine_coordinate_center.isChecked()
+            self.statusBar.showMessage("You have to select the center of coordinates" * self.flag_define_coordinate_center)
+
+
+    def draw_reference(self):
+        """
+        draw reference (squareof 100px) on frame
+
+        """
+
+        if self.frame is not None:
+            ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
+            print(ratio)
+
+            cv2.rectangle(self.frame, (10, 10), (110, 110), RED, 1)
+            cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
+
+            self.display_frame(self.frame)
+
+
+
+
     def draw_marker_on_objects(self, frame, objects, marker_type=MARKER_TYPE):
         """
         draw marker (rectangle or contour) around objects
         marker color from index of object in COLORS_LIST
         """
 
-        print("draw marker nb of objects:", len(objects))
+        # print("draw marker nb of objects:", len(objects))
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
-            print("draw marker idx", idx)
+            # print("draw marker idx", idx)
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
             if marker_type == "rectangle":
                 cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
@@ -1034,7 +1067,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def display_frame(self, frame):
         """
-        display the current frame in label pixmap
+        display the current frame in viewer
         """
 
         self.fw[0].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[0].lb_frame.size(), Qt.KeepAspectRatio))
@@ -1042,7 +1075,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def display_processed_frame(self, frame):
         """
-        show treated frame
+        show treated frame in viewer
         """
 
         self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
@@ -1064,10 +1097,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   largest_number=self.sb_largest_number.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
+                                                                  previous_objects=self.mem_filtered_objects
                                                                  )
 
         # check filtered objects number
+        # apply clustering when number of objects detected are different then required
         if filtered_objects and len(filtered_objects) != self.sb_largest_number.value():
             contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
             new_contours = doris_functions.apply_k_means(contours_list, self.sb_largest_number.value())
@@ -1091,18 +1126,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     y = n[1]
 
                 new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                    "contour": cnt,
-                                    "area": cv2.contourArea(cnt),
-                                    "min": (int(np.min(x)), int(np.min(y))),
-                                    "max": (int(np.max(x)), int(np.max(y)))
-                                    }
+                                                 "contour": cnt,
+                                                 "area": cv2.contourArea(cnt),
+                                                 "min": (int(np.min(x)), int(np.min(y))),
+                                                 "max": (int(np.max(x)), int(np.max(y)))
+                                                }
             filtered_objects = dict(new_filtered_objects)
 
         # reorder filtered objects
         if filtered_objects:
             filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
-            self.mem_filtered_objects = dict(filtered_objects)
 
+
+        # check max distance from previous detected objects
+        if self.mem_filtered_objects and len(self.mem_filtered_objects) == len(filtered_objects):
+            positions = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
+            mem_positions = [self.mem_filtered_objects[obj_idx]["centroid"] for obj_idx in self.mem_filtered_objects]
+            for idx, p in enumerate(positions):
+                dist = int(round(doris_functions.euclidean_distance(p, mem_positions[idx])))
+                print("distance", dist)
+                if dist > 250:
+                    self.display_frame(self.frame)
+                    self.display_processed_frame(processed_frame)
+
+                    QMessageBox.critical(self, "DORIS", "The object #{} moved to far ({} pixels)".format(idx + 1, dist))
+                    self.flag_stop_analysis = True
+                    return
+
+        self.mem_filtered_objects = dict(filtered_objects)
 
         if self.cb_display_analysis.isChecked():
 
@@ -1283,7 +1334,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        analyze current frame and write info in widgets
+        write objects data in widgets
         """
 
         if self.cb_record_xy.isChecked():
@@ -1296,7 +1347,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             out = ""
             for p in pos:
-                out += "{},{}\t".format(p[0], p[1])
+                out += "{},{}\t".format(p[0] - self.coordinate_center[0], p[1] - self.coordinate_center[1])
             self.te_xy.append(out.strip())
 
 
@@ -1501,7 +1552,7 @@ if __name__ == "__main__":
 
     options = parser.parse_args()
     if options.version:
-        print("version {} release date: {}".format(__version__, __version_date__))
+        print("version {} release date: {}".format(version.__version__, version.__version_date__))
         sys.exit()
 
     app = QApplication(sys.argv)

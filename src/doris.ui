@@ -777,6 +777,8 @@
     </widget>
     <addaction name="menuFrame_viewer_scale"/>
     <addaction name="menuTreatment_viewer_scale"/>
+    <addaction name="actionDraw_reference"/>
+    <addaction name="actionDefine_coordinate_center"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -867,6 +869,19 @@
   <action name="actionOpen_project">
    <property name="text">
     <string>Open project</string>
+   </property>
+  </action>
+  <action name="actionDraw_reference">
+   <property name="text">
+    <string>Draw reference</string>
+   </property>
+  </action>
+  <action name="actionDefine_coordinate_center">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Define coordinate center</string>
    </property>
   </action>
  </widget>

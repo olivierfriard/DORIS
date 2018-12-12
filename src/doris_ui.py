@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.2
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -388,6 +388,11 @@ class Ui_MainWindow(object):
         self.action_treated_2.setObjectName("action_treated_2")
         self.actionOpen_project = QtWidgets.QAction(MainWindow)
         self.actionOpen_project.setObjectName("actionOpen_project")
+        self.actionDraw_reference = QtWidgets.QAction(MainWindow)
+        self.actionDraw_reference.setObjectName("actionDraw_reference")
+        self.actionDefine_coordinate_center = QtWidgets.QAction(MainWindow)
+        self.actionDefine_coordinate_center.setCheckable(True)
+        self.actionDefine_coordinate_center.setObjectName("actionDefine_coordinate_center")
         self.menuFile.addAction(self.actionOpen_video)
         self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
@@ -405,6 +410,8 @@ class Ui_MainWindow(object):
         self.menuTreatment_viewer_scale.addAction(self.action_treated_1_4)
         self.menuSettings.addAction(self.menuFrame_viewer_scale.menuAction())
         self.menuSettings.addAction(self.menuTreatment_viewer_scale.menuAction())
+        self.menuSettings.addAction(self.actionDraw_reference)
+        self.menuSettings.addAction(self.actionDefine_coordinate_center)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
@@ -490,4 +497,6 @@ class Ui_MainWindow(object):
         self.action2.setText(_translate("MainWindow", "2"))
         self.action_treated_2.setText(_translate("MainWindow", "2"))
         self.actionOpen_project.setText(_translate("MainWindow", "Open project"))
+        self.actionDraw_reference.setText(_translate("MainWindow", "Draw reference"))
+        self.actionDefine_coordinate_center.setText(_translate("MainWindow", "Define coordinate center"))
 
