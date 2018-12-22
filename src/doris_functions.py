@@ -252,7 +252,7 @@ def find_circle(points):
 def detect_and_filter_objects(frame,
                               min_size=0,
                               max_size=0,
-                              largest_number=0,
+                              number_of_objects=0,
                               arena={},
                               max_extension=50,
                               tolerance_outside_arena=0.05,
@@ -264,7 +264,7 @@ def detect_and_filter_objects(frame,
         frame: np.array
         min_size (int): minimum size of objects to detect
         max_size (int): maximum size of objects to detect
-        largest_number (int): number of largest objects to select
+        number_of_objects (int): number of objects to return
         arena (list): list of arena
         max_extension (int): maximum extension of object to select
         previous_objects (dict): object(s) detected in previous frame
@@ -376,37 +376,22 @@ def detect_and_filter_objects(frame,
                     obj_to_del_idx.append(idx)
                     continue
 
-    '''
-    # select 'largest_number' largest objects
-    sorted_areas = sorted([all_objects[idx]["area"] for idx in all_objects if idx not in obj_to_del_idx], reverse=True)
-    filtered_objects = {}
-    new_idx = 0
-    for idx in all_objects:
-        if idx in obj_to_del_idx:
-            continue
-        if (sorted_areas.index(all_objects[idx]["area"]) < largest_number):
-            new_idx += 1
-            # min/max
-            n = np.vstack(all_objects[idx]["contour"]).squeeze()
-            x, y = n[:,0], n[:,1]
-
-            filtered_objects[new_idx] = {"centroid": all_objects[idx]["centroid"],
-                                         "contour": all_objects[idx]["contour"],
-                                         "area": all_objects[idx]["area"],
-                                         "min": all_objects[idx]["min"],
-                                         "max": all_objects[idx]["max"]}
-    '''
-
     # remove objects to delete
     for obj_idx in obj_to_del_idx:
         all_objects.pop(obj_idx, None)
 
+    all_objects = dict([(i + 1, all_objects[idx]) for i, idx in enumerate(all_objects.keys())])
 
+    if not number_of_objects: # return all detected objects
+        return all_objects, all_objects
+
+    '''
     # check distances from previous detected objects
     if previous_objects:
+        print("previous objects")
         mem_costs = {}
         obj_indexes = list(all_objects.keys())
-        for indexes in itertools.combinations(obj_indexes, largest_number):
+        for indexes in itertools.combinations(obj_indexes, number_of_objects):
             cost = cost_sum_assignment(previous_objects, dict([(idx, all_objects[idx]) for idx in indexes]))
             print(indexes, cost)
             mem_costs[cost] = indexes
@@ -419,12 +404,13 @@ def detect_and_filter_objects(frame,
 
     else:
 
-        # select 'largest_number' largest objects
+        # select 'number_of_objects' objects
+        print("select objects")
         sorted_areas = sorted([all_objects[idx]["area"] for idx in all_objects if idx not in obj_to_del_idx], reverse=True)
         filtered_objects = {}
         new_idx = 0
         for idx in all_objects:
-            if (sorted_areas.index(all_objects[idx]["area"]) < largest_number):
+            if (sorted_areas.index(all_objects[idx]["area"]) < number_of_objects):
                 new_idx += 1
                 # min/max
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
@@ -436,14 +422,8 @@ def detect_and_filter_objects(frame,
                                              "min": all_objects[idx]["min"],
                                              "max": all_objects[idx]["max"]}
 
-
-        '''
-        for obj_idx in reordered_filtered_objects:
-            print("dist", euclidean_distance(reordered_filtered_objects[obj_idx]["centroid"], previous_objects[obj_idx]["centroid"]))
-        '''
-
     return all_objects, filtered_objects
-
+    '''
 
 def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
     """
@@ -464,21 +444,10 @@ def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
 
         return int(round(distances[row_ind, col_ind].sum()))
 
-        # print("cost", distances[row_ind, col_ind].sum()  )
-
-        '''
-        if not np.array_equal(col_ind, list(range(len(col_ind)))):
-            reordered_object = dict([(idx + 1, objects[k + 1]) for idx, k in enumerate([x for x in col_ind])])
-            return reordered_object, distances[row_ind, col_ind].sum()
-        else:
-            return objects, distances[row_ind, col_ind].sum()
-        '''
-
     else:
         print("len !=")
 
         return None
-
 
 
 def reorder_objects(mem_objects: dict, objects: dict) -> dict:

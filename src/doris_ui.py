@@ -393,6 +393,9 @@ class Ui_MainWindow(object):
         self.actionDefine_coordinate_center = QtWidgets.QAction(MainWindow)
         self.actionDefine_coordinate_center.setCheckable(True)
         self.actionDefine_coordinate_center.setObjectName("actionDefine_coordinate_center")
+        self.actionSelect_objects_to_track = QtWidgets.QAction(MainWindow)
+        self.actionSelect_objects_to_track.setCheckable(True)
+        self.actionSelect_objects_to_track.setObjectName("actionSelect_objects_to_track")
         self.menuFile.addAction(self.actionOpen_video)
         self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
@@ -412,6 +415,7 @@ class Ui_MainWindow(object):
         self.menuSettings.addAction(self.menuTreatment_viewer_scale.menuAction())
         self.menuSettings.addAction(self.actionDraw_reference)
         self.menuSettings.addAction(self.actionDefine_coordinate_center)
+        self.menuSettings.addAction(self.actionSelect_objects_to_track)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
@@ -499,4 +503,5 @@ class Ui_MainWindow(object):
         self.actionOpen_project.setText(_translate("MainWindow", "Open project"))
         self.actionDraw_reference.setText(_translate("MainWindow", "Draw reference"))
         self.actionDefine_coordinate_center.setText(_translate("MainWindow", "Define coordinate center"))
+        self.actionSelect_objects_to_track.setText(_translate("MainWindow", "Select objects to track"))
 

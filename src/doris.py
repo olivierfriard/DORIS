@@ -73,6 +73,7 @@ except ModuleNotFoundError:
     flag_mpl_scatter_density = False
 
 import argparse
+import itertools
 
 import doris_functions
 import version
@@ -81,6 +82,7 @@ from doris_ui import Ui_MainWindow
 
 
 COLORS_LIST = doris_functions.COLORS_LIST
+
 
 class Click_label(QLabel):
 
@@ -116,6 +118,7 @@ class FrameViewer(QWidget):
 
 
 font = FONT
+
 
 def frame2pixmap(frame):
     """
@@ -205,6 +208,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionDraw_reference.triggered.connect(self.draw_reference)
         self.actionDefine_coordinate_center.triggered.connect(self.define_coordinate_center)
+        self.actionSelect_objects_to_track.triggered.connect(self.select_objects_to_track)
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
@@ -294,6 +298,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.add_area = {}
         self.arena = {}
         self.mem_filtered_objects = {}
+        self.all_objects = {}
+        self.objects_to_track = {}
 
         self.dir_images = []
         self.dir_images_index = 0
@@ -316,6 +322,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.threshold_method_changed()
 
+
     def about(self):
 
         modules = []
@@ -327,7 +334,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         modules.append("version {}".format(matplotlib.__version__))
 
         about_dialog = msg = QMessageBox()
-        #about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
+        # about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
         about_dialog.setWindowTitle("About DORIS")
         about_dialog.setStandardButtons(QMessageBox.Ok)
         about_dialog.setDefaultButton(QMessageBox.Ok)
@@ -594,7 +601,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             if event.button() == 1:
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
 
             if self.add_area["type"] == "circle (center radius)":
@@ -617,7 +625,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
                     print(len(self.add_area["points"]))
 
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
@@ -920,7 +929,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 verts = []
                 for row in self.positions:
                     verts.append(row[n_object])
-                doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height), color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
+                doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height),
+                                          color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
         else:
             self.statusBar.showMessage("no positions to be plotted")
 
@@ -1012,9 +1022,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             }
 
         return doris_functions.image_processing(frame,
-                                               blur=self.sb_blur.value(),
-                                               threshold_method=threshold_method,
-                                               invert=self.cb_invert.isChecked())
+                                                blur=self.sb_blur.value(),
+                                                threshold_method=threshold_method,
+                                                invert=self.cb_invert.isChecked())
 
 
     def define_coordinate_center(self):
@@ -1025,6 +1035,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_define_coordinate_center = self.actionDefine_coordinate_center.isChecked()
             self.statusBar.showMessage("You have to select the center of coordinates" * self.flag_define_coordinate_center)
 
+    def select_objects_to_track(self):
+        """
+        select objects to track
+        """
+        
+        text, ok = QInputDialog.getText(self, "Objects to track", 'Objects #id')
+        if ok:
+            objects_to_track_idx = [int(x.strip()) for x in text.replace(" ", "").split(",")]
+            self.objects_to_track = {}
+            for idx in objects_to_track_idx:
+                self.objects_to_track[idx] = dict(self.all_objects[idx])
+            print("objects to track", list(self.objects_to_track.keys()))
 
     def draw_reference(self):
         """
@@ -1094,16 +1116,42 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         (all_objects, filtered_objects) = doris_functions.detect_and_filter_objects(frame=processed_frame,
                                                                   min_size=self.sbMin.value(),
                                                                   max_size=self.sbMax.value(),
-                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  #number_of_objects=self.sb_largest_number.value(),
+                                                                  number_of_objects=0,
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
                                                                   tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
                                                                   previous_objects=self.mem_filtered_objects
                                                                  )
 
+        self.all_objects = all_objects
+        
+        if len(all_objects) < len(self.objects_to_track):
+            QMessageBox.critical(self, "DORIS", "The detected object ({}) are less than objects to track ({})".format(len(all_objects),
+                                                                len(self.objects_to_track)))
+            return
+
+        if self.objects_to_track:
+            print("objects_to_track")
+            mem_costs = {}
+            obj_indexes = list(all_objects.keys())
+            for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
+                cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, all_objects[idx]) for idx in indexes]))
+                print(indexes, cost)
+                mem_costs[cost] = indexes
+
+            min_cost = min(list(mem_costs.keys()))
+            print("min cost", min_cost)
+    
+            self.objects_to_track = dict([(i + 1, all_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
+
+            filtered_objects = self.objects_to_track
+
+
+
         # check filtered objects number
         # apply clustering when number of objects detected are different then required
-        if filtered_objects and len(filtered_objects) != self.sb_largest_number.value():
+        if self.sb_largest_number.value() and filtered_objects and len(filtered_objects) != self.sb_largest_number.value():
             contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
             new_contours = doris_functions.apply_k_means(contours_list, self.sb_largest_number.value())
             # print("new_contours nb", len(new_contours))
@@ -1134,8 +1182,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             filtered_objects = dict(new_filtered_objects)
 
         # reorder filtered objects
+        '''
         if filtered_objects:
             filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
+        '''
 
 
         # check max distance from previous detected objects
@@ -1153,7 +1203,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.flag_stop_analysis = True
                     return
 
-        self.mem_filtered_objects = dict(filtered_objects)
+        '''self.mem_filtered_objects = dict(filtered_objects)'''
 
         if self.cb_display_analysis.isChecked():
 
@@ -1237,13 +1287,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             return
 
         all_objects, _ = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
-                                                                  min_size=self.sbMin.value(),
-                                                                  max_size=self.sbMax.value(),
-                                                                  largest_number=self.sb_largest_number.value(),
-                                                                  arena=self.arena,
-                                                                  max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
-                                                                 )
+                                                                   min_size=self.sbMin.value(),
+                                                                   max_size=self.sbMax.value(),
+                                                                   largest_number=self.sb_largest_number.value(),
+                                                                   arena=self.arena,
+                                                                   max_extension=self.sb_max_extension.value(),
+                                                                   tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                   )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                          all_objects,
@@ -1540,9 +1590,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DORIS (Detection of Objects Research Interactive Software)")
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
-    parser.add_argument("-p", action="store",  dest="project_file", help="path of project file")
-    parser.add_argument("-i", action="store",  dest="video_file", help="path of video file")
-    parser.add_argument("-d", action="store",  dest="directory", help="path of images directory")
+    parser.add_argument("-p", action="store", dest="project_file", help="path of project file")
+    parser.add_argument("-i", action="store", dest="video_file", help="path of video file")
+    parser.add_argument("-d", action="store", dest="directory", help="path of images directory")
     parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
     parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
     parser.add_argument("--threshold", action="store", default=50, dest="threshold", help="Threshold value")

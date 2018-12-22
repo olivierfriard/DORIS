@@ -779,6 +779,7 @@
     <addaction name="menuTreatment_viewer_scale"/>
     <addaction name="actionDraw_reference"/>
     <addaction name="actionDefine_coordinate_center"/>
+    <addaction name="actionSelect_objects_to_track"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -882,6 +883,14 @@
    </property>
    <property name="text">
     <string>Define coordinate center</string>
+   </property>
+  </action>
+  <action name="actionSelect_objects_to_track">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Select objects to track</string>
    </property>
   </action>
  </widget>
