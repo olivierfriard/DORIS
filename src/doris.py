@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2018 Olivier Friard
+Copyright 2017-2019 Olivier Friard
 
 This file is part of DORIS.
 
@@ -48,6 +48,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
                              QSizePolicy)
 
+import logging
 import os
 import platform
 import json
@@ -79,6 +80,10 @@ import doris_functions
 import version
 from config import *
 from doris_ui import Ui_MainWindow
+
+
+logging.basicConfig(level=logging.INFO)
+
 
 
 COLORS_LIST = doris_functions.COLORS_LIST
@@ -252,7 +257,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sbMin.valueChanged.connect(self.process_and_show)
         self.sbMax.valueChanged.connect(self.process_and_show)
 
-        self.sb_largest_number.valueChanged.connect(self.process_and_show)
+        '''self.sb_largest_number.valueChanged.connect(self.process_and_show)'''
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
@@ -324,6 +329,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def about(self):
+        """
+        About dialog box
+        """
 
         modules = []
         modules.append("OpenCV")
@@ -394,7 +402,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
-        config["number_of_objects_to_detect"] = self.sb_largest_number.value()
+        '''config["number_of_objects_to_detect"] = self.sb_largest_number.value()'''
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
@@ -588,8 +596,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.display_frame(self.frame)
             self.flag_define_coordinate_center = False
-            self.actionDefine_coordinate_center.setChecked(False)
-            self.statusBar.showMessage("Center of coordinates defined: {}".format(self.coordinate_center))
+            self.le_coordinates_center.setText(f"{self.coordinate_center}")
+            self.statusBar.showMessage(f"Center of coordinates defined")
 
 
         if self.add_area:
@@ -825,8 +833,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not self.pb(1):
             return
 
-        # self.analysis(results)
-
 
     def reset_xy_analysis(self):
         """
@@ -943,6 +949,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not file_name:
             file_name, _ = QFileDialog(self).getOpenFileName(self, "Open video", "", "All files (*)")
         if file_name:
+            if not os.path.isfile(file_name):
+                QMessageBox.critical(self, "DORIS", f"{file_name} not found")
+                return
+
             self.capture = cv2.VideoCapture(file_name)
 
             if not self.capture.isOpened():
@@ -1029,24 +1039,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def define_coordinate_center(self):
         """
-        define coordinate system
+        define coordinates center
         """
         if self.frame is not None:
-            self.flag_define_coordinate_center = self.actionDefine_coordinate_center.isChecked()
+            self.flag_define_coordinate_center = True
             self.statusBar.showMessage("You have to select the center of coordinates" * self.flag_define_coordinate_center)
+
 
     def select_objects_to_track(self):
         """
         select objects to track
         """
-        
-        text, ok = QInputDialog.getText(self, "Objects to track", 'Objects #id')
+
+        text, ok = QInputDialog.getText(self, "Objects to track", "Objects #id (use comma to separate id)")
         if ok:
             objects_to_track_idx = [int(x.strip()) for x in text.replace(" ", "").split(",")]
             self.objects_to_track = {}
             for idx in objects_to_track_idx:
-                self.objects_to_track[idx] = dict(self.all_objects[idx])
-            print("objects to track", list(self.objects_to_track.keys()))
+                self.objects_to_track[idx] = dict(self.filtered_objects[idx])
+            logging.info("objects to track: {}".format(list(self.objects_to_track.keys())))
+
 
     def draw_reference(self):
         """
@@ -1062,7 +1074,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
 
             self.display_frame(self.frame)
-
 
 
 
@@ -1108,6 +1119,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         process frame and show results
         """
 
+        logging.debug("process_and_show")
+
         if self.frame is None:
             return
 
@@ -1117,44 +1130,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   min_size=self.sbMin.value(),
                                                                   max_size=self.sbMax.value(),
                                                                   #number_of_objects=self.sb_largest_number.value(),
-                                                                  number_of_objects=0,
+                                                                  #number_of_objects=0,
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
                                                                   tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
                                                                   previous_objects=self.mem_filtered_objects
                                                                  )
 
-        self.all_objects = all_objects
-        
-        if len(all_objects) < len(self.objects_to_track):
-            QMessageBox.critical(self, "DORIS", "The detected object ({}) are less than objects to track ({})".format(len(all_objects),
-                                                                len(self.objects_to_track)))
-            return
-
-        if self.objects_to_track:
-            print("objects_to_track")
-            mem_costs = {}
-            obj_indexes = list(all_objects.keys())
-            for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
-                cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, all_objects[idx]) for idx in indexes]))
-                print(indexes, cost)
-                mem_costs[cost] = indexes
-
-            min_cost = min(list(mem_costs.keys()))
-            print("min cost", min_cost)
-    
-            self.objects_to_track = dict([(i + 1, all_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-
-            filtered_objects = self.objects_to_track
-
-
+        logging.info("number of all filtered objects: {}".format(len(filtered_objects)))
+        logging.info("self.objects_to_track: {}".format(list(self.objects_to_track.keys())))
 
         # check filtered objects number
         # apply clustering when number of objects detected are different then required
-        if self.sb_largest_number.value() and filtered_objects and len(filtered_objects) != self.sb_largest_number.value():
+        if len(filtered_objects) < len(self.objects_to_track):
+
+            logging.info("clustering")
+
             contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-            new_contours = doris_functions.apply_k_means(contours_list, self.sb_largest_number.value())
-            # print("new_contours nb", len(new_contours))
+            new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
 
             new_filtered_objects = {}
             # add info to objects: centroid, area ...
@@ -1181,14 +1174,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                 }
             filtered_objects = dict(new_filtered_objects)
 
-        # reorder filtered objects
-        '''
-        if filtered_objects:
-            filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
-        '''
+
+
+        if self.objects_to_track:
+            mem_costs = {}
+            obj_indexes = list(filtered_objects.keys())
+            # iterate all combinations of detected objects of length( self.objects_to_track)
+            logging.info("combinations of filtered objects: {}".format(obj_indexes))
+            for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
+                cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                logging.info(f"index: {indexes} cost: {cost}")
+                mem_costs[cost] = indexes
+
+            min_cost = min(list(mem_costs.keys()))
+            logging.info(f"minimal cost: {min_cost}")
+
+            # select new objects to track
+
+
+            new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
+            logging.info("new objects to track : {}".format(list(new_objects_to_track.keys())))
+
+            self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
+
+            filtered_objects = self.objects_to_track
+
+
+        self.filtered_objects = filtered_objects
+
 
 
         # check max distance from previous detected objects
+        '''
         if self.mem_filtered_objects and len(self.mem_filtered_objects) == len(filtered_objects):
             positions = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
             mem_positions = [self.mem_filtered_objects[obj_idx]["centroid"] for obj_idx in self.mem_filtered_objects]
@@ -1203,11 +1220,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.flag_stop_analysis = True
                     return
 
-        '''self.mem_filtered_objects = dict(filtered_objects)'''
+        self.mem_filtered_objects = dict(filtered_objects)
+        '''
 
         if self.cb_display_analysis.isChecked():
 
-            self.update_info(all_objects, filtered_objects)
+            self.update_info(all_objects, filtered_objects, self.objects_to_track)
 
             # draw contour of objects
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1289,7 +1307,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         all_objects, _ = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
                                                                    min_size=self.sbMin.value(),
                                                                    max_size=self.sbMax.value(),
-                                                                   largest_number=self.sb_largest_number.value(),
+                                                                   #largest_number=self.sb_largest_number.value(),
                                                                    arena=self.arena,
                                                                    max_extension=self.sb_max_extension.value(),
                                                                    tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
@@ -1330,25 +1348,36 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def update_info(self, all_objects, filtered_objects):
+    def update_info(self, all_objects, filtered_objects, tracked_objects=None):
 
         # update information on GUI
-        self.lb_all.setText("All objects detected ({})".format(len(all_objects)))
+        self.lb_all.setText("All detected objects ({})".format(len(all_objects)))
         out = ""
         for idx in sorted(all_objects.keys()):
-            out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
+            out += "Object #{}: {} px\n".format(idx, all_objects[idx]["area"])
         self.te_all_objects.setText(out)
 
         self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
+
+
+        '''
         if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
             self.lb_filtered.setStyleSheet('color: red')
         else:
             self.lb_filtered.setStyleSheet("")
+        '''
 
         out = ""
         for idx in filtered_objects:
-            out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
-        self.te_objects.setText(out)
+            out += "Object #{}: {} px\n".format(idx, filtered_objects[idx]["area"])
+        self.te_filtered_objects.setText(out)
+
+        if tracked_objects:
+            out = ""
+            for idx in tracked_objects:
+                out += "Object #{}: {} px\n".format(idx, tracked_objects[idx]["area"])
+            self.te_tracked_objects.setText(out)
+
 
 
     def pb(self, nf=1):
@@ -1489,7 +1518,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
+
         if file_name:
+            if not os.path.isfile(file_name):
+                QMessageBox.critical(self, "DORIS", f"{file_name} not found")
+
             try:
                 with open(file_name) as f_in:
                     config = json.loads(f_in.read())
@@ -1518,10 +1551,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.sbMax.setValue(config["max_object_size"])
                 except:
                     pass
+                '''
                 try:
                     self.sb_largest_number.setValue(config["number_of_objects_to_detect"])
                 except:
                     pass
+                '''
                 try:
                     self.sb_max_extension.setValue(config["object_max_extension"])
                 except:
@@ -1570,6 +1605,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     try:
                         if os.path.isfile(config["video_file_path"]):
                             self.open_video(config["video_file_path"])
+                        else:
+                            QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
                     except Exception:
                         pass
 
@@ -1577,6 +1614,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     try:
                         if os.path.isdir(config["dir_images"]):
                             self.load_dir_images(config["dir_images"])
+                        else:
+                            QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
                     except Exception:
                         pass
 
@@ -1611,7 +1650,9 @@ if __name__ == "__main__":
     if options.project_file:
         if os.path.isfile(options.project_file):
             w.open_project(options.project_file)
-
+        else:
+            print(f"{options.project_file} not found!")
+            sys.exit()
     else:
 
         if options.blur:

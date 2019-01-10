@@ -5,7 +5,7 @@ DORIS (Detection of Objects Research Interactive Software)
 Requirements
 ============
 
-* python >= 3.4
+* python >= 3.6
 * pyqt5
 * numpy
 * matplotlib

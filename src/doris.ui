@@ -14,7 +14,7 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_4">
+   <layout class="QVBoxLayout" name="verticalLayout_9">
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_5">
       <item>
@@ -78,7 +78,7 @@
          <number>10</number>
         </property>
         <property name="value">
-         <number>10</number>
+         <number>1</number>
         </property>
        </widget>
       </item>
@@ -323,7 +323,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_18">
+     <layout class="QHBoxLayout" name="horizontalLayout_9">
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
@@ -402,6 +402,9 @@
          <layout class="QHBoxLayout" name="horizontalLayout_7">
           <item>
            <widget class="QLabel" name="label_7">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Number of largest objects</string>
             </property>
@@ -409,6 +412,9 @@
           </item>
           <item>
            <widget class="QSpinBox" name="sb_largest_number">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="maximum">
              <number>999</number>
             </property>
@@ -479,48 +485,65 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_9">
+       <layout class="QVBoxLayout" name="verticalLayout">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout">
-          <item>
-           <widget class="QLabel" name="lb_all">
-            <property name="text">
-             <string>All detected objects</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QTextEdit" name="te_all_objects"/>
-          </item>
-          <item>
-           <widget class="QPushButton" name="pb_show_all_objects">
-            <property name="text">
-             <string>Show all objects</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QLabel" name="lb_all">
+          <property name="text">
+           <string>All detected objects</string>
+          </property>
+         </widget>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_2">
-          <item>
-           <widget class="QLabel" name="lb_filtered">
-            <property name="text">
-             <string>Filtered objects</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QTextEdit" name="te_objects">
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>16777215</height>
-             </size>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QTextEdit" name="te_all_objects"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pb_show_all_objects">
+          <property name="text">
+           <string>Show all objects</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QLabel" name="lb_filtered">
+          <property name="text">
+           <string>Filtered objects</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="te_filtered_objects">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="verticalLayout_4">
+        <item>
+         <widget class="QLabel" name="lb_filtered_2">
+          <property name="text">
+           <string>Tracked objects</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="te_tracked_objects">
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>16777215</height>
+           </size>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -538,6 +561,24 @@
        <layout class="QVBoxLayout" name="verticalLayout_6">
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_5">
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayout_11">
+            <item>
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>Coordinates center</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLineEdit" name="le_coordinates_center">
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
           <item>
            <widget class="QCheckBox" name="cb_record_xy">
             <property name="text">
@@ -881,13 +922,16 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Define coordinate center</string>
    </property>
   </action>
   <action name="actionSelect_objects_to_track">
    <property name="checkable">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="text">
     <string>Select objects to track</string>

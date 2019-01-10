@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2018 Olivier Friard
+Copyright 2017-2019 Olivier Friard
 
 This file is part of DORIS.
 
@@ -252,7 +252,7 @@ def find_circle(points):
 def detect_and_filter_objects(frame,
                               min_size=0,
                               max_size=0,
-                              number_of_objects=0,
+                              #number_of_objects=0,
                               arena={},
                               max_extension=50,
                               tolerance_outside_arena=0.05,
@@ -300,7 +300,7 @@ def detect_and_filter_objects(frame,
                             "max": (int(np.max(x)), int(np.max(y)))
                             }
 
-    # record objects that not match conditions
+    # record objects that not match conditions (for deleting)
     obj_to_del_idx = []
     for idx in all_objects:
 
@@ -376,14 +376,24 @@ def detect_and_filter_objects(frame,
                     obj_to_del_idx.append(idx)
                     continue
 
+    filtered_objects = {}
+    for obj_idx in all_objects:
+        if obj_idx not in obj_to_del_idx:
+            filtered_objects[obj_idx] = dict(all_objects[obj_idx])
+
+
+
     # remove objects to delete
+    '''
     for obj_idx in obj_to_del_idx:
         all_objects.pop(obj_idx, None)
+    '''
 
-    all_objects = dict([(i + 1, all_objects[idx]) for i, idx in enumerate(all_objects.keys())])
+    # reorder filtered objects starting from #1
+    filtered_objects = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(filtered_objects.keys())])
 
-    if not number_of_objects: # return all detected objects
-        return all_objects, all_objects
+
+    return all_objects, filtered_objects
 
     '''
     # check distances from previous detected objects
@@ -436,7 +446,6 @@ def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
 
         p1 = np.array(mem_positions)
         p2 = np.array(positions)
-        # print(p1, p2)
 
         distances = cdist(p1, p2)
 
