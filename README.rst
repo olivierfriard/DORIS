@@ -2,6 +2,15 @@
 DORIS (Detection of Objects Research Interactive Software)
 ################################################################
 
+
+
+
+This project is at an early stage of development. Please report any bugs and suggestions using the GitHub issues tracker.
+
+
+This project was inspired from the great **Tracktor project**: https://github.com/vivekhsridhar/tracktor
+
+
 Requirements
 ============
 

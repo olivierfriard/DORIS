@@ -26,6 +26,7 @@ import cv2
 import numpy as np
 import struct
 import itertools
+import logging
 #np.set_printoptions(threshold="nan")
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
@@ -142,9 +143,10 @@ def apply_k_means(contours, n_inds):
     meas_now: array_like, dtype=float
         individual's location on current frame
     """
-    #del meas_now[:]
-    print("kmeans")
+
+    logging.debug("apply kmeans")
     centroids = []
+
     print("contours[0]", type(contours[0]))
     # Clustering contours to separate individuals
     myarray = np.vstack(contours)

@@ -84,7 +84,7 @@ from doris_ui import Ui_MainWindow
 
 logging.basicConfig(level=logging.INFO)
 
-
+DEFAULT_FRAME_SCALE = 1
 COLORS_LIST = doris_functions.COLORS_LIST
 
 
@@ -313,6 +313,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
+        self.pb_separate_objects.clicked.connect(self.separate_objects)
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
@@ -1026,7 +1027,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # default scale
             for idx in range(2):
-                self.frame_viewer_scale(idx, 0.5)
+                self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
 
             self.statusBar.showMessage("video loaded ({}x{})".format(self.video_width, self.video_height))
@@ -1036,7 +1037,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         Load directory of images
         """
-        print("loading dir images")
+        logging.debug("loading dir images")
+
         if not dir_images:
             dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
         if dir_images:
@@ -1049,7 +1051,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images_index = 0
             self.pb()
 
-            print("self.frame.shape", self.frame.shape)
+            logging.info(f"self.frame.shape: {self.frame.shape}")
 
             self.video_height, self.video_width, _ = self.frame.shape
 
@@ -1216,7 +1218,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # apply clustering when number of objects detected are different then required
         if len(filtered_objects) < len(self.objects_to_track):
 
-            logging.info("clustering")
+            logging.info("kmean clustering")
 
             contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
             new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
@@ -1390,6 +1392,50 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.display_frame(frame_with_objects)
 
 
+    def separate_objects(self):
+        """
+        separate initial aggregated objects using k-means clustering
+        """
+        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects", "number of objects:", 28, 0, 100, 1)
+        if not ok_pressed:
+            return
+
+        contours_list = [self.filtered_objects[x]["contour"] for x in self.filtered_objects]
+        new_contours = doris_functions.apply_k_means(contours_list, nb_obj)
+
+        new_filtered_objects = {}
+        # add info to objects: centroid, area ...
+        for idx, cnt in enumerate(new_contours):
+            # print("cnt", type(cnt))
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = 0, 0
+            n = np.vstack(cnt).squeeze()
+            try:
+                x, y = n[:, 0], n[:, 1]
+            except Exception:
+                x = n[0]
+                y = n[1]
+
+            new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                             "contour": cnt,
+                                             "area": cv2.contourArea(cnt),
+                                             "min": (int(np.min(x)), int(np.min(y))),
+                                             "max": (int(np.max(x)), int(np.max(y)))
+                                            }
+        self.filtered_objects = dict(new_filtered_objects)
+
+        # draw contour of objects
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                         self.filtered_objects,
+                                                         marker_type=MARKER_TYPE)
+
+        self.display_frame(frame_with_objects)
+
+
     def closeEvent(self, event):
         try:
             self.capture.release()
@@ -1420,6 +1466,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def update_info(self, all_objects, filtered_objects, tracked_objects=None):
+        """
+        update info about objects in text edit boxes
+        """
 
         # update information on GUI
         self.lb_all.setText("All detected objects ({})".format(len(all_objects)))
@@ -1429,7 +1478,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.te_all_objects.setText(out)
 
         self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
-
 
         '''
         if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():

@@ -524,6 +524,13 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QPushButton" name="pb_separate_objects">
+          <property name="text">
+           <string>Separate objects</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item>
