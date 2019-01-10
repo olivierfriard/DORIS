@@ -43,10 +43,10 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
-from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar,
+from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
-                             QSizePolicy)
+                             QSizePolicy, QCheckBox, QHBoxLayout, QPushButton)
 
 import logging
 import os
@@ -85,8 +85,59 @@ from doris_ui import Ui_MainWindow
 logging.basicConfig(level=logging.INFO)
 
 
-
 COLORS_LIST = doris_functions.COLORS_LIST
+
+
+class Input_dialog(QDialog):
+    """
+    dialog for user input. Elements can be checkbox, lineedit, spinbox
+
+    """
+
+    def __init__(self, label_caption, elements_list):
+        super().__init__()
+
+        hbox = QVBoxLayout()
+        self.label = QLabel()
+        self.label.setText(label_caption)
+        hbox.addWidget(self.label)
+
+        self.elements = {}
+        for element in elements_list:
+            if element[0] == "cb":
+                self.elements[element[1]] = QCheckBox(element[1])
+                self.elements[element[1]].setChecked(element[2])
+                hbox.addWidget(self.elements[element[1]])
+            if element[0] == "le":
+                lb = QLabel(element[1])
+                hbox.addWidget(lb)
+                self.elements[element[1]] = QLineEdit()
+                hbox.addWidget(self.elements[element[1]])
+            if element[0] == "sb":
+                lb = QLabel(element[1])
+                hbox.addWidget(lb)
+                self.elements[element[1]] = QSpinBox()
+                self.elements[element[1]].setRange(element[2], element[3])
+                self.elements[element[1]].setSingleStep(element[4])
+                self.elements[element[1]].setValue(element[5])
+                hbox.addWidget(self.elements[element[1]])
+
+        hbox2 = QHBoxLayout()
+
+        self.pbCancel = QPushButton("Cancel")
+        self.pbCancel.clicked.connect(self.reject)
+        hbox2.addWidget(self.pbCancel)
+
+        self.pbOK = QPushButton("OK")
+        self.pbOK.clicked.connect(self.accept)
+        self.pbOK.setDefault(True)
+        hbox2.addWidget(self.pbOK)
+
+        hbox.addLayout(hbox2)
+
+        self.setLayout(hbox)
+
+        self.setWindowTitle("title")
 
 
 class Click_label(QLabel):
@@ -188,6 +239,8 @@ def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
 
 
 
+
+
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def __init__(self, parent=None):
@@ -257,7 +310,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sbMin.valueChanged.connect(self.process_and_show)
         self.sbMax.valueChanged.connect(self.process_and_show)
 
-        '''self.sb_largest_number.valueChanged.connect(self.process_and_show)'''
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
@@ -367,6 +419,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setDetailedText(details)
 
         _ = about_dialog.exec_()
+
+
 
 
     def threshold_method_changed(self):
@@ -729,7 +783,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
 
-                    '''self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}'''
                     self.arena = {**self.arena, **{"type": "polygon", "name": "arena"}}
 
                     self.le_arena.setText("{}".format(self.arena))
@@ -830,7 +883,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         go to next frame
         """
-        if not self.pb(1):
+        if not self.pb():
             return
 
 
@@ -967,7 +1020,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.frame_idx = 0
             self.update_frame_index()
-            self.pb(1)
+            self.pb()
             self.video_height, self.video_width, _ = self.frame.shape
             self.videoFileName = file_name
 
@@ -994,7 +1047,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.lb_frames.setText("<b>{}</b> images".format(self.total_frame_nb))
 
             self.dir_images_index = 0
-            self.pb(1)
+            self.pb()
 
             print("self.frame.shape", self.frame.shape)
 
@@ -1051,6 +1104,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         select objects to track
         """
 
+        '''
         text, ok = QInputDialog.getText(self, "Objects to track", "Objects #id (use comma to separate id)")
         if ok:
             objects_to_track_idx = [int(x.strip()) for x in text.replace(" ", "").split(",")]
@@ -1058,6 +1112,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for idx in objects_to_track_idx:
                 self.objects_to_track[idx] = dict(self.filtered_objects[idx])
             logging.info("objects to track: {}".format(list(self.objects_to_track.keys())))
+        '''
+
+        elements = []
+        for idx in self.filtered_objects:
+            elements.append(("cb", f"Object # {idx}", False))
+        ib = Input_dialog("Select the objects to track", elements)
+
+        if not ib.exec_():
+            return
+
+        print(ib.elements)
+        self.objects_to_track = {}
+        for idx in ib.elements:
+            if ib.elements[idx].isChecked():
+                self.objects_to_track[idx] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
+
+
+
 
 
     def draw_reference(self):
@@ -1307,7 +1379,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         all_objects, _ = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
                                                                    min_size=self.sbMin.value(),
                                                                    max_size=self.sbMax.value(),
-                                                                   #largest_number=self.sb_largest_number.value(),
                                                                    arena=self.arena,
                                                                    max_extension=self.sb_max_extension.value(),
                                                                    tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
@@ -1380,17 +1451,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
 
-    def pb(self, nf=1):
+    def pb(self) -> bool:
         """
-        read 'nf' frames and do some analysis
+        read next frame and do some analysis
+
+        Returns:
+            bool: True if frame else False
         """
+
         if self.dir_images:
             if self.dir_images_index < len(self.dir_images) - 1:
                 self.dir_images_index += 1
             else:
                 self.flag_stop_analysis = False
                 self.statusBar.showMessage("Last image of dir")
-                return False, {}
+                return False
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
         else:
@@ -1398,9 +1473,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.capture is not None:
                 ret, self.frame = self.capture.read()
                 if not ret:
-                    return False, {}
+                    return False
             else:
-                return False, {}
+                return False
 
         self.update_frame_index()
 
@@ -1408,7 +1483,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         app.processEvents()
 
-        return True  # , {"frame": self.frame_idx, "objects": filtered_objects}
+        return True
 
 
     def record_objects_data(self, frame_idx, objects):
@@ -1496,10 +1571,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         while True:
             if not self.pb():
+                logging.info("analysis finished")
                 break
 
             app.processEvents()
             if self.flag_stop_analysis:
+                logging.info("analysis stopped")
                 break
 
         self.flag_stop_analysis = False
@@ -1551,12 +1628,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.sbMax.setValue(config["max_object_size"])
                 except:
                     pass
-                '''
-                try:
-                    self.sb_largest_number.setValue(config["number_of_objects_to_detect"])
-                except:
-                    pass
-                '''
                 try:
                     self.sb_max_extension.setValue(config["object_max_extension"])
                 except:
