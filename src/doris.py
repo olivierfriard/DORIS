@@ -314,7 +314,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
-        self.pb_separate_objects.clicked.connect(self.separate_objects)
+        self.pb_separate_objects.clicked.connect(self.force_objects_number)
+        self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
@@ -503,6 +504,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if fw_idx == 0:
             self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
                                                                                Qt.KeepAspectRatio))
+            self.frame_width = self.fw[fw_idx].lb_frame.width()
+
         if fw_idx == 1:
             processed_frame = self.frame_processing(self.frame)
             self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
@@ -615,16 +618,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-    def ratio_thickness(self, video_width, frame_width):
+    def ratio_thickness(self, video_width: int, frame_width: int) -> (float,int):
         """
         return ratio and pen thickness for contours according to video resolution
         """
+
+        logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
 
         ratio = video_width / frame_width
         if ratio <= 1:
             drawing_thickness = 1
         else:
             drawing_thickness = round(ratio)
+
+        logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
+
         return ratio, drawing_thickness
 
 
@@ -906,17 +914,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.coord_df is not None:
             file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
-            '''out = ""'''
             if file_name:
                 self.coord_df.to_csv(file_name)
-                '''
-                for row in self.positions:
-                    for obj in row:
-                        out += f"{obj[0]},{obj[1]}\t"
-                    out = out.strip() + "\n"
-                with open(file_name, "w") as f_in:
-                    f_in.write(out)
-                '''
         else:
             QMessageBox.warning(self, "DORIS", "no positions to be saved")
 
@@ -927,7 +926,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         format required:
         area_name; circle; x_center,y_center; radius; red_level, green_level, blue_level
         area_name; rectangle; x_min,y_min; x_max,y_max; red_level, green_level, blue_level
+
+        Args:
+            file_name (str): file path
         """
+
         if not file_name:
             file_name, _ = QFileDialog(self).getOpenFileName(self, "Load areas from file", "", "All files (*)")
         if file_name:
@@ -1001,15 +1004,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         plot the path based on recorded coordinates
         """
 
-        if self.positions:
-            for n_object in range(len(self.positions[0])):
-                verts = []
-                for row in self.positions:
-                    verts.append(row[n_object])
-                doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height),
-                                          color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
-        else:
+        '''
+        if self.coord_df is None:
             self.statusBar.showMessage("no positions to be plotted")
+            return
+
+        for n_object in range(len(self.positions[0])):
+            verts = []
+            for row in self.positions:
+                verts.append(row[n_object])
+            doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height),
+                                      color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
+            '''
+        doris_functions.plot_positions(self.coord_df,
+                                       x_lim=(0, self.video_width),
+                                       y_lim=(0, self.video_height))
+
 
 
     def open_video(self, file_name):
@@ -1146,6 +1156,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.info(f"objects to track: {list(self.objects_to_track.keys())}")
 
+        self.process_and_show()
 
 
     def draw_reference(self):
@@ -1156,7 +1167,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.frame is not None:
             ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
-            print(ratio)
 
             cv2.rectangle(self.frame, (10, 10), (110, 110), RED, 1)
             cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
@@ -1207,7 +1217,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         process frame and show results
         """
 
-        logging.debug("process_and_show")
+        logging.debug("process_and_show function")
 
         if self.frame is None:
             return
@@ -1229,7 +1239,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.info("self.objects_to_track: {}".format(list(self.objects_to_track.keys())))
 
         # check filtered objects number
-        # apply clustering when number of objects detected are different then required
+        # apply clustering when number of filtered objects are lower than tracked objects
         if len(filtered_objects) < len(self.objects_to_track):
 
             logging.info("kmean clustering")
@@ -1283,7 +1293,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
-            filtered_objects = self.objects_to_track
+            #filtered_objects = self.objects_to_track
 
         self.filtered_objects = filtered_objects
 
@@ -1312,9 +1322,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.update_info(all_objects, filtered_objects, self.objects_to_track)
 
             # draw contour of objects
-            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                             filtered_objects,
-                                                             marker_type=MARKER_TYPE)
+            if self.objects_to_track:
+                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                 #filtered_objects,
+                                                                 self.objects_to_track,
+                                                                 marker_type=MARKER_TYPE)
+            else:
+                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                 self.filtered_objects,
+                                                                 #self.objects_to_track,
+                                                                 marker_type=MARKER_TYPE)
+
 
             _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
@@ -1368,7 +1386,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_processed_frame(processed_frame)
 
         #  record objects data
-        self.record_objects_data(self.frame_idx, filtered_objects)
+        self.record_objects_data(self.frame_idx, self.objects_to_track)
 
         '''
         self.update_info(all_objects, filtered_objects)
@@ -1402,11 +1420,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.display_frame(frame_with_objects)
 
 
-    def separate_objects(self):
+    def force_objects_number(self):
         """
         separate initial aggregated objects using k-means clustering
         """
-        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects", "number of objects:", 28, 0, 100, 1)
+
+        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects", "number of objects:", 1, 1, 1000, 1)
         if not ok_pressed:
             return
 
@@ -1437,6 +1456,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                              "max": (int(np.max(x)), int(np.max(y)))
                                             }
         self.filtered_objects = dict(new_filtered_objects)
+
+        self.update_info(all_objects=None,
+                         filtered_objects=self.filtered_objects,
+                         tracked_objects=self.objects_to_track)
 
         # draw contour of objects
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1481,20 +1504,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         # update information on GUI
-        self.lb_all.setText("All detected objects ({})".format(len(all_objects)))
-        out = ""
-        for idx in sorted(all_objects.keys()):
-            out += "Object #{}: {} px\n".format(idx, all_objects[idx]["area"])
-        self.te_all_objects.setText(out)
+        if all_objects is not None:
+            self.lb_all.setText("All detected objects ({})".format(len(all_objects)))
+            out = ""
+            for idx in sorted(all_objects.keys()):
+                out += "Object #{}: {} px\n".format(idx, all_objects[idx]["area"])
+            self.te_all_objects.setText(out)
 
         self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
-
-        '''
-        if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
-            self.lb_filtered.setStyleSheet('color: red')
-        else:
-            self.lb_filtered.setStyleSheet("")
-        '''
 
         out = ""
         for idx in filtered_objects:
@@ -1502,10 +1519,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.te_filtered_objects.setText(out)
 
         if tracked_objects:
+            self.lb_tracked_objects.setStyleSheet("")
             out = ""
             for idx in tracked_objects:
                 out += "Object #{}: {} px\n".format(idx, tracked_objects[idx]["area"])
             self.te_tracked_objects.setText(out)
+        else:
+            self.lb_tracked_objects.setStyleSheet("color: red")
 
 
 
@@ -1550,6 +1570,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         if self.cb_record_xy.isChecked():
+            if self.coord_df is None:
+                QMessageBox.warning(self, "DORIS", "No objects to track")
+                return
 
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 

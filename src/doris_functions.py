@@ -79,7 +79,10 @@ def rgbstr_to_tuple(rgb_str):
 COLORS_LIST = [rgbstr_to_tuple(x) for x in RGBSTR_COLORS_LIST]
 
 
-def plot_path(verts, x_lim, y_lim, color):
+def plot_path_old(verts, x_lim, y_lim, color):
+    """
+    plot path
+    """
 
     # invert verts y
     verts = [(x[0], y_lim[1] - x[1]) for x in verts]
@@ -98,6 +101,35 @@ def plot_path(verts, x_lim, y_lim, color):
     ax.set_ylim(y_lim)
 
     plt.show()
+
+
+def plot_positions(df, x_lim, y_lim,):
+    """
+    plot path
+
+    Args:
+        df (pandas.dataframe):
+        x_lim (tuple of int): plot x limits
+        y_lim (tuple of int): plot y limits
+    """
+
+    #plt.figure(figsize=(5,5))
+
+    plt.figure()
+    axes = plt.gca()
+
+    for idx in range(1, int((len(df.columns) - 1)/2) +1):
+        # flip y axe
+        df[f"y{idx}"] = y_lim[1] - df[f"y{idx}"]
+        plt.scatter(df[f"x{idx}"], df[f"y{idx}"], cmap='jet', alpha=0.5)
+
+    axes.set_xlim(x_lim)
+    axes.set_ylim(y_lim)
+
+
+    plt.tight_layout()
+    plt.show()
+
 
 
 def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
@@ -436,6 +468,7 @@ def detect_and_filter_objects(frame,
 
     return all_objects, filtered_objects
     '''
+
 
 def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
     """
