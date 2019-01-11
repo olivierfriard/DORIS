@@ -16,14 +16,19 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_9">
     <item>
+     <widget class="QLabel" name="lb_frames">
+      <property name="font">
+       <font>
+        <pointsize>14</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Number of frames: </string>
+      </property>
+     </widget>
+    </item>
+    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_5">
-      <item>
-       <widget class="QLabel" name="lb_frames">
-        <property name="text">
-         <string>Number of frames: </string>
-        </property>
-       </widget>
-      </item>
       <item>
        <widget class="QPushButton" name="pb_1st_frame">
         <property name="text">
@@ -499,7 +504,7 @@
         <item>
          <widget class="QPushButton" name="pb_show_all_objects">
           <property name="text">
-           <string>Show all objects</string>
+           <string>Display all objects</string>
           </property>
          </widget>
         </item>
@@ -521,6 +526,13 @@
             <width>16777215</width>
             <height>16777215</height>
            </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pb_show_all_filtered_objects">
+          <property name="text">
+           <string>Display all filtered objects</string>
           </property>
          </widget>
         </item>

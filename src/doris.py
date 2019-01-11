@@ -61,6 +61,7 @@ import copy
 import sys
 import time
 import pathlib
+import datetime as dt
 import math
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -314,6 +315,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
+        self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
         self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
 
@@ -1085,7 +1087,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
 
-        self.lb_frames.setText(f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb} Time: <b>{self.frame_idx/self.fps}</b> seconds")
+        self.lb_frames.setText((f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}&nbsp;&nbsp;&nbsp;&nbsp;"
+                                f"Time: <b>{dt.timedelta(seconds=round(self.frame_idx/self.fps, 3))}</b>&nbsp;&nbsp;&nbsp;&nbsp;"
+                                f"({self.frame_idx/self.fps:.3f} seconds)"))
 
 
     def frame_processing(self, frame):
@@ -1388,7 +1392,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def show_all_objects(self):
         """
-
+        display all objects on frame
         """
         if self.frame is None:
             return
@@ -1403,6 +1407,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                          all_objects,
+                                                         marker_type="contour")
+        self.display_frame(frame_with_objects)
+
+
+
+    def show_all_filtered_objects(self):
+        """
+        display all filtered objects on frame
+        """
+        if self.frame is None:
+            return
+
+        _, filtered_objects = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
+                                                                        min_size=self.sbMin.value(),
+                                                                        max_size=self.sbMax.value(),
+                                                                        arena=self.arena,
+                                                                        max_extension=self.sb_max_extension.value(),
+                                                                        tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                        )
+
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                         filtered_objects,
                                                          marker_type="contour")
         self.display_frame(frame_with_objects)
 
