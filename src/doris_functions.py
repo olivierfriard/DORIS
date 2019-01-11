@@ -78,7 +78,7 @@ def rgbstr_to_tuple(rgb_str):
 
 COLORS_LIST = [rgbstr_to_tuple(x) for x in RGBSTR_COLORS_LIST]
 
-
+'''
 def plot_path_old(verts, x_lim, y_lim, color):
     """
     plot path
@@ -101,7 +101,7 @@ def plot_path_old(verts, x_lim, y_lim, color):
     ax.set_ylim(y_lim)
 
     plt.show()
-
+'''
 
 def plot_positions(df, x_lim, y_lim,):
     """
@@ -123,6 +123,9 @@ def plot_positions(df, x_lim, y_lim,):
         df[f"y{idx}"] = y_lim[1] - df[f"y{idx}"]
         plt.scatter(df[f"x{idx}"], df[f"y{idx}"], cmap='jet', alpha=0.5)
 
+    plt.xlabel('x')
+    plt.ylabel('y')
+
     axes.set_xlim(x_lim)
     axes.set_ylim(y_lim)
 
@@ -132,7 +135,7 @@ def plot_positions(df, x_lim, y_lim,):
 
 
 
-def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
+def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
 
     try:
         x = np.array(x)
@@ -151,6 +154,26 @@ def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
 
     except:
         return False
+
+
+def plot_density(df, x_lim=(0, 0), y_lim=(0,0)):
+
+    for idx in range(1, int((len(df.columns) - 1)/2) +1):
+        plt.figure()
+        axes = plt.gca()
+
+        plt.hist2d(df[f"x{idx}"], df[f"y{idx}"], bins=20)
+
+        plt.xlabel("x")
+        plt.ylabel("y")
+
+        axes.set_xlim(x_lim)
+        axes.set_ylim(y_lim)
+
+
+        plt.tight_layout()
+        plt.show()
+
 
 
 def apply_k_means(contours, n_inds):
