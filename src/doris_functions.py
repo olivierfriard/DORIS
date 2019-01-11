@@ -78,34 +78,37 @@ def rgbstr_to_tuple(rgb_str):
 
 COLORS_LIST = [rgbstr_to_tuple(x) for x in RGBSTR_COLORS_LIST]
 
-'''
-def plot_path_old(verts, x_lim, y_lim, color):
+
+def plot_path(df, x_lim, y_lim):
     """
     plot path
     """
 
-    # invert verts y
-    verts = [(x[0], y_lim[1] - x[1]) for x in verts]
+    plt.figure()
+    axes = plt.gca()
+    axes.set_aspect("equal", adjustable="box")
 
-    codes = [Path.MOVETO]
-    codes.extend([Path.LINETO] * (len(verts) - 1))
+    for idx in range(1, int((len(df.columns) - 1)/2) +1):
+        # flip y axe
+        df[f"y{idx}"] = y_lim[1] - df[f"y{idx}"]
+        plt.plot(f"x{idx}", f"y{idx}", data=df, alpha=0.5)
 
-    path = Path(verts, codes)
+    plt.xlabel("x")
+    plt.ylabel("y")
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    patch = patches.PathPatch(path, edgecolor=tuple((x / 255 for x in color)), facecolor="none", lw=1)
-    ax.add_patch(patch)
+    axes.set_xlim(x_lim)
+    axes.set_ylim(y_lim)
 
-    ax.set_xlim(x_lim)
-    ax.set_ylim(y_lim)
 
+    plt.tight_layout()
     plt.show()
-'''
+
+
+
 
 def plot_positions(df, x_lim, y_lim,):
     """
-    plot path
+    plot positions
 
     Args:
         df (pandas.dataframe):
@@ -117,6 +120,7 @@ def plot_positions(df, x_lim, y_lim,):
 
     plt.figure()
     axes = plt.gca()
+    axes.set_aspect("equal", adjustable="box")
 
     for idx in range(1, int((len(df.columns) - 1)/2) +1):
         # flip y axe
@@ -156,13 +160,16 @@ def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
         return False
 
 
-def plot_density(df, x_lim=(0, 0), y_lim=(0,0)):
+def plot_density(df, x_lim, y_lim):
+
+    df = df.dropna(thresh=1)
 
     for idx in range(1, int((len(df.columns) - 1)/2) +1):
         plt.figure()
         axes = plt.gca()
+        axes.set_aspect("equal", adjustable="box")
 
-        plt.hist2d(df[f"x{idx}"], df[f"y{idx}"], bins=20)
+        plt.hist2d(df[f"x{idx}"], df[f"y{idx}"], bins=20, cmap=plt.cm.Reds)
 
         plt.xlabel("x")
         plt.ylabel("y")

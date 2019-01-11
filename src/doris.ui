@@ -566,7 +566,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -614,7 +614,13 @@
            </widget>
           </item>
           <item>
-           <widget class="QTextEdit" name="te_xy"/>
+           <widget class="QTextEdit" name="te_xy">
+            <property name="font">
+             <font>
+              <family>Monospace</family>
+             </font>
+            </property>
+           </widget>
           </item>
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout_12">
@@ -742,7 +748,13 @@
              </widget>
             </item>
             <item>
-             <widget class="QTextEdit" name="te_number_objects"/>
+             <widget class="QTextEdit" name="te_number_objects">
+              <property name="font">
+               <font>
+                <family>Monospace</family>
+               </font>
+              </property>
+             </widget>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_14">

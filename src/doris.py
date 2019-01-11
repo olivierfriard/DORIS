@@ -83,7 +83,7 @@ from config import *
 from doris_ui import Ui_MainWindow
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 DEFAULT_FRAME_SCALE = 0.5
 COLORS_LIST = doris_functions.COLORS_LIST
@@ -978,6 +978,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def plot_xy_density(self):
 
+        if self.coord_df is None:
+            self.statusBar.showMessage("no positions to be plotted")
+            return
+
+        doris_functions.plot_density(self.coord_df,
+                                       x_lim=(0, self.video_width),
+                                       y_lim=(0, self.video_height))
+
+
+        '''
         if not flag_mpl_scatter_density:
             msg = QMessageBox()
             msg.setIcon(QMessageBox.Critical)
@@ -996,6 +1006,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 doris_functions.plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
         else:
             self.statusBar.showMessage("no positions to be plotted")
+        '''
 
 
 
@@ -1004,11 +1015,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         plot the path based on recorded coordinates
         """
 
-        '''
         if self.coord_df is None:
             self.statusBar.showMessage("no positions to be plotted")
             return
 
+        '''
         for n_object in range(len(self.positions[0])):
             verts = []
             for row in self.positions:
@@ -1016,7 +1027,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height),
                                       color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
             '''
-        doris_functions.plot_positions(self.coord_df,
+        doris_functions.plot_path(self.coord_df,
                                        x_lim=(0, self.video_width),
                                        y_lim=(0, self.video_height))
 
@@ -1583,9 +1594,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             logging.debug(f"coord_df: {self.coord_df}")
 
-            self.te_xy.clear()
-            # self.te_xy.append(str(self.coord_df.dropna(thresh=1)))
-            self.te_xy.append(str(self.coord_df[ frame_idx - 3 : frame_idx + 3 + 1]))
+            if self.cb_display_analysis.isChecked():
+                self.te_xy.clear()
+                # self.te_xy.append(str(self.coord_df.dropna(thresh=1)))
+                self.te_xy.append(str(self.coord_df[ frame_idx - 3 : frame_idx + 3 + 1]))
 
 
 
