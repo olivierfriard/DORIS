@@ -346,7 +346,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_df = None
         self.fgbg = None
         self.flag_stop_analysis = False
-        self.positions = []
         self.video_height = 0
         self.video_width = 0
         self.frame_width = VIEWER_WIDTH
@@ -365,7 +364,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.dir_images = []
         self.dir_images_index = 0
 
-        self.positions, self.objects_number = [], []
+        self.objects_number = []
 
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
@@ -902,10 +901,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def reset_xy_analysis(self):
         """
-        reset coordinates analysis
+        reset recorded positions
         """
-        self.positions = []
         self.te_xy.clear()
+
+        if self.coord_df is not None and self.objects_to_track:
+            # init dataframe for recording objects coordinates
+            columns = ["frame"]
+            for idx in self.objects_to_track:
+                columns.extend([f"x{idx}", f"y{idx}"])
+            self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
 
     def save_xy(self):
@@ -987,28 +992,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                        y_lim=(0, self.video_height))
 
 
-        '''
-        if not flag_mpl_scatter_density:
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("DORIS")
-            msg.setText("the mpl_scatter_density module is required to plot density")
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.exec_()
-            return
-
-        if self.positions:
-            for n_object in range(len(self.positions[0])):
-                x, y = [], []
-                for row in self.positions:
-                    x.append(row[n_object][0])
-                    y.append(row[n_object][1])
-                doris_functions.plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
-        else:
-            self.statusBar.showMessage("no positions to be plotted")
-        '''
-
-
 
     def plot_path_clicked(self):
         """
@@ -1019,14 +1002,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.statusBar.showMessage("no positions to be plotted")
             return
 
-        '''
-        for n_object in range(len(self.positions[0])):
-            verts = []
-            for row in self.positions:
-                verts.append(row[n_object])
-            doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height),
-                                      color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
-            '''
         doris_functions.plot_path(self.coord_df,
                                        x_lim=(0, self.video_width),
                                        y_lim=(0, self.video_height))
@@ -1109,7 +1084,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.frame_idx = self.dir_images_index
         else:
             self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
-        self.lb_frames.setText("Frame: <b>{}</b> / {}".format(self.frame_idx, self.total_frame_nb))
+
+        self.lb_frames.setText(f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb} Time: <b>{self.frame_idx/self.fps}</b> seconds")
 
 
     def frame_processing(self, frame):
