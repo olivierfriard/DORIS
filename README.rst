@@ -17,6 +17,7 @@ Requirements
 * python >= 3.6
 * pyqt5
 * numpy
+* pandas
 * matplotlib
 * opencv
 

@@ -53,6 +53,7 @@ import os
 import platform
 import json
 import numpy as np
+import pandas as pd
 #np.set_printoptions(threshold="nan")
 import cv2
 import copy
@@ -82,9 +83,9 @@ from config import *
 from doris_ui import Ui_MainWindow
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
-DEFAULT_FRAME_SCALE = 1
+DEFAULT_FRAME_SCALE = 0.5
 COLORS_LIST = doris_functions.COLORS_LIST
 
 
@@ -341,6 +342,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.capture = None
         self.output = ""
         self.videoFileName = ""
+        self.coord_df = None
         self.fgbg = None
         self.flag_stop_analysis = False
         self.positions = []
@@ -902,16 +904,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         save results of recorded positions in TSV file
         """
-        if self.positions:
+        if self.coord_df is not None:
             file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
-            out = ""
+            '''out = ""'''
             if file_name:
+                self.coord_df.to_csv(file_name)
+                '''
                 for row in self.positions:
                     for obj in row:
                         out += f"{obj[0]},{obj[1]}\t"
                     out = out.strip() + "\n"
                 with open(file_name, "w") as f_in:
                     f_in.write(out)
+                '''
         else:
             QMessageBox.warning(self, "DORIS", "no positions to be saved")
 
@@ -1115,18 +1120,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def select_objects_to_track(self):
         """
-        select objects to track
+        select objects to track and create the dataframe for recording objects positions
         """
-
-        '''
-        text, ok = QInputDialog.getText(self, "Objects to track", "Objects #id (use comma to separate id)")
-        if ok:
-            objects_to_track_idx = [int(x.strip()) for x in text.replace(" ", "").split(",")]
-            self.objects_to_track = {}
-            for idx in objects_to_track_idx:
-                self.objects_to_track[idx] = dict(self.filtered_objects[idx])
-            logging.info("objects to track: {}".format(list(self.objects_to_track.keys())))
-        '''
 
         elements = []
         for idx in self.filtered_objects:
@@ -1136,13 +1131,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not ib.exec_():
             return
 
-        print(ib.elements)
         self.objects_to_track = {}
         for idx in ib.elements:
             if ib.elements[idx].isChecked():
-                self.objects_to_track[idx] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
+                self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
 
+        # init dataframe for recording objects coordinates
+        columns = ["frame"]
+        for idx in self.objects_to_track:
+            columns.extend([f"x{idx}", f"y{idx}"])
+        self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
+        logging.debug(f"coord_df: {self.coord_df.head()}")
+
+        logging.info(f"objects to track: {list(self.objects_to_track.keys())}")
 
 
 
@@ -1261,7 +1263,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             filtered_objects = dict(new_filtered_objects)
 
 
-
         if self.objects_to_track:
             mem_costs = {}
             obj_indexes = list(filtered_objects.keys())
@@ -1277,7 +1278,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # select new objects to track
 
-
             new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
             logging.info("new objects to track : {}".format(list(new_objects_to_track.keys())))
 
@@ -1285,9 +1285,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             filtered_objects = self.objects_to_track
 
-
         self.filtered_objects = filtered_objects
-
 
 
         # check max distance from previous detected objects
@@ -1548,21 +1546,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        write objects data in widgets
+        record objects parameters
         """
 
         if self.cb_record_xy.isChecked():
-            pos = []
 
+            logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
+
+            self.coord_df.ix[frame_idx, "frame"] = frame_idx
             for idx in sorted(list(objects.keys())):
-                pos.append(objects[idx]["centroid"])
+                self.coord_df.ix[frame_idx, f"x{idx}"] = objects[idx]["centroid"][0]
+                self.coord_df.ix[frame_idx, f"y{idx}"] = objects[idx]["centroid"][1]
 
-            self.positions.append(pos)
+            logging.debug(f"coord_df: {self.coord_df}")
 
-            out = ""
-            for p in pos:
-                out += "{},{}\t".format(p[0] - self.coordinate_center[0], p[1] - self.coordinate_center[1])
-            self.te_xy.append(out.strip())
+            self.te_xy.clear()
+            # self.te_xy.append(str(self.coord_df.dropna(thresh=1)))
+            self.te_xy.append(str(self.coord_df[ frame_idx - 3 : frame_idx + 3 + 1]))
+
 
 
         if self.cb_record_number_objects.isChecked():
