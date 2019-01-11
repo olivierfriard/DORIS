@@ -211,7 +211,7 @@ def toQImage(frame, copy=False):
                 qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32);
                 return qim.copy() if copy else qim
 
-
+'''
 def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
 
     if flag_mpl_scatter_density:
@@ -236,7 +236,7 @@ def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
         return
-
+'''
 
 
 
@@ -871,7 +871,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def reset(self):
-        "go to 1st frame"
+        """
+        go to 1st frame
+        """
 
         if self.dir_images:
             self.dir_images_index = 0
@@ -901,17 +903,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         save results of recorded positions in TSV file
         """
         if self.positions:
-            file_name, _ = QFileDialog(self).getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
+            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
             out = ""
             if file_name:
                 for row in self.positions:
                     for obj in row:
-                        out += "{},{}\t".format(obj[0], obj[1])
+                        out += f"{obj[0]},{obj[1]}\t"
                     out = out.strip() + "\n"
                 with open(file_name, "w") as f_in:
                     f_in.write(out)
         else:
-            print("no positions to be saved")
+            QMessageBox.warning(self, "DORIS", "no positions to be saved")
 
 
     def open_areas(self, file_name):
@@ -968,15 +970,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def plot_xy_density(self):
 
+        if not flag_mpl_scatter_density:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("DORIS")
+            msg.setText("the mpl_scatter_density module is required to plot density")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            return
+
         if self.positions:
             for n_object in range(len(self.positions[0])):
                 x, y = [], []
                 for row in self.positions:
                     x.append(row[n_object][0])
                     y.append(row[n_object][1])
-                plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
+                doris_functions.plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
         else:
             self.statusBar.showMessage("no positions to be plotted")
+
 
 
     def plot_path_clicked(self):

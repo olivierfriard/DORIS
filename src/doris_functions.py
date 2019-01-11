@@ -217,7 +217,7 @@ def image_processing(frame,
     return frame
 
 
-def euclidean_distance(p1, p2):
+def euclidean_distance(p1: tuple, p2: tuple) -> float:
     """
     euclidean distance between two points
     """
