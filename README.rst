@@ -2,6 +2,7 @@
 DORIS (Detection of Objects Research Interactive Software)
 ################################################################
 
+:Author: `Olivier Friard <http://www.di.unito.it/~friard>`_
 
 
 
