@@ -43,7 +43,7 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
 from PyQt5.QtGui import (QPixmap, QImage, qRgb)
-from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar, QDialog,
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
                              QSizePolicy, QCheckBox, QHBoxLayout, QPushButton)
@@ -54,7 +54,6 @@ import platform
 import json
 import numpy as np
 import pandas as pd
-#np.set_printoptions(threshold="nan")
 import cv2
 import copy
 
@@ -68,13 +67,15 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
+from matplotlib.figure import Figure
 
+'''
 try:
     import mpl_scatter_density
     flag_mpl_scatter_density = True
 except ModuleNotFoundError:
     flag_mpl_scatter_density = False
-
+'''
 import argparse
 import itertools
 
@@ -84,7 +85,7 @@ from config import *
 from doris_ui import Ui_MainWindow
 
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.DEBUG)
 
 DEFAULT_FRAME_SCALE = 0.5
 COLORS_LIST = doris_functions.COLORS_LIST
@@ -184,7 +185,7 @@ def frame2pixmap(frame):
     """
     try:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    except:
+    except Exception:
         pass
     height, width = frame.shape[:2]
 
@@ -207,10 +208,10 @@ def toQImage(frame, copy=False):
             return qim.copy() if copy else qim
         elif len(im.shape) == 3:
             if im.shape[2] == 3:
-                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_RGB888);
+                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_RGB888)
                 return qim.copy() if copy else qim
             elif im.shape[2] == 4:
-                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32);
+                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32)
                 return qim.copy() if copy else qim
 
 '''
@@ -294,7 +295,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_define_arena.setMenu(menu1)
         self.pb_clear_arena.clicked.connect(self.clear_arena)
 
-        self.pbGo.clicked.connect(self.run_analysis)
+        self.pb_run_tracking.clicked.connect(self.run_tracking)
         self.pb_stop.clicked.connect(self.stop)
 
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
@@ -314,6 +315,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
+        self.sb_percent_out_of_arena.valueChanged.connect(self.process_and_show)
+
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
         self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
@@ -322,9 +325,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
         self.pb_save_xy.clicked.connect(self.save_xy)
-        self.pb_plot_path.clicked.connect(self.plot_path_clicked)
+        self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
+        self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
-        self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)
+        '''self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)'''
 
         # menu for area button
         menu = QMenu()
@@ -382,8 +386,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[1].setGeometry(640, 100, 512, 512)
         self.fw[1].setWindowTitle("Processed frame")
 
+        self.running_tracking = False
+
         self.threshold_method_changed()
 
+        self.sb_percent_out_of_arena.setValue(int(TOLERANCE_OUTSIDE_ARENA * 100))
 
     def about(self):
         """
@@ -462,6 +469,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
         '''config["number_of_objects_to_detect"] = self.sb_largest_number.value()'''
+        config["percent_out_of_arena"] = self.sb_percent_out_of_arena.value()
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
@@ -516,6 +524,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def for_back_ward(self, direction="forward"):
 
+        logging.debug("function: for_back_ward")
+
         step = self.sb_frame_offset.value() - 1 if direction == "forward" else -self.sb_frame_offset.value() - 1
 
         if self.dir_images:
@@ -530,10 +540,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def go_to_frame(self):
 
+        logging.debug("function: go_to_frame")
+
         if self.le_goto_frame.text():
             try:
                 int(self.le_goto_frame.text())
-            except:
+            except ValueError:
                 return
 
             if self.dir_images:
@@ -579,6 +591,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         switch to define arena mode
         """
+
+        logging.debug("function: define_arena")
+
         if self.flag_define_arena:
             self.flag_define_arena = ""
         else:
@@ -598,6 +613,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def reload_frame(self):
+
+        logging.debug("function: reload_frame")
+
         if self.dir_images:
             self.dir_images_index -= 1
         elif self.capture is not None:
@@ -619,7 +637,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-    def ratio_thickness(self, video_width: int, frame_width: int) -> (float,int):
+    def ratio_thickness(self, video_width: int, frame_width: int) -> (float, int):
         """
         return ratio and pen thickness for contours according to video resolution
         """
@@ -642,7 +660,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record clicked coordinates if arena or area mode activated
         """
 
-        print("mouse pressed on frame")
+        logging.debug("function: frame_mousepressed")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
         # set coordinate center
@@ -810,7 +828,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
-                    self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len(self.arena["points"])))
+                    self.statusBar.showMessage(("Polygon arena: {} point(s) selected. "
+                                                "Right click to finish").format(len(self.arena["points"])))
 
                     if len(self.arena["points"]) >= 2:
                         cv2.line(self.frame, tuple(self.arena["points"][-2]), tuple(self.arena["points"][-1]),
@@ -886,6 +905,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         go to 1st frame
         """
 
+        logging.debug("function: reset")
+
         if self.dir_images:
             self.dir_images_index = 0
         else:
@@ -897,6 +918,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         go to next frame
         """
+
+        logging.debug("function: next_frame")
+
         if not self.pb():
             return
 
@@ -914,6 +938,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 columns.extend([f"x{idx}", f"y{idx}"])
             self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
+        self.te_xy.clear()
+        self.te_xy.append(str(self.coord_df[self.frame_idx - 3: self.frame_idx + 3 + 1]))
 
     def save_xy(self):
         """
@@ -995,25 +1021,35 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
 
-    def plot_path_clicked(self):
+    def plot_path_clicked(self, plot_type="path"):
         """
-        plot the path based on recorded coordinates
+        plot the path or positions based on recorded coordinates
         """
 
         if self.coord_df is None:
             self.statusBar.showMessage("no positions to be plotted")
             return
 
-        doris_functions.plot_path(self.coord_df,
-                                       x_lim=(0, self.video_width),
-                                       y_lim=(0, self.video_height))
+        if plot_type == "path":
+            doris_functions.plot_path(self.coord_df,
+                                      x_lim=(0, self.video_width),
+                                      y_lim=(0, self.video_height))
+        if plot_type == "positions":
+            doris_functions.plot_positions(self.coord_df,
+                                           x_lim=(0, self.video_width),
+                                           y_lim=(0, self.video_height))
+
+
 
 
 
     def open_video(self, file_name):
         """
-        let user select a video
+        open a video
+        if file_name not provided ask user to select a file
         """
+
+        logging.debug("function: open_video")
 
         if not file_name:
             file_name, _ = QFileDialog(self).getOpenFileName(self, "Open video", "", "All files (*)")
@@ -1035,7 +1071,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
 
             self.frame_idx = 0
-            self.update_frame_index()
+            # self.update_frame_index()
             self.pb()
             self.video_height, self.video_width, _ = self.frame.shape
             self.videoFileName = file_name
@@ -1052,7 +1088,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         Load directory of images
         """
-        logging.debug("loading dir images")
+        logging.debug("function: load_dir_images")
 
         if not dir_images:
             dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
@@ -1172,14 +1208,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         marker color from index of object in COLORS_LIST
         """
 
-        # print("draw marker nb of objects:", len(objects))
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
-            # print("draw marker idx", idx)
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
-            if marker_type == "rectangle":
+            print(idx, marker_color)
+            if marker_type == RECTANGLE:
                 cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
-            if marker_type == "contour":
+            if marker_type == CONTOUR:
                 cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
 
             cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
@@ -1208,7 +1243,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         process frame and show results
         """
 
-        logging.debug("process_and_show function")
+        logging.debug(f"function: process_and_show    self.frame is None: {self.frame is None}")
 
         if self.frame is None:
             return
@@ -1218,11 +1253,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         (all_objects, filtered_objects) = doris_functions.detect_and_filter_objects(frame=processed_frame,
                                                                   min_size=self.sbMin.value(),
                                                                   max_size=self.sbMax.value(),
-                                                                  #number_of_objects=self.sb_largest_number.value(),
-                                                                  #number_of_objects=0,
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
+                                                                  #tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
+                                                                  tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100,
                                                                   previous_objects=self.mem_filtered_objects
                                                                  )
 
@@ -1284,8 +1318,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
-            #filtered_objects = self.objects_to_track
-
         self.filtered_objects = filtered_objects
 
 
@@ -1315,13 +1347,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # draw contour of objects
             if self.objects_to_track:
                 frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                 #filtered_objects,
                                                                  self.objects_to_track,
                                                                  marker_type=MARKER_TYPE)
             else:
                 frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                                  self.filtered_objects,
-                                                                 #self.objects_to_track,
                                                                  marker_type=MARKER_TYPE)
 
 
@@ -1402,7 +1432,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                    max_size=self.sbMax.value(),
                                                                    arena=self.arena,
                                                                    max_extension=self.sb_max_extension.value(),
-                                                                   tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                   tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                    )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1424,7 +1454,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                         max_size=self.sbMax.value(),
                                                                         arena=self.arena,
                                                                         max_extension=self.sb_max_extension.value(),
-                                                                        tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                        tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                         )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1486,7 +1516,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         try:
             self.capture.release()
             cv2.destroyAllWindows()
-        except:
+        except Exception:
             pass
 
         try:
@@ -1502,13 +1532,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         areas = {}
         for idx in range(self.lw_area_definition.count()):
-            print(self.lw_area_definition.item(idx).text())
             d = eval(self.lw_area_definition.item(idx).text())
             if "name" in d:
                 areas[d["name"]] = eval(self.lw_area_definition.item(idx).text())
         self.areas = areas
 
-        self.pb()
+        '''self.pb()'''
+        self.process_and_show()
 
 
     def update_info(self, all_objects, filtered_objects, tracked_objects=None):
@@ -1549,6 +1579,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         Returns:
             bool: True if frame else False
         """
+
+        logging.debug("function: pb")
 
         if self.dir_images:
             if self.dir_images_index < len(self.dir_images) - 1:
@@ -1598,8 +1630,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()
-                # self.te_xy.append(str(self.coord_df.dropna(thresh=1)))
-                self.te_xy.append(str(self.coord_df[ frame_idx - 3 : frame_idx + 3 + 1]))
+                self.te_xy.append(str(self.coord_df[frame_idx - 3: frame_idx + 3 + 1]))
 
 
 
@@ -1652,12 +1683,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.te_number_objects.append(out)
 
 
-    def run_analysis(self):
+    def run_tracking(self):
         """
         run analysis from current frame to end
         """
 
         if self.flag_stop_analysis:
+            return
+        if self.running_tracking:
             return
 
         if not self.dir_images:
@@ -1667,13 +1700,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.warning(self, "DORIS", "No video")
                 return
 
+        self.running_tracking = True
         while True:
             if not self.pb():
+                self.running_tracking = False
                 logging.info("analysis finished")
                 break
 
             app.processEvents()
             if self.flag_stop_analysis:
+                self.running_tracking = False
                 logging.info("analysis stopped")
                 break
 
@@ -1691,6 +1727,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         open a project file and load parameters
         """
+
+
+        logging.debug("open_project")
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
 
@@ -1701,54 +1740,56 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             try:
                 with open(file_name) as f_in:
                     config = json.loads(f_in.read())
-                try:
+
+                if "blur" in config:
                     self.sb_blur.setValue(config["blur"])
-                except:
-                    pass
-                try:
+
+                if "invert" in config:
                     self.cb_invert.setChecked(config["invert"])
-                except:
-                    pass
+
                 try:
                     self.arena = config["arena"]
                     if self.arena:
                         self.pb_define_arena.setEnabled(False)
                         self.pb_clear_arena.setEnabled(True)
                         self.le_arena.setText(str(config["arena"]))
-                except:
+                except KeyError:
                     print("arena not found")
 
                 try:
                     self.sbMin.setValue(config["min_object_size"])
-                except:
+                except KeyError:
                     pass
                 try:
                     self.sbMax.setValue(config["max_object_size"])
-                except:
+                except KeyError:
                     pass
                 try:
                     self.sb_max_extension.setValue(config["object_max_extension"])
-                except:
+                except KeyError:
                     pass
+
+                if "percent_out_of_arena" in config:
+                    self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
 
                 try:
                     self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
-                except:
+                except KeyError:
                     pass
 
                 try:
                     self.sb_block_size.setValue(config["block_size"])
-                except:
+                except KeyError:
                     pass
 
                 try:
                     self.sb_offset.setValue(config["offset"])
-                except:
+                except KeyError:
                     pass
 
                 try:
                     self.sb_threshold.setValue(config["cut_off"])
-                except:
+                except KeyError:
                     pass
 
                 try:
@@ -1757,18 +1798,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.lw_area_definition.clear()
                         for area in self.areas:
                             self.lw_area_definition.addItem(str(self.areas[area]))
-                except:
+                except KeyError:
                     self.areas = {}
 
-                try:
+                if "record_number_of_objects_by_area" in config:
                     self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
-                except:
-                    pass
 
-                try:
+                if "record_objects_coordinates" in config:
                     self.cb_record_xy.setChecked(config["record_objects_coordinates"])
-                except:
-                    pass
 
                 if "video_file_path" in config:
                     try:
@@ -1869,5 +1906,4 @@ if __name__ == "__main__":
 
     w.show()
     w.raise_()
-    w.pb()
     sys.exit(app.exec_())
