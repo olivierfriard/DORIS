@@ -328,6 +328,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
+        self.pb_distances.clicked.connect(self.distances)
         '''self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)'''
 
         # menu for area button
@@ -344,6 +345,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_save_areas.clicked.connect(self.save_areas)
         self.pb_active_areas.clicked.connect(self.activate_areas)
         self.pb_save_objects_number.clicked.connect(self.save_objects_areas)
+        self.pb_time_in_areas.clicked.connect(self.time_in_areas)
 
         self.frame = None
         self.capture = None
@@ -938,7 +940,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.coord_df is not None:
             file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
             if file_name:
-                self.coord_df.to_csv(file_name)
+                self.coord_df.to_csv(file_name, sep="\t", decimal=".")
         else:
             QMessageBox.warning(self, "DORIS", "no positions to be saved")
 
@@ -985,27 +987,78 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     f_out.write(self.lw_area_definition.item(idx).text() + "\n")
 
 
+    def time_in_areas(self):
+        """
+        time of objects in each area
+        """
+        if self.areas_df is None:
+            return
+
+        time_objects_in_areas = pd.DataFrame(index=sorted(list(self.objects_to_track)), columns = sorted(list(self.areas.keys())))
+
+        areas_non_nan_df = self.areas_df.dropna(thresh=1)
+        for area in self.areas:
+            for idx in self.objects_to_track:
+                time_objects_in_areas.ix[idx, area] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
+
+        logging.debug(f"{time_objects_in_areas}")
+
+        file_name, _ = QFileDialog().getSaveFileName(self, "Save time in areas", "", "All files (*)")
+        if file_name:
+            time_objects_in_areas.to_csv(file_name, sep="\t", decimal=".")
+
+
     def save_objects_areas(self):
         """
         save presence of objects in areas
         """
-        if self.areas_df is not None:
-            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects in areas", "", "All files (*)")
-            if file_name:
-                self.areas_df.to_csv(file_name)
-        else:
+        if self.areas_df is None:
             QMessageBox.warning(self, "DORIS", "no objects to be saved")
+            return
+        file_name, _ = QFileDialog().getSaveFileName(self, "Save objects in areas", "", "All files (*)")
+        if file_name:
+            self.areas_df.to_csv(file_name, sep="\t", decimal=".")
 
 
     def plot_xy_density(self):
 
         if self.coord_df is None:
-            self.statusBar.showMessage("no positions to be plotted")
+            QMessageBox.warning(self, "DORIS", "no positions recorded")
             return
 
+        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
+        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
+
+        if self.cb_normalize_coordinates.isChecked():
+            x_lim = x_lim / self.video_width
+            y_lim = y_lim / self.video_width
+
         doris_functions.plot_density(self.coord_df,
-                                       x_lim=(0, self.video_width),
-                                       y_lim=(0, self.video_height))
+                                     x_lim=x_lim,
+                                     y_lim=y_lim)
+
+
+    def distances(self):
+        """
+
+        """
+        if self.coord_df is None:
+            QMessageBox.warning(self, "DORIS", "no positions recorded")
+            return
+
+        results = pd.DataFrame(index=sorted(list(self.objects_to_track)), columns = ["distance"])
+
+        for idx in sorted(list(self.objects_to_track.keys())):
+            dx = self.coord_df[f"x{idx}"] - self.coord_df[f"x{idx}"].shift(1)
+            dy = self.coord_df[f"y{idx}"] - self.coord_df[f"y{idx}"].shift(1)
+            dist = (dx*dx + dy*dy) ** 0.5
+            results.ix[idx, "distance"] = round(dist.sum())
+
+        file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
+        if file_name:
+            results.to_csv(file_name, sep="\t", decimal=".")
+
+
 
 
     def plot_path_clicked(self, plot_type="path"):
@@ -1014,7 +1067,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         if self.coord_df is None:
-            self.statusBar.showMessage("no positions to be plotted")
+            QMessageBox.warning(self, "DORIS", "no positions recorded")
             return
 
         x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
@@ -1155,6 +1208,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
+
     def initialize_areas_dataframe(self):
         """
         initialize dataframe for recording presence of objects in areas
@@ -1245,6 +1299,30 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
 
 
+    def draw_arena(self, frame, drawing_thickness):
+        """
+        draw arena
+        """
+        if self.arena["type"] == "polygon":
+            for idx, point in enumerate(self.arena["points"][:-1]):
+                cv2.line(frame, tuple(point), tuple(self.arena["points"][idx + 1]),
+                         color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+            cv2.line(frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
+                     color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+            # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
+            # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+
+        if self.arena["type"] == "circle":
+            cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
+                       color=ARENA_COLOR, thickness=drawing_thickness)
+            # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+
+        if self.arena["type"] == "rectangle":
+            cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
+                          color=ARENA_COLOR, thickness=drawing_thickness)
+        return frame
+
+
     def process_and_show(self):
         """
         process frame and show results
@@ -1272,6 +1350,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check filtered objects number
         # apply clustering when number of filtered objects are lower than tracked objects
+
+        if len(filtered_objects) == 0 and len(self.objects_to_track):
+            logging.info("no filtered objects")
+            self.statusBar.showMessage("No filtered objects!")
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                             {},
+                                                             marker_type=MARKER_TYPE)
+            self.display_frame(frame_with_objects)
+            self.display_processed_frame(processed_frame)
+            return
+
+
         if len(filtered_objects) < len(self.objects_to_track):
 
             logging.info("kmean clustering")
@@ -1326,7 +1416,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
         self.filtered_objects = filtered_objects
-
 
         # check max distance from previous detected objects
         '''
@@ -1390,6 +1479,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # draw arena
             if self.arena:
+                frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
+                '''
                 if self.arena["type"] == "polygon":
                     for idx, point in enumerate(self.arena["points"][:-1]):
                         cv2.line(frame_with_objects, tuple(point), tuple(self.arena["points"][idx + 1]),
@@ -1407,6 +1498,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.arena["type"] == "rectangle":
                     cv2.rectangle(frame_with_objects, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
                                   color=ARENA_COLOR, thickness=drawing_thickness)
+                '''
 
             if self.coordinate_center != [0, 0]:
                 frame_with_objects = self.draw_point(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)

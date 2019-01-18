@@ -178,10 +178,10 @@ def apply_k_means(contours, n_inds):
         individual's location on current frame
     """
 
-    logging.debug("apply kmeans")
+    logging.debug("function: apply_k_means")
     centroids = []
 
-    print("contours[0]", type(contours[0]))
+    logging.debug(f"len contours: {len(contours)}")
     # Clustering contours to separate individuals
     myarray = np.vstack(contours)
     myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
