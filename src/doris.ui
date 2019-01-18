@@ -633,7 +633,7 @@
             <item>
              <widget class="QLabel" name="label">
               <property name="text">
-               <string>Coordinates center</string>
+               <string>Origin of referential system</string>
               </property>
              </widget>
             </item>
@@ -662,7 +662,14 @@
           <item>
            <widget class="QCheckBox" name="cb_record_xy">
             <property name="text">
-             <string>record objects coordinates</string>
+             <string>Record objects coordinates</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cb_normalize_coordinates">
+            <property name="text">
+             <string>Normalize coordinates</string>
             </property>
            </widget>
           </item>
@@ -1019,13 +1026,13 @@
   </action>
   <action name="actionDefine_coordinate_center">
    <property name="checkable">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="enabled">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Define coordinate center</string>
+    <string>Define the origin of the referential system</string>
    </property>
   </action>
   <action name="actionSelect_objects_to_track">

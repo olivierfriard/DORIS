@@ -324,7 +324,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
-        self.pb_save_xy.clicked.connect(self.save_xy)
+        self.pb_save_xy.clicked.connect(self.save_objects_positions)
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
@@ -343,13 +343,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_reset_areas.clicked.connect(self.reset_areas_analysis)
         self.pb_save_areas.clicked.connect(self.save_areas)
         self.pb_active_areas.clicked.connect(self.activate_areas)
-        self.pb_save_objects_number.clicked.connect(self.save_objects_number)
+        self.pb_save_objects_number.clicked.connect(self.save_objects_areas)
 
         self.frame = None
         self.capture = None
         self.output = ""
         self.videoFileName = ""
         self.coord_df = None
+        self.areas_df = None
         self.fgbg = None
         self.flag_stop_analysis = False
         self.video_height = 0
@@ -360,7 +361,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas = {}
         self.flag_define_arena = False
         self.flag_define_coordinate_center = False
-        self.coordinate_center = (0, 0)
+        self.coordinate_center = [0, 0]
         self.add_area = {}
         self.arena = {}
         self.mem_filtered_objects = {}
@@ -468,38 +469,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
-        '''config["number_of_objects_to_detect"] = self.sb_largest_number.value()'''
         config["percent_out_of_arena"] = self.sb_percent_out_of_arena.value()
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
         config["offset"] = self.sb_offset.value()
         config["cut_off"] = self.sb_threshold.value()
-
+        config["normalize_coordinates"] = self.cb_normalize_coordinates.isChecked()
         config["areas"] = self.areas
+        config["referential_system_origin"] = self.coordinate_center
+
+        '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
         config["record_objects_coordinates"] = self.cb_record_xy.isChecked()
-
-
         '''
-        with open(project_file_path, "w") as f_out:
 
-            if self.videoFileName:
-                f_out.write('video_file_path = "{}"\n'.format(self.videoFileName))
-
-            f_out.write("blur = {}\n".format(self.sb_blur.value()))
-            f_out.write("invert = {}\n".format(self.cb_invert.isChecked()))
-            if self.le_arena.text():
-                f_out.write("arena = {}\n".format(self.le_arena.text()))
-            f_out.write("min_object_size = {}\n".format(self.sbMin.value()))
-            f_out.write("max_object_size = {}\n".format(self.sbMax.value()))
-            f_out.write("number_of_objects_to_detect = {}\n".format(self.sb_largest_number.value()))
-            f_out.write("object_max_extension = {}\n".format(self.sb_max_extension.value()))
-            f_out.write('threshold_method = "{}"\n'.format(THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]))
-            f_out.write("block_size = {}\n".format(self.sb_block_size.value()))
-            f_out.write("offset = {}\n".format(self.sb_offset.value()))
-            f_out.write("cut_off = {}\n".format(self.sb_threshold.value()))
-        '''
         with open(project_file_path, "w") as f_out:
             f_out.write(json.dumps(config))
 
@@ -655,6 +639,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return ratio, drawing_thickness
 
 
+    def draw_point(self, frame, position, color, drawing_thickness):
+        """
+        draw a point (circle and cross) on frame
+        """
+
+        # _, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
+        position = tuple(position)
+        cv2.circle(frame, position, 8,
+                   color=color, lineType=8, thickness=drawing_thickness)
+
+        cv2.line(frame, (position[0], position[1] - 0),
+                             (position[0], position[1] + 50),
+                              color=color, lineType=8, thickness=drawing_thickness)
+
+        cv2.line(frame, (position[0], position[1]),
+                        (position[0] + 50, position[1]),
+                              color=color, lineType=8, thickness=drawing_thickness)
+        return frame
+
+
     def frame_mousepressed(self, event):
         """
         record clicked coordinates if arena or area mode activated
@@ -665,18 +669,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # set coordinate center
         if self.flag_define_coordinate_center:
-            self.coordinate_center = (int(event.pos().x() * conversion), int(event.pos().y() * conversion))
-            cv2.circle(self.frame, self.coordinate_center, 8,
-                       color=BLUE, lineType=8, thickness=drawing_thickness)
-            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
-                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
-                                  color=BLUE, lineType=8, thickness=drawing_thickness)
-            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
-                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
-                                  color=BLUE, lineType=8, thickness=drawing_thickness)
-            cv2.line(self.frame, (self.coordinate_center[0] - 20, self.coordinate_center[1]),
-                                 (self.coordinate_center[0] + 20, self.coordinate_center[1]),
-                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+            self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
+            self.frame = self.draw_point(self.frame, self.coordinate_center, BLUE, drawing_thickness)
 
             self.display_frame(self.frame)
             self.flag_define_coordinate_center = False
@@ -929,19 +923,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         reset recorded positions
         """
-        self.te_xy.clear()
-
         if self.coord_df is not None and self.objects_to_track:
             # init dataframe for recording objects coordinates
-            columns = ["frame"]
-            for idx in self.objects_to_track:
-                columns.extend([f"x{idx}", f"y{idx}"])
-            self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+            self.initialize_positions_dataframe()
 
-        self.te_xy.clear()
-        self.te_xy.append(str(self.coord_df[self.frame_idx - 3: self.frame_idx + 3 + 1]))
+            self.te_xy.clear()
+            '''self.te_xy.append(str(self.coord_df[self.frame_idx - 3: self.frame_idx + 3 + 1]))'''
 
-    def save_xy(self):
+
+    def save_objects_positions(self):
         """
         save results of recorded positions in TSV file
         """
@@ -978,8 +968,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         reset areas analysis
         """
-        self.objects_number = []
-        self.te_number_objects.clear()
+        if self.areas_df is not None and self.objects_to_track:
+            self.initialize_areas_dataframe()
+
+            self.te_number_objects.clear()
 
 
     def save_areas(self):
@@ -993,20 +985,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     f_out.write(self.lw_area_definition.item(idx).text() + "\n")
 
 
-    def save_objects_number(self):
+    def save_objects_areas(self):
         """
-        save results of objects number by area
+        save presence of objects in areas
         """
-        if self.objects_number:
-            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects number", "", "All files (*)")
-            out = "\t".join(list(sorted(self.areas.keys()))) + "\n"
+        if self.areas_df is not None:
+            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects in areas", "", "All files (*)")
             if file_name:
-                for row in self.objects_number:
-                    out += "\t".join([str(x) for x in row]) + "\n"
-                with open(file_name, "w") as f_in:
-                    f_in.write(out)
+                self.areas_df.to_csv(file_name)
         else:
-            self.statusBar.showMessage("no results to be saved")
+            QMessageBox.warning(self, "DORIS", "no objects to be saved")
 
 
     def plot_xy_density(self):
@@ -1020,7 +1008,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                        y_lim=(0, self.video_height))
 
 
-
     def plot_path_clicked(self, plot_type="path"):
         """
         plot the path or positions based on recorded coordinates
@@ -1030,17 +1017,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.statusBar.showMessage("no positions to be plotted")
             return
 
+        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
+        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
+
+        if self.cb_normalize_coordinates.isChecked():
+            x_lim = x_lim / self.video_width
+            y_lim = y_lim / self.video_width
+
         if plot_type == "path":
             doris_functions.plot_path(self.coord_df,
-                                      x_lim=(0, self.video_width),
-                                      y_lim=(0, self.video_height))
+                                      x_lim=x_lim,
+                                      y_lim=y_lim)
         if plot_type == "positions":
             doris_functions.plot_positions(self.coord_df,
-                                           x_lim=(0, self.video_width),
-                                           y_lim=(0, self.video_height))
-
-
-
+                                           x_lim=x_lim,
+                                           y_lim=y_lim)
 
 
     def open_video(self, file_name):
@@ -1152,12 +1143,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.frame is not None:
             self.flag_define_coordinate_center = True
-            self.statusBar.showMessage("You have to select the center of coordinates" * self.flag_define_coordinate_center)
+            self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center)
+
+
+    def initialize_positions_dataframe(self):
+        """
+        initialize dataframe for recording objects coordinates
+        """
+        columns = ["frame"]
+        for idx in self.objects_to_track:
+            columns.extend([f"x{idx}", f"y{idx}"])
+        self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+
+    def initialize_areas_dataframe(self):
+        """
+        initialize dataframe for recording presence of objects in areas
+        """
+        columns = ["frame"]
+        for area in sorted(self.areas.keys()):
+            for idx in self.objects_to_track:
+                columns.append(f"area {area} object #{idx}")
+        self.areas_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
 
     def select_objects_to_track(self):
         """
-        select objects to track and create the dataframe for recording objects positions
+        select objects to track and create the dataframes for recording objects positions and presence in area
         """
 
         elements = []
@@ -1173,11 +1184,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if ib.elements[idx].isChecked():
                 self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
 
-        # init dataframe for recording objects coordinates
-        columns = ["frame"]
-        for idx in self.objects_to_track:
-            columns.extend([f"x{idx}", f"y{idx}"])
-        self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+        self.initialize_positions_dataframe()
+
+        self.initialize_areas_dataframe()
 
         logging.debug(f"coord_df: {self.coord_df.head()}")
 
@@ -1189,7 +1198,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def draw_reference(self):
         """
         draw reference (squareof 100px) on frame
-
         """
 
         if self.frame is not None:
@@ -1199,7 +1207,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
 
             self.display_frame(self.frame)
-
 
 
     def draw_marker_on_objects(self, frame, objects, marker_type=MARKER_TYPE):
@@ -1383,7 +1390,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # draw arena
             if self.arena:
-
                 if self.arena["type"] == "polygon":
                     for idx, point in enumerate(self.arena["points"][:-1]):
                         cv2.line(frame_with_objects, tuple(point), tuple(self.arena["points"][idx + 1]),
@@ -1401,6 +1407,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.arena["type"] == "rectangle":
                     cv2.rectangle(frame_with_objects, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
                                   color=ARENA_COLOR, thickness=drawing_thickness)
+
+            if self.coordinate_center != [0, 0]:
+                frame_with_objects = self.draw_point(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+
 
             # display frames
             self.display_frame(frame_with_objects)
@@ -1537,7 +1547,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 areas[d["name"]] = eval(self.lw_area_definition.item(idx).text())
         self.areas = areas
 
-        '''self.pb()'''
         self.process_and_show()
 
 
@@ -1623,8 +1632,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.coord_df.ix[frame_idx, "frame"] = frame_idx
             for idx in sorted(list(objects.keys())):
-                self.coord_df.ix[frame_idx, f"x{idx}"] = objects[idx]["centroid"][0]
-                self.coord_df.ix[frame_idx, f"y{idx}"] = objects[idx]["centroid"][1]
+                if self.cb_normalize_coordinates.isChecked():
+                    self.coord_df.ix[frame_idx, f"x{idx}"] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
+                    self.coord_df.ix[frame_idx, f"y{idx}"] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
+                else:
+                    self.coord_df.ix[frame_idx, f"x{idx}"] = objects[idx]["centroid"][0] - self.coordinate_center[0]
+                    self.coord_df.ix[frame_idx, f"y{idx}"] = objects[idx]["centroid"][1] - self.coordinate_center[1]
 
             logging.debug(f"coord_df: {self.coord_df}")
 
@@ -1633,12 +1646,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.te_xy.append(str(self.coord_df[frame_idx - 3: frame_idx + 3 + 1]))
 
 
-
         if self.cb_record_number_objects.isChecked():
 
             nb = {}
+            if self.areas_df is None:
+                QMessageBox.warning(self, "DORIS", "No objects to track")
+                return
 
-            for area in sorted(self.areas.keys()):
+            self.areas_df.ix[frame_idx, "frame"] = frame_idx
+
+            for area in sorted(list(self.areas.keys())):
 
                 nb[area] = 0
 
@@ -1646,11 +1663,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cx, cy = self.areas[area]["center"]
                     radius = self.areas[area]["radius"]
 
-                    for idx in sorted(list(objects.keys())):
+                    for idx in objects:
                         x, y = objects[idx]["centroid"]
-
                         if ((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius:
                             nb[area] += 1
+
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
+
 
                 if self.areas[area]["type"] == "rectangle":
                     minx, miny = self.areas[area]["pt1"]
@@ -1658,29 +1677,35 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(minx <= x <= maxx and miny <= y <= maxy)
 
                         if minx <= x <= maxx and miny <= y <= maxy:
-                            # print("object #{} in area {}".format(idx, area))
                             nb[area] += 1
 
                 if self.areas[area]["type"] == "polygon":
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0)
+
                         if cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0:
                             nb[area] += 1
 
+            if self.cb_display_analysis.isChecked():
+                self.te_number_objects.clear()
+                print(self.areas_df.head())
+                self.te_number_objects.append(str(self.areas_df[frame_idx - 3: frame_idx + 3 + 1]))
+
             self.objects_number.append(nb)
 
-            out = "{}\t".format(self.frame_idx)
-            '''for area in sorted(self.areas.keys()):
-                out += "{area}: {nb}\t".format(area=area, nb=nb[area])
             '''
+            out = "{}\t".format(self.frame_idx)
             out += "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
             # header
             if not self.te_number_objects.toPlainText():
                 self.te_number_objects.append("frame\t" + "\t".join(list(sorted(self.areas.keys()))))
 
             self.te_number_objects.append(out)
+            '''
 
 
     def run_tracking(self):
@@ -1747,6 +1772,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if "invert" in config:
                     self.cb_invert.setChecked(config["invert"])
 
+                if "normalize_coordinates" in config:
+                    self.cb_normalize_coordinates.setChecked(config["normalize_coordinates"])
+
                 try:
                     self.arena = config["arena"]
                     if self.arena:
@@ -1756,41 +1784,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except KeyError:
                     print("arena not found")
 
-                try:
+                if "min_object_size" in config:
                     self.sbMin.setValue(config["min_object_size"])
-                except KeyError:
-                    pass
-                try:
+                if "max_object_size" in config:
                     self.sbMax.setValue(config["max_object_size"])
-                except KeyError:
-                    pass
-                try:
+                if "object_max_extension" in config:
                     self.sb_max_extension.setValue(config["object_max_extension"])
-                except KeyError:
-                    pass
-
                 if "percent_out_of_arena" in config:
                     self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
-
-                try:
+                if "threshold_method" in config:
                     self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
-                except KeyError:
-                    pass
-
-                try:
+                if "block_size" in config:
                     self.sb_block_size.setValue(config["block_size"])
-                except KeyError:
-                    pass
-
-                try:
+                if "offset" in config:
                     self.sb_offset.setValue(config["offset"])
-                except KeyError:
-                    pass
-
-                try:
+                if "cut_off" in config:
                     self.sb_threshold.setValue(config["cut_off"])
-                except KeyError:
-                    pass
 
                 try:
                     self.areas = config["areas"]
@@ -1801,11 +1810,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except KeyError:
                     self.areas = {}
 
+                '''
                 if "record_number_of_objects_by_area" in config:
                     self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
 
                 if "record_objects_coordinates" in config:
                     self.cb_record_xy.setChecked(config["record_objects_coordinates"])
+                '''
 
                 if "video_file_path" in config:
                     try:
@@ -1824,6 +1835,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
                     except Exception:
                         pass
+
+                print(config["referential_system_origin"] )
+                if "referential_system_origin" in config:
+                    self.coordinate_center = config["referential_system_origin"]
+                    self.le_coordinates_center.setText(f"{self.coordinate_center}")
+
 
             except Exception:
                 print("Error in project file")

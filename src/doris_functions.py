@@ -402,7 +402,9 @@ def detect_and_filter_objects(frame,
                 print("contour size:", len(dist_))
                 print("% >", np.count_nonzero(dist_ > arena["radius"]) / len(dist_))
                 '''
+                '''
                 print("% out", idx, np.count_nonzero(dist_ > arena["radius"]) / len(dist_) )
+                '''
                 if np.count_nonzero(dist_ > arena["radius"]) / len(dist_) > tolerance_outside_arena:
                     obj_to_del_idx.append(idx)
                     continue
