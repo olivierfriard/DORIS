@@ -374,6 +374,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.dir_images_index = 0
 
         self.objects_number = []
+        
+        self.mem_position_objects = {}
 
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
@@ -1340,7 +1342,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   max_size=self.sbMax.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  #tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
                                                                   tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100,
                                                                   previous_objects=self.mem_filtered_objects
                                                                  )
@@ -1400,20 +1401,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             obj_indexes = list(filtered_objects.keys())
             # iterate all combinations of detected objects of length( self.objects_to_track)
             logging.info("combinations of filtered objects: {}".format(obj_indexes))
-            for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
-                cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
-                logging.info(f"index: {indexes} cost: {cost}")
-                mem_costs[cost] = indexes
+
+            if self.frame_idx -1 in self.mem_position_objects:
+
+                for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
+                    cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1], dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                    logging.debug(f"index: {indexes} cost: {cost}")
+                    mem_costs[cost] = indexes
+                
+            else:
+                for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
+                    cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                    logging.debug(f"index: {indexes} cost: {cost}")
+                    mem_costs[cost] = indexes
 
             min_cost = min(list(mem_costs.keys()))
-            logging.info(f"minimal cost: {min_cost}")
+            logging.debug(f"minimal cost: {min_cost}")
 
             # select new objects to track
 
             new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-            logging.info("new objects to track : {}".format(list(new_objects_to_track.keys())))
+            logging.debug("new objects to track : {}".format(list(new_objects_to_track.keys())))
 
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
+
+            self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+
 
         self.filtered_objects = filtered_objects
 
@@ -1511,16 +1524,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         #  record objects data
         self.record_objects_data(self.frame_idx, self.objects_to_track)
 
-        '''
-        self.update_info(all_objects, filtered_objects)
 
-        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                        filtered_objects,
-                                        marker_type="contour")
-
-        self.display_frame(frame_with_objects)
-        sel.display_treated_frame(processed_frame)
-        '''
 
     def show_all_objects(self):
         """
