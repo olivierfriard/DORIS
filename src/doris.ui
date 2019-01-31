@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1186</width>
-    <height>971</height>
+    <height>1070</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -612,9 +612,23 @@
     <item>
      <widget class="QLabel" name="label_12">
       <property name="text">
-       <string>Filters</string>
+       <string>Tracking</string>
       </property>
      </widget>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_19">
+      <item>
+       <widget class="QLabel" name="label_20">
+        <property name="text">
+         <string>Tag</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="le_tag"/>
+      </item>
+     </layout>
     </item>
     <item>
      <widget class="QTabWidget" name="tabWidget">
@@ -625,121 +639,161 @@
        <attribute name="title">
         <string>Objects position</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_6">
+       <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_5">
+         <layout class="QHBoxLayout" name="horizontalLayout_11">
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_11">
-            <item>
-             <widget class="QLabel" name="label">
-              <property name="text">
-               <string>Origin of referential system</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLineEdit" name="le_coordinates_center">
-              <property name="readOnly">
-               <bool>true</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_9">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <widget class="QCheckBox" name="cb_record_xy">
+           <widget class="QLabel" name="label">
             <property name="text">
-             <string>Record objects coordinates</string>
+             <string>Origin of referential system</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QCheckBox" name="cb_normalize_coordinates">
+           <widget class="QLineEdit" name="le_coordinates_center">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_9">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_20">
+          <item>
+           <widget class="QLabel" name="label_21">
             <property name="text">
-             <string>Normalize coordinates</string>
+             <string>Scale (Units/pixel)</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QTextEdit" name="te_xy">
-            <property name="font">
-             <font>
-              <family>Monospace</family>
-             </font>
+           <widget class="QLineEdit" name="le_scale">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>1</string>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
             </property>
            </widget>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_12">
-            <item>
-             <widget class="QPushButton" name="pb_reset_xy">
-              <property name="text">
-               <string>Reset</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pb_save_xy">
-              <property name="text">
-               <string>Save objects positions</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pb_plot_path">
-              <property name="text">
-               <string>Plot path</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pb_plot_positions">
-              <property name="text">
-               <string>Plot positions</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pb_plot_xy_density">
-              <property name="text">
-               <string>plot XY density</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="pb_distances">
-              <property name="text">
-               <string>Distances</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
+           <widget class="QPushButton" name="pb_reset_scale">
+            <property name="text">
+             <string>Reset scale</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_12">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="cb_record_xy">
+          <property name="text">
+           <string>Record objects coordinates</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="cb_normalize_coordinates">
+          <property name="text">
+           <string>Normalize coordinates</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextEdit" name="te_xy">
+          <property name="font">
+           <font>
+            <family>Monospace</family>
+           </font>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_12">
+          <item>
+           <widget class="QPushButton" name="pb_reset_xy">
+            <property name="text">
+             <string>Reset</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_save_xy">
+            <property name="text">
+             <string>Save objects positions</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_plot_path">
+            <property name="text">
+             <string>Plot path</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_plot_positions">
+            <property name="text">
+             <string>Plot positions</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_plot_xy_density">
+            <property name="text">
+             <string>plot XY density</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_distances">
+            <property name="text">
+             <string>Distances</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
           </item>
          </layout>
         </item>
@@ -883,11 +937,31 @@
        </widget>
       </item>
       <item>
+       <widget class="QPushButton" name="pb_run_tracking_frame_interval">
+        <property name="text">
+         <string>Run tracking on frames interval</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="pb_stop">
         <property name="text">
          <string>Stop</string>
         </property>
        </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_11">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </item>
@@ -941,6 +1015,7 @@
     <addaction name="actionDraw_reference"/>
     <addaction name="actionDefine_coordinate_center"/>
     <addaction name="actionSelect_objects_to_track"/>
+    <addaction name="actionDefine_scale"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -1055,6 +1130,11 @@
    </property>
    <property name="text">
     <string>Select objects to track</string>
+   </property>
+  </action>
+  <action name="actionDefine_scale">
+   <property name="text">
+    <string>Define scale</string>
    </property>
   </action>
  </widget>

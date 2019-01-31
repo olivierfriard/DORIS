@@ -270,6 +270,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionDraw_reference.triggered.connect(self.draw_reference)
         self.actionDefine_coordinate_center.triggered.connect(self.define_coordinate_center)
         self.actionSelect_objects_to_track.triggered.connect(self.select_objects_to_track)
+        self.actionDefine_scale.triggered.connect(self.define_scale)
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
@@ -280,7 +281,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_next_frame.clicked.connect(self.next_frame)
         self.pb_1st_frame.clicked.connect(self.reset)
 
-        self.pb_goto_frame.clicked.connect(self.go_to_frame)
+        self.pb_reset_scale.clicked.connect(self.reset_scale)
+
+        self.pb_goto_frame.clicked.connect(self.pb_go_to_frame)
 
         self.pb_forward.clicked.connect(lambda: self.for_back_ward("forward"))
         self.pb_backward.clicked.connect(lambda: self.for_back_ward("backward"))
@@ -296,6 +299,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_clear_arena.clicked.connect(self.clear_arena)
 
         self.pb_run_tracking.clicked.connect(self.run_tracking)
+        self.pb_run_tracking_frame_interval.clicked.connect(self.run_tracking_frames_interval)
         self.pb_stop.clicked.connect(self.stop)
 
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
@@ -363,18 +367,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas = {}
         self.flag_define_arena = False
         self.flag_define_coordinate_center = False
+        self.flag_define_scale = False
         self.coordinate_center = [0, 0]
+        self.scale_points = []
         self.add_area = {}
         self.arena = {}
         self.mem_filtered_objects = {}
         self.all_objects = {}
         self.objects_to_track = {}
+        self.scale = 1
 
         self.dir_images = []
         self.dir_images_index = 0
 
         self.objects_number = []
-        
+
         self.mem_position_objects = {}
 
         # default
@@ -396,6 +403,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.threshold_method_changed()
 
         self.sb_percent_out_of_arena.setValue(int(TOLERANCE_OUTSIDE_ARENA * 100))
+
 
     def about(self):
         """
@@ -482,6 +490,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["normalize_coordinates"] = self.cb_normalize_coordinates.isChecked()
         config["areas"] = self.areas
         config["referential_system_origin"] = self.coordinate_center
+        config["scale"] = self.scale
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -526,24 +535,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def go_to_frame(self):
+    def go_to_frame(self, frame_nb: int):
+        """
+        load frame and visualize it
+        """
+        if self.dir_images:
+            self.dir_images_index = frame_nb
+            self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+        elif self.capture is not None:
+            try:
+                self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_nb)
+            except Exception:
+                logging.debug("exception in function go_to_frame")
+                pass
 
-        logging.debug("function: go_to_frame")
+
+    def pb_go_to_frame(self):
+
+        logging.debug("function: pb_go_to_frame")
 
         if self.le_goto_frame.text():
             try:
                 int(self.le_goto_frame.text())
             except ValueError:
                 return
-
-            if self.dir_images:
-                self.dir_images_index = int(self.le_goto_frame.text()) - 1
-                self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
-            elif self.capture is not None:
-                try:
-                    self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.le_goto_frame.text()) - 1)
-                except Exception:
-                    pass
+            self.go_to_frame(frame_nb=int(self.le_goto_frame.text()) - 1)
             self.pb()
 
 
@@ -678,8 +694,39 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.display_frame(self.frame)
             self.flag_define_coordinate_center = False
+            self.actionDefine_coordinate_center.setText("Define the origin of the referential system")
             self.le_coordinates_center.setText(f"{self.coordinate_center}")
             self.statusBar.showMessage(f"Center of coordinates defined")
+
+        # set scale
+        if self.flag_define_scale:
+            if len(self.scale_points) < 2:
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.display_frame(self.frame)
+
+                self.scale_points.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
+
+                if len(self.scale_points) == 2:
+                    cv2.line(self.frame, self.scale_points[0], self.scale_points[1],
+                             color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                    self.display_frame(self.frame)
+                    self.flag_define_scale = False
+                    self.actionDefine_scale.setText("Define scale")
+                    while True:
+                        real_length_str, ok_pressed = QInputDialog.getText(self, "Real length", "Value (w/o unit):")
+                        if not ok_pressed:
+                            return
+                        try:
+                            float(real_length_str)
+                            break
+                        except:
+                            QMessageBox.warning(self, "DORIS", f"{real_length_str} was not recognized as length")
+                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0], self.scale_points[1])
+                    self.le_scale.setText(f"{self.scale:0.5f}")
+                    self.scale_points = []
+                    self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
+                    self.reload_frame()
 
 
         if self.add_area:
@@ -898,6 +945,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.setEnabled(not self.cb_background.isChecked())
 
 
+    def reset_scale(self):
+        """
+        reset scale to 1
+        """
+        self.scale = 1
+        self.le_scale.setText("1")
+
     def reset(self):
         """
         go to 1st frame
@@ -909,6 +963,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images_index = 0
         else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        self.objects_to_track = None
+        self.mem_position_objects = None
+
         self.pb()
 
 
@@ -1042,7 +1099,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def distances(self):
         """
-
+        save distances
         """
         if self.coord_df is None:
             QMessageBox.warning(self, "DORIS", "no positions recorded")
@@ -1054,7 +1111,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             dx = self.coord_df[f"x{idx}"] - self.coord_df[f"x{idx}"].shift(1)
             dy = self.coord_df[f"y{idx}"] - self.coord_df[f"y{idx}"].shift(1)
             dist = (dx*dx + dy*dy) ** 0.5
-            results.ix[idx, "distance"] = round(dist.sum())
+            results.ix[idx, "distance"] = dist.sum()
 
         file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
         if file_name:
@@ -1197,15 +1254,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         define coordinates center
         """
         if self.frame is not None:
-            self.flag_define_coordinate_center = True
+            self.flag_define_coordinate_center = not self.flag_define_coordinate_center
+            self.actionDefine_coordinate_center.setText("Define the origin of the referential system" if not self.flag_define_coordinate_center
+                                                        else "Cancel origin definition")
             self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center)
+
+
+    def define_scale(self):
+        """
+        define scale. from pixels to real unit
+        """
+        if self.frame is not None:
+            self.flag_define_scale = not self.flag_define_scale
+            self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
+            self.statusBar.showMessage("You have to select 2 points" * self.flag_define_scale)
 
 
     def initialize_positions_dataframe(self):
         """
         initialize dataframe for recording objects coordinates
         """
-        columns = ["frame"]
+        columns = ["tag", "frame"]
         for idx in self.objects_to_track:
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
@@ -1215,7 +1284,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         initialize dataframe for recording presence of objects in areas
         """
-        columns = ["frame"]
+        columns = ["tag", "frame"]
         for area in sorted(self.areas.keys()):
             for idx in self.objects_to_track:
                 columns.append(f"area {area} object #{idx}")
@@ -1408,7 +1477,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1], dict([(idx, filtered_objects[idx]) for idx in indexes]))
                     logging.debug(f"index: {indexes} cost: {cost}")
                     mem_costs[cost] = indexes
-                
+
             else:
                 for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
                     cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
@@ -1720,20 +1789,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         if self.cb_record_xy.isChecked():
+
             if self.coord_df is None:
                 QMessageBox.warning(self, "DORIS", "No objects to track")
                 return
 
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 
+            # frame idx
             self.coord_df.ix[frame_idx, "frame"] = frame_idx
+            # tag
+            self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
+
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
                     self.coord_df.ix[frame_idx, f"x{idx}"] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
                     self.coord_df.ix[frame_idx, f"y{idx}"] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
                 else:
-                    self.coord_df.ix[frame_idx, f"x{idx}"] = objects[idx]["centroid"][0] - self.coordinate_center[0]
-                    self.coord_df.ix[frame_idx, f"y{idx}"] = objects[idx]["centroid"][1] - self.coordinate_center[1]
+                    self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
+                    self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
 
             logging.debug(f"coord_df: {self.coord_df}")
 
@@ -1749,7 +1823,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.warning(self, "DORIS", "No objects to track")
                 return
 
+            # frame idx
             self.areas_df.ix[frame_idx, "frame"] = frame_idx
+            # tag
+            self.areas_df.ix[frame_idx, "tag"] = self.le_tag.text()
+
 
             for area in sorted(list(self.areas.keys())):
 
@@ -1806,8 +1884,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def run_tracking(self):
         """
-        run analysis from current frame to end
+        run tracking from current frame to end
         """
+
+        # check if objects to track are defined
+        if not self.objects_to_track :
+            QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            return
 
         if self.flag_stop_analysis:
             return
@@ -1825,16 +1908,66 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         while True:
             if not self.pb():
                 self.running_tracking = False
-                logging.info("analysis finished")
+                logging.info("tracking finished")
                 break
 
             app.processEvents()
             if self.flag_stop_analysis:
                 self.running_tracking = False
-                logging.info("analysis stopped")
+                logging.info("tracking stopped")
                 break
 
         self.flag_stop_analysis = False
+
+
+    def run_tracking_frames_interval(self):
+        """
+        run tracking in a frames interval
+        """
+        # check if objects to track are defined
+        if not self.objects_to_track :
+            QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            return
+        if self.running_tracking:
+            QMessageBox.warning(self, "DORIS", "A tracking task is already running")
+            return
+
+
+        try:
+            text, ok = QInputDialog.getText(self, "Run tracking", "Frames interval: (ex. 123-456)")
+            if not ok:
+                return
+            start_frame, stop_frame = [int(x) for x in text.split("-")]
+            if start_frame >= stop_frame:
+                raise
+        except:
+            QMessageBox.warning(self, "DORIS", f"{text} is not a valid interval")
+            return
+
+        logging.info(f"start_frame: {start_frame} stop frame: {stop_frame}")
+        self.go_to_frame(start_frame - 1)
+
+        self.running_tracking = True
+        while True:
+            if not self.pb():
+                self.running_tracking = False
+                logging.info("tracking finished")
+                break
+
+            app.processEvents()
+
+            if self.frame_idx >= stop_frame:
+                logging.info("tracking finished")
+                self.running_tracking = False
+                break
+
+            if self.flag_stop_analysis:
+                self.running_tracking = False
+                logging.info("tracking stopped")
+                break
+
+        self.flag_stop_analysis = False
+
 
 
     def stop(self):
@@ -1896,6 +2029,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.sb_offset.setValue(config["offset"])
                 if "cut_off" in config:
                     self.sb_threshold.setValue(config["cut_off"])
+                if "scale" in config:
+                    self.le_scale.setText(f"{config['scale']:0.5f}")
+                    self.scale = config["scale"]
 
                 try:
                     self.areas = config["areas"]
