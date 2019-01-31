@@ -949,8 +949,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         reset scale to 1
         """
+        logging.debug("function: reset scale")
+
         self.scale = 1
         self.le_scale.setText("1")
+
 
     def reset(self):
         """
