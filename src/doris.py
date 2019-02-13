@@ -1414,16 +1414,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   max_size=self.sbMax.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100,
-                                                                  previous_objects=self.mem_filtered_objects
+                                                                  tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                  )
 
         logging.info("number of all filtered objects: {}".format(len(filtered_objects)))
         logging.info("self.objects_to_track: {}".format(list(self.objects_to_track.keys())))
 
         # check filtered objects number
-        # apply clustering when number of filtered objects are lower than tracked objects
-
+        # no filtered object
         if len(filtered_objects) == 0 and len(self.objects_to_track):
             logging.info("no filtered objects")
             self.statusBar.showMessage("No filtered objects!")
@@ -1434,7 +1432,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_processed_frame(processed_frame)
             return
 
-
+        # filtered object are less than objects to track
+        # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
             logging.info("kmean clustering")
@@ -1527,10 +1526,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # draw contour of objects
             if self.objects_to_track:
+                # draw contours of tracked objects
                 frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                                  self.objects_to_track,
                                                                  marker_type=MARKER_TYPE)
             else:
+                # draw contours of filtered objects
                 frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                                  self.filtered_objects,
                                                                  marker_type=MARKER_TYPE)
@@ -1565,29 +1566,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # draw arena
             if self.arena:
                 frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
-                '''
-                if self.arena["type"] == "polygon":
-                    for idx, point in enumerate(self.arena["points"][:-1]):
-                        cv2.line(frame_with_objects, tuple(point), tuple(self.arena["points"][idx + 1]),
-                                 color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                    cv2.line(frame_with_objects, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
-                             color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                    # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
-                    # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
-                if self.arena["type"] == "circle":
-                    cv2.circle(frame_with_objects, tuple(self.arena["center"]), self.arena["radius"],
-                               color=ARENA_COLOR, thickness=drawing_thickness)
-                    # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
-
-                if self.arena["type"] == "rectangle":
-                    cv2.rectangle(frame_with_objects, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
-                                  color=ARENA_COLOR, thickness=drawing_thickness)
-                '''
-
+            # draw coordinate center if defined
             if self.coordinate_center != [0, 0]:
                 frame_with_objects = self.draw_point(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
-
 
             # display frames
             self.display_frame(frame_with_objects)

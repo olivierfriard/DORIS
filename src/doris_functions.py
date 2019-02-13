@@ -161,6 +161,8 @@ def apply_k_means(contours, n_inds):
     contours. The algorithm is applied when detected contours are fewer than
     expected objects(number of animals) in the scene.
 
+    see https://stackoverflow.com/questions/38355153/initial-centroids-for-scikit-learn-kmeans-clustering
+
     Parameters
     ----------
     contours: list
@@ -285,8 +287,7 @@ def detect_and_filter_objects(frame,
                               max_size=0,
                               arena={},
                               max_extension=50,
-                              tolerance_outside_arena=0.05,
-                              previous_objects={}):
+                              tolerance_outside_arena=0.05):
     """
     returns all detected objects and filtered objects
 
@@ -297,7 +298,6 @@ def detect_and_filter_objects(frame,
         number_of_objects (int): number of objects to return
         arena (list): list of arena
         max_extension (int): maximum extension of object to select
-        previous_objects (dict): object(s) detected in previous frame
 
     Returns:
         dict: all detected objects
