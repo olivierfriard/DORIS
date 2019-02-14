@@ -18,7 +18,7 @@ This file is part of DORIS.
 
   You should have received a copy of the GNU General Public License
   along with this program; if not see <http://www.gnu.org/licenses/>.
-
+coordinate_center
 
 Requirements:
 pyqt5
@@ -69,13 +69,6 @@ from matplotlib.path import Path
 import matplotlib.patches as patches
 from matplotlib.figure import Figure
 
-'''
-try:
-    import mpl_scatter_density
-    flag_mpl_scatter_density = True
-except ModuleNotFoundError:
-    flag_mpl_scatter_density = False
-'''
 import argparse
 import itertools
 
@@ -162,7 +155,7 @@ class FrameViewer(QWidget):
     widget for visualizing frame
     """
     def __init__(self):
-        super(FrameViewer, self).__init__()
+        super().__init__()
 
         self.vbox = QVBoxLayout()
 
@@ -175,9 +168,7 @@ class FrameViewer(QWidget):
     def pbOK_clicked(self):
         self.close()
 
-
 font = FONT
-
 
 def frame2pixmap(frame):
     """
@@ -214,35 +205,6 @@ def toQImage(frame, copy=False):
                 qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32)
                 return qim.copy() if copy else qim
 
-'''
-def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
-
-    if flag_mpl_scatter_density:
-        x = np.array(x)
-        y = np.array(y)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-        ax.scatter_density(x, y)
-        if x_lim != (0, 0):
-            ax.set_xlim(x_lim)
-        if y_lim != (0, 0):
-            ax.set_ylim(y_lim[::-1])
-
-        plt.show()
-
-    else:
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setWindowTitle("DORIS")
-        msg.setText("the mpl_scatter_density module is required to plot density")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
-        return
-'''
-
-
-
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
@@ -267,8 +229,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.action_treated_1_4.triggered.connect(lambda: self.frame_viewer_scale(1, 0.25))
         self.action_treated_2.triggered.connect(lambda: self.frame_viewer_scale(1, 2))
 
-        self.actionDraw_reference.triggered.connect(self.draw_reference)
-        self.actionDefine_coordinate_center.triggered.connect(self.define_coordinate_center)
+        self.actionDraw_reference.triggered.connect(self.process_and_show)
+        self.actionShow_centroid_of_object.triggered.connect(self.process_and_show)
+        self.actionShow_contour_of_object.triggered.connect(self.process_and_show)
+        self.actionOrigin_from_point.triggered.connect(self.define_coordinate_center_1point)
+        self.actionOrigin_from_center_of_3_points_circle.triggered.connect(self.define_coordinate_center_3points_circle)
         self.actionSelect_objects_to_track.triggered.connect(self.select_objects_to_track)
         self.actionDefine_scale.triggered.connect(self.define_scale)
 
@@ -366,13 +331,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fps = 0
         self.areas = {}
         self.flag_define_arena = False
-        self.flag_define_coordinate_center = False
+        self.flag_define_coordinate_center_1point = False
+        self.flag_define_coordinate_center_3points = False
         self.flag_define_scale = False
         self.coordinate_center = [0, 0]
+        self.coordinate_center_def = []
         self.scale_points = []
         self.add_area = {}
         self.arena = {}
-        self.mem_filtered_objects = {}
+        '''self.mem_filtered_objects = {}'''
         self.all_objects = {}
         self.objects_to_track = {}
         self.scale = 1
@@ -491,6 +458,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["areas"] = self.areas
         config["referential_system_origin"] = self.coordinate_center
         config["scale"] = self.scale
+        config["show_centroid"] = self.actionShow_centroid_of_object.isChecked()
+        config["show_contour"] = self.actionShow_contour_of_object.isChecked()
+        config["show_reference"] = self.actionDraw_reference.isChecked()
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -505,6 +475,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         change scale of frame viewer
         """
+
         self.fw[fw_idx].lb_frame.clear()
         self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
         if fw_idx == 0:
@@ -515,8 +486,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if fw_idx == 1:
             processed_frame = self.frame_processing(self.frame)
             self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                         Qt.KeepAspectRatio))
+                                                                                              Qt.KeepAspectRatio))
         self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
+        self.process_and_show()
 
 
     def for_back_ward(self, direction="forward"):
@@ -659,23 +631,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return ratio, drawing_thickness
 
 
-    def draw_point(self, frame, position, color, drawing_thickness):
+    def draw_point_origin(self, frame, position, color, drawing_thickness):
         """
         draw a point (circle and cross) on frame
         """
 
-        # _, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
         position = tuple(position)
         cv2.circle(frame, position, 8,
                    color=color, lineType=8, thickness=drawing_thickness)
 
         cv2.line(frame, (position[0], position[1] - 0),
-                             (position[0], position[1] + 50),
-                              color=color, lineType=8, thickness=drawing_thickness)
+                        (position[0], position[1] + 50),
+                 color=color, lineType=8, thickness=drawing_thickness)
 
         cv2.line(frame, (position[0], position[1]),
                         (position[0] + 50, position[1]),
-                              color=color, lineType=8, thickness=drawing_thickness)
+                 color=color, lineType=8, thickness=drawing_thickness)
+
         return frame
 
 
@@ -687,16 +659,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: frame_mousepressed")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
-        # set coordinate center
-        if self.flag_define_coordinate_center:
+        # set coordinate center with 1 point
+        if self.flag_define_coordinate_center_1point:
             self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
-            self.frame = self.draw_point(self.frame, self.coordinate_center, BLUE, drawing_thickness)
+            self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
 
             self.display_frame(self.frame)
-            self.flag_define_coordinate_center = False
-            self.actionDefine_coordinate_center.setText("Define the origin of the referential system")
+            self.flag_define_coordinate_center_1point = False
+            self.actionOrigin_from_point.setText("from point")
             self.le_coordinates_center.setText(f"{self.coordinate_center}")
             self.statusBar.showMessage(f"Center of coordinates defined")
+
+        # set coordinate center with 3 points circle
+        if self.flag_define_coordinate_center_3points:
+            self.coordinate_center_def.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
+            cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                           color=BLUE, lineType=8, thickness=drawing_thickness)
+
+            self.display_frame(self.frame)
+
+            if len(self.coordinate_center_def) == 3:
+
+                x, y, _ = doris_functions.find_circle(self.coordinate_center_def)
+                self.coordinate_center = [int(x), int(y)]
+                self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
+                self.process_and_show()
+
+                self.coordinate_center_def = []
+                self.flag_define_coordinate_center_3point3 = False
+                self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle")
+                self.le_coordinates_center.setText(f"{self.coordinate_center}")
+                self.statusBar.showMessage(f"Center of coordinates defined")
+
 
         # set scale
         if self.flag_define_scale:
@@ -1252,15 +1246,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                 invert=self.cb_invert.isChecked())
 
 
-    def define_coordinate_center(self):
+    def define_coordinate_center_1point(self):
         """
-        define coordinates center
+        define origin of coordinates with a point
         """
         if self.frame is not None:
-            self.flag_define_coordinate_center = not self.flag_define_coordinate_center
-            self.actionDefine_coordinate_center.setText("Define the origin of the referential system" if not self.flag_define_coordinate_center
+            self.flag_define_coordinate_center_1point = not self.flag_define_coordinate_center_1point
+            self.actionOrigin_from_point.setText("from point" if not self.flag_define_coordinate_center_1point
                                                         else "Cancel origin definition")
-            self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center)
+            self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center_1point)
+
+
+    def define_coordinate_center_3points_circle(self):
+        """
+        define origin of coordinates with a 3 points circle
+        """
+        if self.frame is not None:
+            self.flag_define_coordinate_center_3points = not self.flag_define_coordinate_center_3points
+            self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle" if not self.flag_define_coordinate_center_3points
+                                                        else "Cancel origin definition")
+            self.statusBar.showMessage("You have to select the origin of the referential system with a 3 points circle" * self.flag_define_coordinate_center_3points)
 
 
     def define_scale(self):
@@ -1323,18 +1328,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.process_and_show()
 
 
-    def draw_reference(self):
+    def draw_reference_clicked(self):
         """
-        draw reference (squareof 100px) on frame
+        click on draw reference menu option
+        """
+        self.process_and_show()
+
+
+    def draw_reference(self, frame):
+        """
+        draw reference (100px square) on frame
         """
 
-        if self.frame is not None:
+        if frame is not None:
             ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
+            cv2.rectangle(frame, (10, 10), (110, 110), RED, 1)
+            cv2.putText(frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
 
-            cv2.rectangle(self.frame, (10, 10), (110, 110), RED, 1)
-            cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
-
-            self.display_frame(self.frame)
+        return frame
 
 
     def draw_marker_on_objects(self, frame, objects, marker_type=MARKER_TYPE):
@@ -1346,13 +1357,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
-            print(idx, marker_color)
-            if marker_type == RECTANGLE:
-                cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
-            if marker_type == CONTOUR:
-                cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
+            logging.debug(f"idx: {idx}, marker_color: {marker_color}")
 
-            cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
+            if self.actionShow_contour_of_object.isChecked():
+                if marker_type == RECTANGLE:
+                    cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
+                if marker_type == CONTOUR:
+                    cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
+
+                cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
+
+            if self.actionShow_centroid_of_object.isChecked():
+                cv2.circle(frame, tuple(objects[idx]["centroid"]), 1, color=marker_color, thickness=drawing_thickness)
+                if not self.actionShow_contour_of_object.isChecked():
+                    cv2.putText(frame, str(idx), objects[idx]["centroid"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
 
         return frame
 
@@ -1430,6 +1448,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects)
             self.display_processed_frame(processed_frame)
+            self.flag_stop_analysis = True
+            QMessageBox.critical(self, "DORIS", "No object detected")
             return
 
         # filtered object are less than objects to track
@@ -1492,16 +1512,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # select new objects to track
 
             new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-            logging.debug("new objects to track : {}".format(list(new_objects_to_track.keys())))
+            logging.debug("new objects to track : {list(new_objects_to_track.keys())}")
 
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
             self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
 
 
-        self.filtered_objects = filtered_objects
-
         # check max distance from previous detected objects
+        if self.frame_idx - 1 in self.mem_position_objects:
+            p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]])
+            p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
+            dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
+            logging.debug(f"dist max: {dist_max}")
+            if dist_max > DIST_MAX:
+                self.flag_stop_analysis = True
+                self.update_info(all_objects, filtered_objects, self.objects_to_track)
+                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                 self.objects_to_track,
+                                                                 marker_type=MARKER_TYPE)
+                self.display_frame(frame_with_objects)
+                self.display_processed_frame(processed_frame)
+                QMessageBox.critical(self, "DORIS", f"Object moved of {dist_max} pixels.\nThe maximum allowed is {DIST_MAX}")
+                return
+
+
+
         '''
         if self.mem_filtered_objects and len(self.mem_filtered_objects) == len(filtered_objects):
             positions = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
@@ -1520,6 +1556,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.mem_filtered_objects = dict(filtered_objects)
         '''
 
+        self.filtered_objects = filtered_objects
+
         if self.cb_display_analysis.isChecked():
 
             self.update_info(all_objects, filtered_objects, self.objects_to_track)
@@ -1533,7 +1571,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 # draw contours of filtered objects
                 frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                 self.filtered_objects,
+                                                                 filtered_objects,
                                                                  marker_type=MARKER_TYPE)
 
 
@@ -1567,9 +1605,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.arena:
                 frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
 
+            # draw reference (100 px square)
+            if self.actionDraw_reference.isChecked():
+                frame_with_objects = self.draw_reference(frame_with_objects)
+
             # draw coordinate center if defined
             if self.coordinate_center != [0, 0]:
-                frame_with_objects = self.draw_point(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+                frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
 
             # display frames
             self.display_frame(frame_with_objects)
@@ -1851,7 +1893,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_display_analysis.isChecked():
                 self.te_number_objects.clear()
-                print(self.areas_df.head())
+                '''print(self.areas_df.head())'''
                 self.te_number_objects.append(str(self.areas_df[frame_idx - 3: frame_idx + 3 + 1]))
 
             self.objects_number.append(nb)
@@ -1967,7 +2009,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         open a project file and load parameters
         """
 
-
         logging.debug("open_project")
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
@@ -1980,8 +2021,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 with open(file_name) as f_in:
                     config = json.loads(f_in.read())
 
-                if "blur" in config:
-                    self.sb_blur.setValue(config["blur"])
+                self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
 
                 if "invert" in config:
                     self.cb_invert.setChecked(config["invert"])
@@ -2014,6 +2054,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.sb_offset.setValue(config["offset"])
                 if "cut_off" in config:
                     self.sb_threshold.setValue(config["cut_off"])
+
                 if "scale" in config:
                     self.le_scale.setText(f"{config['scale']:0.5f}")
                     self.scale = config["scale"]
@@ -2053,11 +2094,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     except Exception:
                         pass
 
-                print(config["referential_system_origin"] )
-                if "referential_system_origin" in config:
-                    self.coordinate_center = config["referential_system_origin"]
-                    self.le_coordinates_center.setText(f"{self.coordinate_center}")
+                self.coordinate_center = config.get("referential_system_origin", [0,0])
+                self.le_coordinates_center.setText(f"{self.coordinate_center}")
 
+                self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
+                self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
+                self.actionDraw_reference.setChecked(config.get("show_reference", False))
+
+                self.process_and_show()
 
             except Exception:
                 print("Error in project file")

@@ -14,7 +14,7 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_9">
+   <layout class="QVBoxLayout" name="verticalLayout_6">
     <item>
      <widget class="QLabel" name="lb_frames">
       <property name="font">
@@ -328,7 +328,7 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_18">
+     <layout class="QHBoxLayout" name="horizontalLayout_21">
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
@@ -509,6 +509,33 @@
          </layout>
         </item>
         <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_18">
+          <item>
+           <widget class="QLabel" name="label_22">
+            <property name="text">
+             <string>Max distance between frames (pixels)</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="sp_max_distance"/>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_13">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
          <spacer name="verticalSpacer">
           <property name="orientation">
            <enum>Qt::Vertical</enum>
@@ -516,7 +543,7 @@
           <property name="sizeHint" stdset="0">
            <size>
             <width>20</width>
-            <height>7</height>
+            <height>13</height>
            </size>
           </property>
          </spacer>
@@ -1010,10 +1037,16 @@
      <addaction name="action_treated_1_2"/>
      <addaction name="action_treated_1_4"/>
     </widget>
+    <widget class="QMenu" name="menuDefine_coordinate_center">
+     <property name="title">
+      <string>Define the origin of the referential system</string>
+     </property>
+     <addaction name="actionOrigin_from_point"/>
+     <addaction name="actionOrigin_from_center_of_3_points_circle"/>
+    </widget>
     <addaction name="menuFrame_viewer_scale"/>
     <addaction name="menuTreatment_viewer_scale"/>
-    <addaction name="actionDraw_reference"/>
-    <addaction name="actionDefine_coordinate_center"/>
+    <addaction name="menuDefine_coordinate_center"/>
     <addaction name="actionSelect_objects_to_track"/>
     <addaction name="actionDefine_scale"/>
    </widget>
@@ -1023,7 +1056,16 @@
     </property>
     <addaction name="actionAbout"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionDraw_reference"/>
+    <addaction name="actionShow_centroid_of_object"/>
+    <addaction name="actionShow_contour_of_object"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuView"/>
    <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -1109,19 +1151,11 @@
    </property>
   </action>
   <action name="actionDraw_reference">
-   <property name="text">
-    <string>Draw reference</string>
-   </property>
-  </action>
-  <action name="actionDefine_coordinate_center">
    <property name="checkable">
-    <bool>false</bool>
-   </property>
-   <property name="enabled">
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Define the origin of the referential system</string>
+    <string>Draw reference</string>
    </property>
   </action>
   <action name="actionSelect_objects_to_track">
@@ -1135,6 +1169,35 @@
   <action name="actionDefine_scale">
    <property name="text">
     <string>Define scale</string>
+   </property>
+  </action>
+  <action name="actionOrigin_from_point">
+   <property name="text">
+    <string>from point</string>
+   </property>
+  </action>
+  <action name="actionOrigin_from_center_of_3_points_circle">
+   <property name="text">
+    <string>from center of 3 points circle</string>
+   </property>
+  </action>
+  <action name="actionShow_centroid_of_object">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show centroid of object</string>
+   </property>
+  </action>
+  <action name="actionShow_contour_of_object">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show contour of object</string>
    </property>
   </action>
  </widget>

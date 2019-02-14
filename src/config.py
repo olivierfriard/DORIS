@@ -23,8 +23,13 @@ This file is part of DORIS.
 
 import cv2
 
+DIST_MAX = 20
+
 THRESHOLD_METHODS = ["Adaptive (mean)", "Adaptive (Gaussian)", "Simple"]
 
+BLUR_DEFAULT_VALUE = 3
+SHOW_CENTROID_DEFAULT = False
+SHOW_CONTOUR_DEFAULT = True
 
 THRESHOLD_DEFAULT = 50
 VIEWER_WIDTH = 480

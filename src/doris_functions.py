@@ -455,18 +455,23 @@ def detect_and_filter_objects(frame,
     return all_objects, filtered_objects
     '''
 
+def distances(a1, a2):
+    return cdist(a1, a2).diagonal()
+
 
 def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
     """
-    reorder objects to assign object index to closer previous one
+    sum of distances between centroids of objects
     """
 
     if len(objects) == len(mem_objects):
+        '''
         mem_positions = [mem_objects[k]["centroid"] for k in mem_objects]
         positions = [objects[k]["centroid"] for k in objects]
+        '''
 
-        p1 = np.array(mem_positions)
-        p2 = np.array(positions)
+        p1 = np.array([mem_objects[k]["centroid"] for k in mem_objects])
+        p2 = np.array([objects[k]["centroid"] for k in objects])
 
         distances = cdist(p1, p2)
 
@@ -475,9 +480,8 @@ def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
         return int(round(distances[row_ind, col_ind].sum()))
 
     else:
-        print("len !=")
-
-        return None
+        raise
+        return -1
 
 
 def reorder_objects(mem_objects: dict, objects: dict) -> dict:
@@ -491,7 +495,6 @@ def reorder_objects(mem_objects: dict, objects: dict) -> dict:
 
         p1 = np.array(mem_positions)
         p2 = np.array(positions)
-        # print(p1, p2)
 
         distances = cdist(p1, p2)
 
@@ -504,6 +507,5 @@ def reorder_objects(mem_objects: dict, objects: dict) -> dict:
             return objects
 
     else:
-        print("len !=")
 
         return objects
