@@ -461,6 +461,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["show_centroid"] = self.actionShow_centroid_of_object.isChecked()
         config["show_contour"] = self.actionShow_contour_of_object.isChecked()
         config["show_reference"] = self.actionDraw_reference.isChecked()
+        config["max_distance"] = self.sb_max_distance.value()
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -1520,21 +1521,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
         # check max distance from previous detected objects
-        if self.frame_idx - 1 in self.mem_position_objects:
-            p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]])
-            p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
-            dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
-            logging.debug(f"dist max: {dist_max}")
-            if dist_max > DIST_MAX:
-                self.flag_stop_analysis = True
-                self.update_info(all_objects, filtered_objects, self.objects_to_track)
-                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                 self.objects_to_track,
-                                                                 marker_type=MARKER_TYPE)
-                self.display_frame(frame_with_objects)
-                self.display_processed_frame(processed_frame)
-                QMessageBox.critical(self, "DORIS", f"Object moved of {dist_max} pixels.\nThe maximum allowed is {DIST_MAX}")
-                return
+        if self.sb_max_distance.value():
+            if self.frame_idx - 1 in self.mem_position_objects:
+                p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]])
+                p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
+                dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
+                logging.debug(f"dist max: {dist_max}")
+                if dist_max > DIST_MAX:
+                    self.flag_stop_analysis = True
+                    self.update_info(all_objects, filtered_objects, self.objects_to_track)
+                    frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                     self.objects_to_track,
+                                                                     marker_type=MARKER_TYPE)
+                    self.display_frame(frame_with_objects)
+                    self.display_processed_frame(processed_frame)
+                    QMessageBox.critical(self, "DORIS", f"Object moved of {dist_max} pixels.\nThe maximum allowed is {DIST_MAX}")
+                    return
 
 
 
@@ -2100,6 +2102,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
                 self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
                 self.actionDraw_reference.setChecked(config.get("show_reference", False))
+                self.sb_max_distance.setValue(config.get("max_distance", 0))
 
                 self.process_and_show()
 

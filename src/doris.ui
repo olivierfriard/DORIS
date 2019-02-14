@@ -518,7 +518,11 @@
            </widget>
           </item>
           <item>
-           <widget class="QSpinBox" name="sp_max_distance"/>
+           <widget class="QSpinBox" name="sb_max_distance">
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+           </widget>
           </item>
           <item>
            <spacer name="horizontalSpacer_13">
