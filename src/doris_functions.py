@@ -163,21 +163,12 @@ def apply_k_means(contours, n_inds):
 
     see https://stackoverflow.com/questions/38355153/initial-centroids-for-scikit-learn-kmeans-clustering
 
-    Parameters
-    ----------
-    contours: list
-        a list of all detected contours that pass the area based threhold criterion
-    n_inds: int
-        total number of individuals being tracked
-    meas_now: array_like, dtype=float
-        individual's location on current frame
+    Args:
+        contours (list): list of contours
+        n_inds (int): total number of individuals being tracked
 
-    Returns
-    -------
-    contours: list
-        a list of all detected contours that pass the area based threhold criterion
-    meas_now: array_like, dtype=float
-        individual's location on current frame
+    Returns:
+        list: contours
     """
 
     logging.debug("function: apply_k_means")
@@ -189,20 +180,16 @@ def apply_k_means(contours, n_inds):
     myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
 
     kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init = 50).fit(myarray)
-    l = len(kmeans.cluster_centers_)
+    '''l = len(kmeans.cluster_centers_)'''
 
-    new_contours = []
+    new_contours = [myarray[kmeans.labels_==i] for i in range(n_inds)]
+
+    '''
     for i in range(n_inds):
         new_contours.append(myarray[kmeans.labels_==i])
-
-    '''
-    for i in range(l):
-        x = int(tuple(kmeans.cluster_centers_[i])[0])
-        y = int(tuple(kmeans.cluster_centers_[i])[1])
-        centroids.append([x,y])
     '''
 
-    return new_contours #, centroids
+    return new_contours
 
 
 def image_processing(frame,
