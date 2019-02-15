@@ -988,8 +988,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images_index = 0
         else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        self.objects_to_track = None
-        self.mem_position_objects = None
+        self.objects_to_track = {}
+        self.te_tracked_objects.clear()
+        self.mem_position_objects = {}
+
+        self.reset_xy_analysis()
 
         self.pb()
 
@@ -1012,9 +1015,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.coord_df is not None and self.objects_to_track:
             # init dataframe for recording objects coordinates
             self.initialize_positions_dataframe()
-
             self.te_xy.clear()
-            '''self.te_xy.append(str(self.coord_df[self.frame_idx - 3: self.frame_idx + 3 + 1]))'''
 
 
     def save_objects_positions(self):

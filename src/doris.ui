@@ -32,7 +32,7 @@
       <item>
        <widget class="QPushButton" name="pb_1st_frame">
         <property name="text">
-         <string>Go to 1st frame</string>
+         <string>Reset</string>
         </property>
        </widget>
       </item>

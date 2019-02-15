@@ -556,7 +556,7 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.lb_frames.setText(_translate("MainWindow", "Number of frames: "))
-        self.pb_1st_frame.setText(_translate("MainWindow", "Go to 1st frame"))
+        self.pb_1st_frame.setText(_translate("MainWindow", "Reset"))
         self.pb_next_frame.setText(_translate("MainWindow", "next frame"))
         self.label_11.setText(_translate("MainWindow", "frame number"))
         self.le_goto_frame.setText(_translate("MainWindow", "1"))
