@@ -46,7 +46,8 @@ from PyQt5.QtGui import (QPixmap, QImage, qRgb)
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
-                             QSizePolicy, QCheckBox, QHBoxLayout, QPushButton)
+                             QSizePolicy, QCheckBox, QHBoxLayout, QPushButton,
+                             QMessageBox)
 
 import logging
 import os
@@ -165,8 +166,18 @@ class FrameViewer(QWidget):
 
         self.setLayout(self.vbox)
 
+
+    def closeEvent(self, event):
+        #qm = QMessageBox
+        #ret = qm.question(self,'', "Are you sure to close this window?", qm.Yes | qm.No)
+
+        #if ret == qm.Yes:
+        event.accept()
+
+    '''
     def pbOK_clicked(self):
         self.close()
+    '''
 
 font = FONT
 
