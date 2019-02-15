@@ -1117,6 +1117,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             x_lim = x_lim / self.video_width
             y_lim = y_lim / self.video_width
 
+        x_lim = x_lim * self.scale
+        y_lim = y_lim * self.scale
+
         doris_functions.plot_density(self.coord_df,
                                      x_lim=x_lim,
                                      y_lim=y_lim)
