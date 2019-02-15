@@ -298,7 +298,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
         self.pb_distances.clicked.connect(self.distances)
-        '''self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)'''
 
         # menu for area button
         menu = QMenu()
@@ -1161,6 +1160,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.cb_normalize_coordinates.isChecked():
             x_lim = x_lim / self.video_width
             y_lim = y_lim / self.video_width
+
+        x_lim = x_lim * self.scale
+        y_lim = y_lim * self.scale
 
         if plot_type == "path":
             doris_functions.plot_path(self.coord_df,
