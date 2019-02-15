@@ -351,6 +351,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.mem_position_objects = {}
 
+        self.project_path = ""
+
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
@@ -436,6 +438,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
                                                                     "All files (*)")
+
+        if not project_file_path:
+            return
 
         config = {}
         if self.videoFileName:
@@ -650,6 +655,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                  color=color, lineType=8, thickness=drawing_thickness)
 
         return frame
+
+
+    def draw_circle_cross(self, frame, position, color, drawing_thickness):
+        """
+        draw a cross with circle on frame
+        """
+
+        cross_length = 20
+        position = tuple(position)
+        cv2.circle(frame, position, cross_length // 4,
+                   color=color, lineType=8, thickness=drawing_thickness)
+
+        cv2.line(frame, (position[0], position[1] - cross_length),
+                        (position[0], position[1] + cross_length),
+                 color=color, lineType=8, thickness=drawing_thickness)
+
+        cv2.line(frame, (position[0] - cross_length, position[1]),
+                        (position[0] + cross_length, position[1]),
+                 color=color, lineType=8, thickness=drawing_thickness)
+
+        return frame
+
 
 
     def frame_mousepressed(self, event):
@@ -1369,7 +1396,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
 
             if self.actionShow_centroid_of_object.isChecked():
-                cv2.circle(frame, tuple(objects[idx]["centroid"]), 1, color=marker_color, thickness=drawing_thickness)
+                self.draw_circle_cross(frame, objects[idx]["centroid"], marker_color, drawing_thickness)
                 if not self.actionShow_contour_of_object.isChecked():
                     cv2.putText(frame, str(idx), objects[idx]["centroid"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
 
@@ -1527,7 +1554,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
                 dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
                 logging.debug(f"dist max: {dist_max}")
-                if dist_max > DIST_MAX:
+                if dist_max > self.sb_max_distance.value():
                     self.flag_stop_analysis = True
                     self.update_info(all_objects, filtered_objects, self.objects_to_track)
                     frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1535,28 +1562,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                      marker_type=MARKER_TYPE)
                     self.display_frame(frame_with_objects)
                     self.display_processed_frame(processed_frame)
-                    QMessageBox.critical(self, "DORIS", f"Object moved of {dist_max} pixels.\nThe maximum allowed is {DIST_MAX}")
+                    QMessageBox.critical(self, "DORIS", f"Object moved of {dist_max} pixels.\nThe maximum allowed is {self.sb_max_distance.value()}")
                     return
 
-
-
-        '''
-        if self.mem_filtered_objects and len(self.mem_filtered_objects) == len(filtered_objects):
-            positions = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
-            mem_positions = [self.mem_filtered_objects[obj_idx]["centroid"] for obj_idx in self.mem_filtered_objects]
-            for idx, p in enumerate(positions):
-                dist = int(round(doris_functions.euclidean_distance(p, mem_positions[idx])))
-                print("distance", dist)
-                if dist > 250:
-                    self.display_frame(self.frame)
-                    self.display_processed_frame(processed_frame)
-
-                    QMessageBox.critical(self, "DORIS", "The object #{} moved to far ({} pixels)".format(idx + 1, dist))
-                    self.flag_stop_analysis = True
-                    return
-
-        self.mem_filtered_objects = dict(filtered_objects)
-        '''
 
         self.filtered_objects = filtered_objects
 
@@ -2015,100 +2023,106 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
 
-        if file_name:
-            if not os.path.isfile(file_name):
-                QMessageBox.critical(self, "DORIS", f"{file_name} not found")
+        if not file_name:
+            return
+
+        if not os.path.isfile(file_name):
+            QMessageBox.critical(self, "DORIS", f"{file_name} not found")
+            return
+
+        try:
+            with open(file_name) as f_in:
+                config = json.loads(f_in.read())
+
+            self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
+
+            if "invert" in config:
+                self.cb_invert.setChecked(config["invert"])
+
+            if "normalize_coordinates" in config:
+                self.cb_normalize_coordinates.setChecked(config["normalize_coordinates"])
 
             try:
-                with open(file_name) as f_in:
-                    config = json.loads(f_in.read())
+                self.arena = config["arena"]
+                if self.arena:
+                    self.pb_define_arena.setEnabled(False)
+                    self.pb_clear_arena.setEnabled(True)
+                    self.le_arena.setText(str(config["arena"]))
+            except KeyError:
+                print("arena not found")
 
-                self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
+            if "min_object_size" in config:
+                self.sbMin.setValue(config["min_object_size"])
+            if "max_object_size" in config:
+                self.sbMax.setValue(config["max_object_size"])
+            if "object_max_extension" in config:
+                self.sb_max_extension.setValue(config["object_max_extension"])
+            if "percent_out_of_arena" in config:
+                self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
+            if "threshold_method" in config:
+                self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
+            if "block_size" in config:
+                self.sb_block_size.setValue(config["block_size"])
+            if "offset" in config:
+                self.sb_offset.setValue(config["offset"])
+            if "cut_off" in config:
+                self.sb_threshold.setValue(config["cut_off"])
 
-                if "invert" in config:
-                    self.cb_invert.setChecked(config["invert"])
+            if "scale" in config:
+                self.le_scale.setText(f"{config['scale']:0.5f}")
+                self.scale = config["scale"]
 
-                if "normalize_coordinates" in config:
-                    self.cb_normalize_coordinates.setChecked(config["normalize_coordinates"])
+            try:
+                self.areas = config["areas"]
+                if self.areas:
+                    self.lw_area_definition.clear()
+                    for area in self.areas:
+                        self.lw_area_definition.addItem(str(self.areas[area]))
+            except KeyError:
+                self.areas = {}
 
+            '''
+            if "record_number_of_objects_by_area" in config:
+                self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
+
+            if "record_objects_coordinates" in config:
+                self.cb_record_xy.setChecked(config["record_objects_coordinates"])
+            '''
+
+            if "video_file_path" in config:
                 try:
-                    self.arena = config["arena"]
-                    if self.arena:
-                        self.pb_define_arena.setEnabled(False)
-                        self.pb_clear_arena.setEnabled(True)
-                        self.le_arena.setText(str(config["arena"]))
-                except KeyError:
-                    print("arena not found")
+                    if os.path.isfile(config["video_file_path"]):
+                        self.open_video(config["video_file_path"])
+                    else:
+                        QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
+                except Exception:
+                    pass
 
-                if "min_object_size" in config:
-                    self.sbMin.setValue(config["min_object_size"])
-                if "max_object_size" in config:
-                    self.sbMax.setValue(config["max_object_size"])
-                if "object_max_extension" in config:
-                    self.sb_max_extension.setValue(config["object_max_extension"])
-                if "percent_out_of_arena" in config:
-                    self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
-                if "threshold_method" in config:
-                    self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
-                if "block_size" in config:
-                    self.sb_block_size.setValue(config["block_size"])
-                if "offset" in config:
-                    self.sb_offset.setValue(config["offset"])
-                if "cut_off" in config:
-                    self.sb_threshold.setValue(config["cut_off"])
-
-                if "scale" in config:
-                    self.le_scale.setText(f"{config['scale']:0.5f}")
-                    self.scale = config["scale"]
-
+            if "dir_images" in config:
                 try:
-                    self.areas = config["areas"]
-                    if self.areas:
-                        self.lw_area_definition.clear()
-                        for area in self.areas:
-                            self.lw_area_definition.addItem(str(self.areas[area]))
-                except KeyError:
-                    self.areas = {}
+                    if os.path.isdir(config["dir_images"]):
+                        self.load_dir_images(config["dir_images"])
+                    else:
+                        QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
+                except Exception:
+                    pass
 
-                '''
-                if "record_number_of_objects_by_area" in config:
-                    self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
+            self.coordinate_center = config.get("referential_system_origin", [0,0])
+            self.le_coordinates_center.setText(f"{self.coordinate_center}")
 
-                if "record_objects_coordinates" in config:
-                    self.cb_record_xy.setChecked(config["record_objects_coordinates"])
-                '''
+            self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
+            self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
+            self.actionDraw_reference.setChecked(config.get("show_reference", False))
+            self.sb_max_distance.setValue(config.get("max_distance", 0))
 
-                if "video_file_path" in config:
-                    try:
-                        if os.path.isfile(config["video_file_path"]):
-                            self.open_video(config["video_file_path"])
-                        else:
-                            QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
-                    except Exception:
-                        pass
+            self.process_and_show()
 
-                if "dir_images" in config:
-                    try:
-                        if os.path.isdir(config["dir_images"]):
-                            self.load_dir_images(config["dir_images"])
-                        else:
-                            QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
-                    except Exception:
-                        pass
+        except Exception:
+            print("Error in project file")
+            raise
 
-                self.coordinate_center = config.get("referential_system_origin", [0,0])
-                self.le_coordinates_center.setText(f"{self.coordinate_center}")
-
-                self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
-                self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
-                self.actionDraw_reference.setChecked(config.get("show_reference", False))
-                self.sb_max_distance.setValue(config.get("max_distance", 0))
-
-                self.process_and_show()
-
-            except Exception:
-                print("Error in project file")
-                raise
+        self.project_path = file_name
+        self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
 
 
 if __name__ == "__main__":
