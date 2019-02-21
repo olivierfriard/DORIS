@@ -23,6 +23,8 @@ This file is part of DORIS.
 
 import cv2
 
+DEFAULT_FRAME_SCALE = 0.5
+
 DIST_MAX = 20
 
 THRESHOLD_METHODS = ["Adaptive (mean)", "Adaptive (Gaussian)", "Simple"]
