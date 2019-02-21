@@ -349,7 +349,6 @@ def detect_and_filter_objects(frame,
 
         # check if objects in arena
         if arena:
-
             if arena["type"] == "rectangle":
                 np_arena = np.array(arena["points"])
                 if not (np_arena[0][0] <= all_objects[idx]["centroid"][0] <= np_arena[1][0]
@@ -359,7 +358,6 @@ def detect_and_filter_objects(frame,
 
             # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "polygon":
-
                 np_arena = np.array(arena["points"])
                 if cv2.pointPolygonTest(np_arena, all_objects[idx]["centroid"], False) < 0:
                     obj_to_del_idx.append(idx)
