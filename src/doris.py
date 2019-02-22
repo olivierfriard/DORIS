@@ -247,7 +247,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionShow_contour_of_object.triggered.connect(self.process_and_show)
         self.actionOrigin_from_point.triggered.connect(self.define_coordinate_center_1point)
         self.actionOrigin_from_center_of_3_points_circle.triggered.connect(self.define_coordinate_center_3points_circle)
-        self.actionSelect_objects_to_track.triggered.connect(self.select_objects_to_track)
+        self.actionSelect_objects_to_track.triggered.connect(lambda: self.select_objects_to_track(all_=False))
         self.actionDefine_scale.triggered.connect(self.define_scale)
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
@@ -304,6 +304,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
         self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
+        self.pb_track_all_filtered.clicked.connect(lambda: self.select_objects_to_track(all_=True))
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
@@ -1381,23 +1382,30 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
 
-    def select_objects_to_track(self):
+
+    def select_objects_to_track(self, all_=False):
         """
         select objects to track and create the dataframes for recording objects positions and presence in area
         """
 
-        elements = []
-        for idx in self.filtered_objects:
-            elements.append(("cb", f"Object # {idx}", False))
-        ib = Input_dialog("Select the objects to track", elements)
+        if all_:
+            self.objects_to_track = {}
+            for idx in self.filtered_objects:
+                self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[idx])
 
-        if not ib.exec_():
-            return
+        else:
+            elements = []
+            for idx in self.filtered_objects:
+                elements.append(("cb", f"Object # {idx}", False))
+            ib = Input_dialog("Select the objects to track", elements)
 
-        self.objects_to_track = {}
-        for idx in ib.elements:
-            if ib.elements[idx].isChecked():
-                self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
+            if not ib.exec_():
+                return
+
+            self.objects_to_track = {}
+            for idx in ib.elements:
+                if ib.elements[idx].isChecked():
+                    self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
 
         self.initialize_positions_dataframe()
 

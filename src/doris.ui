@@ -630,6 +630,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="pb_track_all_filtered">
+          <property name="text">
+           <string>Track all filtered objects</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="pb_select_objects_to_track">
           <property name="text">
            <string>Select objects to track</string>
