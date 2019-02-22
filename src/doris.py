@@ -1592,6 +1592,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 new_contours = doris_functions.group(myarray, centroids)
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
+                new_filtered_objects = {}
+                # add info to objects: centroid, area ...
+                for idx, cnt in enumerate(new_contours):
+                    # print("cnt", type(cnt))
+
+                    #cnt = cv2.convexHull(cnt)
+                    M = cv2.moments(cnt)
+
+                    if M["m00"] != 0:
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                    else:
+                        cx, cy = 0, 0
+                    n = np.vstack(cnt).squeeze()
+                    try:
+                        x, y = n[:, 0], n[:, 1]
+                    except Exception:
+                        x = n[0]
+                        y = n[1]
+
+                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                                     "contour": cnt,
+                                                     "area": cv2.contourArea(cnt),
+                                                     "min": (int(np.min(x)), int(np.min(y))),
+                                                     "max": (int(np.max(x)), int(np.max(y)))
+                                                    }
+                filtered_objects = dict(new_filtered_objects)
+
 
         if self.objects_to_track:
             mem_costs = {}
