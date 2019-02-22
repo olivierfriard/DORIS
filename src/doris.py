@@ -1548,38 +1548,49 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
-            logging.info("filtered object are less than objects to track: applying k-means clustering")
+            if self.frame_idx - 1 not in self.mem_position_objects:
+                logging.info("filtered object are less than objects to track: applying k-means clustering")
 
-            contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-            new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
+                contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+                new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
 
-            new_filtered_objects = {}
-            # add info to objects: centroid, area ...
-            for idx, cnt in enumerate(new_contours):
-                # print("cnt", type(cnt))
+                new_filtered_objects = {}
+                # add info to objects: centroid, area ...
+                for idx, cnt in enumerate(new_contours):
+                    # print("cnt", type(cnt))
 
-                cnt = cv2.convexHull(cnt)
-                M = cv2.moments(cnt)
+                    cnt = cv2.convexHull(cnt)
+                    M = cv2.moments(cnt)
 
-                if M["m00"] != 0:
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
-                else:
-                    cx, cy = 0, 0
-                n = np.vstack(cnt).squeeze()
-                try:
-                    x, y = n[:, 0], n[:, 1]
-                except Exception:
-                    x = n[0]
-                    y = n[1]
+                    if M["m00"] != 0:
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                    else:
+                        cx, cy = 0, 0
+                    n = np.vstack(cnt).squeeze()
+                    try:
+                        x, y = n[:, 0], n[:, 1]
+                    except Exception:
+                        x = n[0]
+                        y = n[1]
 
-                new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                                 "contour": cnt,
-                                                 "area": cv2.contourArea(cnt),
-                                                 "min": (int(np.min(x)), int(np.min(y))),
-                                                 "max": (int(np.max(x)), int(np.max(y)))
-                                                }
-            filtered_objects = dict(new_filtered_objects)
+                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                                     "contour": cnt,
+                                                     "area": cv2.contourArea(cnt),
+                                                     "min": (int(np.min(x)), int(np.min(y))),
+                                                     "max": (int(np.max(x)), int(np.max(y)))
+                                                    }
+                filtered_objects = dict(new_filtered_objects)
+
+            else: # previous centroids known
+                logging.info("filtered object are less than objects to track: group by distances to centroids")
+                contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+                myarray = np.vstack(contours_list)
+                myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
+                centroids = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
+                print(centroids)
+                new_contours = doris_functions.group(myarray, centroids)
+                logging.debug(f"number of new contours after group: {len(new_contours)}")
 
 
         if self.objects_to_track:

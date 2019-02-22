@@ -153,13 +153,21 @@ def plot_density(df, x_lim, y_lim):
         plt.tight_layout()
         plt.show()
 
+def group(points, aggregators):
+    """
+    group points by distance to aggregator points
+    """
+    distances = [((points[:,0] - aggregator[0]) **2 + (points[:,1] - aggregator[1]) **2)**.5 for aggregator in aggregators]
+
+    results = [points[d==np.minimum(*distances)] for d in distances]
+    return results
 
 
 def apply_k_means(contours, n_inds):
     """
     This function applies the k-means clustering algorithm to separate merged
     contours. The algorithm is applied when detected contours are fewer than
-    expected objects(number of animals) in the scene.
+    expected objects in the scene.
 
     see https://stackoverflow.com/questions/38355153/initial-centroids-for-scikit-learn-kmeans-clustering
 
@@ -193,9 +201,9 @@ def apply_k_means(contours, n_inds):
 
 
 def image_processing(frame,
-                    blur=5,
-                    threshold_method={},
-                    invert=False):
+                     blur=5,
+                     threshold_method={},
+                     invert=False):
     """
     apply treament to frame
     returns treated frame
@@ -324,6 +332,7 @@ def detect_and_filter_objects(frame,
     for idx in all_objects:
         '''points = np.vstack(all_objects[idx]["contour"]).squeeze()'''
 
+        '''
         if idx == 2:
             print("================================================")
             print(all_objects[idx]["contour"])
@@ -338,7 +347,7 @@ def detect_and_filter_objects(frame,
             print(np.min(n[:,1]))
             print(np.max(n[:,1]))
             print("================================================")
-
+        '''
 
         # check if object area is >= of minimal size
         if min_size and all_objects[idx]["area"] < min_size:
@@ -377,8 +386,6 @@ def detect_and_filter_objects(frame,
                     obj_to_del_idx.append(idx)
                     continue
 
-
-
             # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "polygon":
                 np_arena = np.array(arena["points"])
@@ -407,14 +414,6 @@ def detect_and_filter_objects(frame,
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
                 dist_ = ((n[:,0] - arena["center"][0]) ** 2 + (n[:,1] - arena["center"][1]) ** 2) ** 0.5
 
-                '''
-                print("distance")
-                print("contour size:", len(dist_))
-                print("% >", np.count_nonzero(dist_ > arena["radius"]) / len(dist_))
-                '''
-                '''
-                print("% out", idx, np.count_nonzero(dist_ > arena["radius"]) / len(dist_) )
-                '''
                 if np.count_nonzero(dist_ > arena["radius"]) / len(dist_) > tolerance_outside_arena:
                     obj_to_del_idx.append(idx)
                     continue
@@ -424,17 +423,8 @@ def detect_and_filter_objects(frame,
         if obj_idx not in obj_to_del_idx:
             filtered_objects[obj_idx] = dict(all_objects[obj_idx])
 
-
-
-    # remove objects to delete
-    '''
-    for obj_idx in obj_to_del_idx:
-        all_objects.pop(obj_idx, None)
-    '''
-
     # reorder filtered objects starting from #1
     filtered_objects = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(filtered_objects.keys())])
-
 
     return all_objects, filtered_objects
 
