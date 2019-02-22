@@ -1929,9 +1929,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        record objects parameters
+        record objects positions and presence in areas defined by user
         """
 
+        # objects positions
         if self.cb_record_xy.isChecked():
 
             if self.coord_df is None:
@@ -1959,7 +1960,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.te_xy.clear()
                 self.te_xy.append(str(self.coord_df[frame_idx - 3: frame_idx + 3 + 1]))
 
-
+        # presence in areas
         if self.cb_record_number_objects.isChecked():
 
             nb = {}
