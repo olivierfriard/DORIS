@@ -322,6 +322,23 @@ def detect_and_filter_objects(frame,
     # record objects that not match conditions (for deleting)
     obj_to_del_idx = []
     for idx in all_objects:
+        '''points = np.vstack(all_objects[idx]["contour"]).squeeze()'''
+
+        if idx == 2:
+            print("================================================")
+            print(all_objects[idx]["contour"])
+            print("--------------------------------------------------")
+            n = np.vstack(all_objects[idx]["contour"]).squeeze()
+            print(n)
+            print("--------------------------------------------------")
+
+            print(np.min(n[:,0]))
+            print(np.max(n[:,0]))
+
+            print(np.min(n[:,1]))
+            print(np.max(n[:,1]))
+            print("================================================")
+
 
         # check if object area is >= of minimal size
         if min_size and all_objects[idx]["area"] < min_size:
@@ -338,7 +355,6 @@ def detect_and_filter_objects(frame,
         # check if object extension <= max extension
         if max_extension:
             '''
-            n = np.vstack(all_objects[idx]["contour"]).squeeze()
             if (max(n[:,0]) - min(n[:,0]) > max_extension) or (max(n[:,1]) - min(n[:,1]) > max_extension):
             '''
             if ((all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension
@@ -351,10 +367,17 @@ def detect_and_filter_objects(frame,
         if arena:
             if arena["type"] == "rectangle":
                 np_arena = np.array(arena["points"])
-                if not (np_arena[0][0] <= all_objects[idx]["centroid"][0] <= np_arena[1][0]
-                    and np_arena[0][1] <= all_objects[idx]["centroid"][1] <= np_arena[1][1]):
+
+                if not (np_arena[0][0] <= all_objects[idx]["min"][0] <= np_arena[1][0]
+                    and np_arena[0][1] <= all_objects[idx]["min"][1]  <= np_arena[1][1]):
                     obj_to_del_idx.append(idx)
                     continue
+                if not (np_arena[0][0] <= all_objects[idx]["max"][0] <= np_arena[1][0]
+                    and np_arena[0][1] <= all_objects[idx]["max"][1]  <= np_arena[1][1]):
+                    obj_to_del_idx.append(idx)
+                    continue
+
+
 
             # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "polygon":

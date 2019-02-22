@@ -2011,20 +2011,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_display_analysis.isChecked():
                 self.te_number_objects.clear()
-                '''print(self.areas_df.head())'''
                 self.te_number_objects.append(str(self.areas_df[frame_idx - 3: frame_idx + 3 + 1]))
 
             self.objects_number.append(nb)
-
-            '''
-            out = "{}\t".format(self.frame_idx)
-            out += "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
-            # header
-            if not self.te_number_objects.toPlainText():
-                self.te_number_objects.append("frame\t" + "\t".join(list(sorted(self.areas.keys()))))
-
-            self.te_number_objects.append(out)
-            '''
 
 
     def run_tracking(self):
