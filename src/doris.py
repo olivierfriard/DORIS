@@ -1559,7 +1559,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
 
-                    cnt = cv2.convexHull(cnt)
+                    #cnt = cv2.convexHull(cnt)
                     M = cv2.moments(cnt)
 
                     if M["m00"] != 0:
@@ -1588,7 +1588,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 myarray = np.vstack(contours_list)
                 myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
                 centroids = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
-                print(centroids)
+
+                logging.debug(f"Known centroids: {centroids}")
+
                 new_contours = doris_functions.group(myarray, centroids)
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
