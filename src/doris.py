@@ -1785,26 +1785,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.update_info(all_objects, filtered_objects, self.objects_to_track)
 
-            # draw contour of objects
-            if self.objects_to_track:
-                # draw contours of tracked objects
-                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                 self.objects_to_track,
-                                                                 marker_type=MARKER_TYPE)
-            else:
-                # draw contours of filtered objects
-                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                 filtered_objects,
-                                                                 marker_type=MARKER_TYPE)
-
-
             _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
             # draw arena
-            frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
-
-            # draw areas
-            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
+            frame_with_objects = self.draw_arena(self.frame.copy(), drawing_thickness)
 
             # draw reference (100 px square)
             if self.actionDraw_reference.isChecked():
@@ -1813,6 +1797,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # draw coordinate center if defined
             if self.coordinate_center != [0, 0]:
                 frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+
+            # draw areas
+            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
+
+            # draw contour of objects
+            if self.objects_to_track:
+                # draw contours of tracked objects
+                frame_with_objects = self.draw_marker_on_objects(frame_with_objects,
+                                                                 self.objects_to_track,
+                                                                 marker_type=MARKER_TYPE)
+            else:
+                # draw contours of filtered objects
+                frame_with_objects = self.draw_marker_on_objects(frame_with_objects,
+                                                                 filtered_objects,
+                                                                 marker_type=MARKER_TYPE)
+
 
             # display frames
             self.display_frame(frame_with_objects)
