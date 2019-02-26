@@ -18,7 +18,6 @@ This file is part of DORIS.
 
   You should have received a copy of the GNU General Public License
   along with this program; if not see <http://www.gnu.org/licenses/>.
-coordinate_center
 
 Requirements:
 pyqt5
@@ -257,10 +256,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSave_project_as.triggered.connect(self.save_project_as)
         self.actionQuit.triggered.connect(self.close)
 
+        self.hs_frame.setMinimum(1)
+        self.hs_frame.setMaximum(100)
+        self.hs_frame.setValue(1)
+        self.hs_frame.sliderMoved.connect(self.hs_frame_moved)
+
         self.pb_next_frame.clicked.connect(self.next_frame)
         self.pb_1st_frame.clicked.connect(self.reset)
 
+        self.pb_define_scale.clicked.connect(self.define_scale)
         self.pb_reset_scale.clicked.connect(self.reset_scale)
+
+        # menu for Define origin button
+        menu = QMenu()
+        menu.addAction("Origin from center of 3 points circle", self.define_coordinate_center_3points_circle)
+        menu.addAction("Origin from a point", self.define_coordinate_center_1point)
+        self.pb_define_origin.setMenu(menu)
+
+        self.pb_reset_origin.clicked.connect(self.reset_origin)
 
         self.pb_goto_frame.clicked.connect(self.pb_go_to_frame)
 
@@ -273,8 +286,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         menu1.addAction("Circle arena (3 points)", lambda: self.define_arena("circle (3 points)"))
         menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
         menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
-
         self.pb_define_arena.setMenu(menu1)
+
         self.pb_clear_arena.clicked.connect(self.clear_arena)
 
         self.pb_run_tracking.clicked.connect(self.run_tracking)
@@ -323,7 +336,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_add_area.setMenu(menu)
         self.pb_remove_area.clicked.connect(self.remove_area)
-        self.pb_open_areas.clicked.connect(self.open_areas)
         self.pb_reset_areas.clicked.connect(self.reset_areas_analysis)
         self.pb_save_areas.clicked.connect(self.save_areas)
         self.pb_active_areas.clicked.connect(self.activate_areas)
@@ -433,6 +445,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         _ = about_dialog.exec_()
 
 
+    def hs_frame_moved(self):
+        """
+        slider moved by user
+        """
+        self.le_goto_frame.setText(str(self.hs_frame.value()))
+        self.pb_go_to_frame()
 
 
     def threshold_method_changed(self):
@@ -521,6 +539,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         change scale of frame viewer
         """
 
+        self.fw[fw_idx].show()
         self.fw[fw_idx].lb_frame.clear()
         self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
         if fw_idx == 0:
@@ -594,9 +613,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if shape == "circle (center radius)":
                     msg = "New circle area: click on the video to define the center of the circle and then a point belonging to the circle"
                 if shape == "polygon":
-                    msg = "New polygon area: click on the video to define the edges of the polygon. Right click to finish"
+                    msg = "New polygon area: click on the video to define the vertices of the polygon. Right click to finish"
                 if shape == "rectangle":
-                    msg = "New rectangle area: click on the video to define the top-lef and bottom-right edges of the rectangle."
+                    msg = "New rectangle area: click on the video to define 2 opposite vertices."
 
                 self.statusBar.showMessage(msg)
 
@@ -637,6 +656,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def reload_frame(self):
+        """
+        reload frame and show
+        """
 
         logging.debug("function: reload_frame")
 
@@ -689,11 +711,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                    color=color, lineType=8, thickness=drawing_thickness)
 
         cv2.line(frame, (position[0], position[1] - 0),
-                        (position[0], position[1] + 50),
+                        (position[0], position[1] + 30),
                  color=color, lineType=8, thickness=drawing_thickness)
 
         cv2.line(frame, (position[0], position[1]),
-                        (position[0] + 50, position[1]),
+                        (position[0] + 30, position[1]),
                  color=color, lineType=8, thickness=drawing_thickness)
 
         return frame
@@ -729,18 +751,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: frame_mousepressed")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
-        frame = self.frame.copy()
+        # frame = self.frame.copy()
 
         # set coordinate center with 1 point
         if self.flag_define_coordinate_center_1point:
             self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
             self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
 
-            self.display_frame(self.frame)
+            #self.display_frame(self.frame)
             self.flag_define_coordinate_center_1point = False
             self.actionOrigin_from_point.setText("from point")
             self.le_coordinates_center.setText(f"{self.coordinate_center}")
-            self.statusBar.showMessage(f"Center of coordinates defined")
+            self.reload_frame()
+            self.statusBar.showMessage(f"Referential origin defined")
 
         # set coordinate center with 3 points circle
         if self.flag_define_coordinate_center_3points:
@@ -755,13 +778,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 x, y, _ = doris_functions.find_circle(self.coordinate_center_def)
                 self.coordinate_center = [int(x), int(y)]
                 self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
-                self.process_and_show()
 
                 self.coordinate_center_def = []
                 self.flag_define_coordinate_center_3point3 = False
                 self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle")
                 self.le_coordinates_center.setText(f"{self.coordinate_center}")
-                self.statusBar.showMessage(f"Center of coordinates defined")
+                self.reload_frame()
+                self.statusBar.showMessage(f"Referential origin defined")
 
         # set scale
         if self.flag_define_scale:
@@ -790,8 +813,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0], self.scale_points[1])
                     self.le_scale.setText(f"{self.scale:0.5f}")
                     self.scale_points = []
-                    self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
                     self.reload_frame()
+                    self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
+
 
         # add area
         if self.add_area:
@@ -803,22 +827,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             if event.button() == 1:
-                cv2.circle(frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 # arena
-                frame = self.draw_arena(frame, drawing_thickness)
+                self.frame = self.draw_arena(self.frame, drawing_thickness)
 
                 # draw areas
-                frame = self.draw_areas(frame, drawing_thickness)
+                self.frame = self.draw_areas(self.frame, drawing_thickness)
 
                 # origin
                 if self.coordinate_center != [0, 0]:
-                    frame = self.draw_point_origin(frame, self.coordinate_center, BLUE, drawing_thickness)
+                    self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
 
-
-
-                self.display_frame(frame)
+                self.display_frame(self.frame)
 
 
             if self.add_area["type"] == "circle (center radius)":
@@ -839,22 +861,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.add_area["points"] = []
                 if len(self.add_area["points"]) < 3:
                     self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                    print(len(self.add_area["points"]))
-
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
                     self.add_area["type"] = "circle"
                     self.add_area["center"] = [int(cx), int(cy)]
                     self.add_area["radius"] = int(radius)
-                    print(self.add_area)
                     del self.add_area["points"]
-                    print(self.add_area)
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.reload_frame()
                     self.statusBar.showMessage("New circle area created")
                     return
 
@@ -863,9 +880,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.add_area["pt1"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
                 else:
                     self.add_area["pt2"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
+                    # reorder vortex
+                    print(self.add_area)
+                    self.add_area["pt1"], self.add_area["pt2"] = ([min(self.add_area["pt1"][0], self.add_area["pt2"][0]), min(self.add_area["pt1"][1],self.add_area["pt2"][1])],
+                                                                 [max(self.add_area["pt1"][0], self.add_area["pt2"][0]), max(self.add_area["pt1"][1], self.add_area["pt2"][1])])
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.reload_frame()
                     self.statusBar.showMessage("New rectangle area created")
                     return
 
@@ -875,12 +897,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
+                    self.reload_frame()
                     self.statusBar.showMessage("The new polygon area is defined")
                     return
 
                 if event.button() == 1:  # left button
+                    '''
                     cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                                color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                    '''
                     if "points" not in self.add_area:
                         self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
                     else:
@@ -1026,14 +1051,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.setEnabled(not self.cb_background.isChecked())
 
 
+    def reset_origin(self):
+        """
+        reset referential origin to (0, 0)
+        """
+        self.coordinate_center = [0, 0]
+        self.le_coordinates_center.setText(f"{self.coordinate_center}")
+        self.reload_frame()
+        self.statusBar.showMessage(f"Referential origin reset")
+
+
     def reset_scale(self):
         """
         reset scale to 1
         """
         logging.debug("function: reset scale")
-
+        self.flag_define_scale = False
+        self.scale_points = []
+        self.reload_frame()
         self.scale = 1
         self.le_scale.setText("1")
+        self.statusBar.showMessage(f"Scale reset")
 
 
     def reset(self):
@@ -1089,27 +1127,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
         else:
             QMessageBox.warning(self, "DORIS", "no positions to be saved")
-
-
-    def open_areas(self, file_name):
-        """
-        load areas from disk
-        format required:
-        area_name; circle; x_center,y_center; radius; red_level, green_level, blue_level
-        area_name; rectangle; x_min,y_min; x_max,y_max; red_level, green_level, blue_level
-
-        Args:
-            file_name (str): file path
-        """
-
-        if not file_name:
-            file_name, _ = QFileDialog(self).getOpenFileName(self, "Load areas from file", "", "All files (*)")
-        if file_name:
-            self.lw_area_definition.clear()
-            with open(file_name, "r") as f_in:
-                for line in f_in.readlines():
-                    self.lw_area_definition.addItem(line.strip())
-            self.activate_areas()
 
 
     def reset_areas_analysis(self):
@@ -1261,6 +1278,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.hs_frame.setMinimum(1)
+            self.hs_frame.setMaximum(self.total_frame_nb)
+            self.hs_frame.setTickInterval(10)
 
             # self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
 
@@ -1291,10 +1311,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
         if dir_images:
             p = pathlib.Path(dir_images)
-            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
+            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + + list(p.glob("*.PNG")))
 
             self.total_frame_nb = len(self.dir_images)
-            self.lb_frames.setText("<b>{}</b> images".format(self.total_frame_nb))
+            self.hs_frame.setMinimum(1)
+            self.hs_frame.setMaximum(self.total_frame_nb)
+            self.hs_frame.setTickInterval(10)
+
+            self.lb_frames.setText(f"<b>{self.total_frame_nb}</b> images")
 
             self.dir_images_index = 0
             self.pb()
@@ -1309,7 +1333,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.fw[idx].show()
 
             self.fw[0].setWindowTitle(f"Original frame - {dir_images}")
-            self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
+            self.statusBar.showMessage(f"{len(self.dir_images)} image(s) found")
 
 
     def update_frame_index(self):
@@ -1373,7 +1397,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.frame is not None:
             self.flag_define_scale = not self.flag_define_scale
             self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
-            self.statusBar.showMessage("You have to select 2 points" * self.flag_define_scale)
+            self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_define_scale)
 
 
     def initialize_positions_dataframe(self):
@@ -1449,8 +1473,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if frame is not None:
             ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
+            text_height = cv2.getTextSize(text=str("1"), fontFace=FONT, fontScale=FONT_SIZE, thickness=drawing_thickness)[0][1]
             cv2.rectangle(frame, (10, 10), (110, 110), RED, 1)
-            cv2.putText(frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
+            cv2.putText(frame, "100x100 px", (10, 10 + text_height), font, FONT_SIZE, RED, drawing_thickness, cv2.LINE_AA)
 
         return frame
 
@@ -1472,12 +1497,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if marker_type == CONTOUR:
                     cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
 
-                cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
+                cv2.putText(frame, str(idx), objects[idx]["max"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
 
             if self.actionShow_centroid_of_object.isChecked():
                 self.draw_circle_cross(frame, objects[idx]["centroid"], marker_color, drawing_thickness)
                 if not self.actionShow_contour_of_object.isChecked():
-                    cv2.putText(frame, str(idx), objects[idx]["centroid"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
+                    cv2.putText(frame, str(idx), objects[idx]["centroid"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
 
         return frame
 
@@ -1502,28 +1527,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         draw the user defined areas
         """
+
+        text_height = cv2.getTextSize(text=str("1"), fontFace=FONT, fontScale=FONT_SIZE, thickness=drawing_thickness)[0][1]
+
         for area in self.areas:
             if "type" in self.areas[area]:
                 if self.areas[area]["type"] == "circle":
                     cv2.circle(frame, tuple(self.areas[area]["center"]), self.areas[area]["radius"],
                                color=AREA_COLOR, thickness=drawing_thickness)
-                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["center"]),
-                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+                    cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["center"][0] + self.areas[area]["radius"], self.areas[area]["center"][1])),
+                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
                 if self.areas[area]["type"] == "rectangle":
                     cv2.rectangle(frame, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
                                   color=AREA_COLOR, thickness=drawing_thickness)
-                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["pt1"]),
-                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+                    cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["pt1"][0], self.areas[area]["pt1"][1] + text_height)),
+                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
                 if self.areas[area]["type"] == "polygon":
                     for idx, point in enumerate(self.areas[area]["points"][:-1]):
                         cv2.line(frame, tuple(point), tuple(self.areas[area]["points"][idx + 1]),
                                  color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
                     cv2.line(frame, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]),
-                             color=RED, lineType=8, thickness=drawing_thickness)
+                             color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
                     cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
-                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
         return frame
 
 
@@ -1539,13 +1567,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                              color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 cv2.line(frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
                          color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
-                # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
             if self.arena["type"] == "circle":
                 cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
                            color=ARENA_COLOR, thickness=drawing_thickness)
-                # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
             if self.arena["type"] == "rectangle":
                 cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
@@ -1574,13 +1599,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                  )
 
-        logging.info("number of all filtered objects: {}".format(len(filtered_objects)))
-        logging.info("self.objects_to_track: {}".format(list(self.objects_to_track.keys())))
+        logging.info(f"number of all filtered objects: {len(filtered_objects)}")
+        logging.info(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
         # no filtered object
         if len(filtered_objects) == 0 and len(self.objects_to_track):
-            logging.info("no filtered objects")
+            logging.info("No filtered objects")
             self.statusBar.showMessage("No filtered objects!")
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
@@ -1595,8 +1620,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
-            if self.frame_idx - 1 not in self.mem_position_objects:
-                logging.info("filtered object are less than objects to track: applying k-means clustering")
+            # if self.frame_idx - 1 not in self.mem_position_objects:
+            if True:  # disabled aggregation of points to previous centroid due to a bug
+                logging.info("Filtered object are less than objects to track: applying k-means clustering")
 
                 contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                 new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
@@ -1606,7 +1632,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
 
-                    #cnt = cv2.convexHull(cnt)
+                    cnt = cv2.convexHull(cnt)
                     M = cv2.moments(cnt)
 
                     if M["m00"] != 0:
@@ -1940,6 +1966,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         create areas for object in areas function from te_area_definition
         """
+
+        logging.debug("function: activate_areas")
+
         areas = {}
         for idx in range(self.lw_area_definition.count()):
             d = eval(self.lw_area_definition.item(idx).text())
@@ -2325,8 +2354,8 @@ if __name__ == "__main__":
     parser.add_argument("-p", action="store", dest="project_file", help="path of project file")
     parser.add_argument("-i", action="store", dest="video_file", help="path of video file")
     parser.add_argument("-d", action="store", dest="directory", help="path of images directory")
-    parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
-    parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
+    '''parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")'''
+    '''parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")'''
     parser.add_argument("--threshold", action="store", default=50, dest="threshold", help="Threshold value")
     parser.add_argument("--blur", action="store", dest="blur", help="Blur value")
     parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
@@ -2368,27 +2397,6 @@ if __name__ == "__main__":
                 w.load_dir_images(options.directory)
             else:
                 print("{} directory not found".format(options.directory))
-                sys.exit()
-
-        if options.areas_file:
-            if os.path.isfile(options.areas_file):
-                w.open_areas(options.areas_file)
-            else:
-                print("{} not found".format(options.areas_file))
-                sys.exit()
-
-        if options.arena_file:
-            if os.path.isfile(options.arena_file):
-                with open(options.arena_file) as f:
-                    content = f.read()
-                w.le_arena.setText(content)
-
-                w.arena = eval(content)
-
-                w.pb_define_arena.setEnabled(False)
-                w.pb_clear_arena.setEnabled(True)
-            else:
-                print("{} not found".format(options.arena_file))
                 sys.exit()
 
     w.show()

@@ -102,13 +102,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QSlider" name="hs_frame">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
        <spacer name="horizontalSpacer_3">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
@@ -122,6 +115,13 @@
        </spacer>
       </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QSlider" name="hs_frame">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
     </item>
     <item>
      <widget class="QLabel" name="label_9">
@@ -702,6 +702,20 @@
            </widget>
           </item>
           <item>
+           <widget class="QPushButton" name="pb_define_origin">
+            <property name="text">
+             <string>Define origin</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_reset_origin">
+            <property name="text">
+             <string>Reset origin</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <spacer name="horizontalSpacer_9">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
@@ -735,6 +749,13 @@
             </property>
             <property name="readOnly">
              <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_define_scale">
+            <property name="text">
+             <string>Define scale</string>
             </property>
            </widget>
           </item>
@@ -1056,18 +1077,8 @@
      <addaction name="action_treated_1_2"/>
      <addaction name="action_treated_1_4"/>
     </widget>
-    <widget class="QMenu" name="menuDefine_coordinate_center">
-     <property name="title">
-      <string>Define the origin of the referential system</string>
-     </property>
-     <addaction name="actionOrigin_from_point"/>
-     <addaction name="actionOrigin_from_center_of_3_points_circle"/>
-    </widget>
     <addaction name="menuFrame_viewer_scale"/>
     <addaction name="menuTreatment_viewer_scale"/>
-    <addaction name="menuDefine_coordinate_center"/>
-    <addaction name="actionSelect_objects_to_track"/>
-    <addaction name="actionDefine_scale"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
