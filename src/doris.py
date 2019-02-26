@@ -729,6 +729,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: frame_mousepressed")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
+        frame = self.frame.copy()
+
         # set coordinate center with 1 point
         if self.flag_define_coordinate_center_1point:
             self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
@@ -760,7 +762,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle")
                 self.le_coordinates_center.setText(f"{self.coordinate_center}")
                 self.statusBar.showMessage(f"Center of coordinates defined")
-
 
         # set scale
         if self.flag_define_scale:
@@ -802,9 +803,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             if event.button() == 1:
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                cv2.circle(frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.display_frame(self.frame)
+
+                # arena
+                frame = self.draw_arena(frame, drawing_thickness)
+
+                # draw areas
+                frame = self.draw_areas(frame, drawing_thickness)
+
+                # origin
+                if self.coordinate_center != [0, 0]:
+                    frame = self.draw_point_origin(frame, self.coordinate_center, BLUE, drawing_thickness)
+
+
+
+                self.display_frame(frame)
+
 
             if self.add_area["type"] == "circle (center radius)":
                 if "center" not in self.add_area:
@@ -1483,27 +1498,59 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
 
 
+    def draw_areas(self, frame, drawing_thickness):
+        """
+        draw the user defined areas
+        """
+        for area in self.areas:
+            if "type" in self.areas[area]:
+                if self.areas[area]["type"] == "circle":
+                    cv2.circle(frame, tuple(self.areas[area]["center"]), self.areas[area]["radius"],
+                               color=AREA_COLOR, thickness=drawing_thickness)
+                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["center"]),
+                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+
+                if self.areas[area]["type"] == "rectangle":
+                    cv2.rectangle(frame, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
+                                  color=AREA_COLOR, thickness=drawing_thickness)
+                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["pt1"]),
+                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+
+                if self.areas[area]["type"] == "polygon":
+                    for idx, point in enumerate(self.areas[area]["points"][:-1]):
+                        cv2.line(frame, tuple(point), tuple(self.areas[area]["points"][idx + 1]),
+                                 color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                    cv2.line(frame, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]),
+                             color=RED, lineType=8, thickness=drawing_thickness)
+                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
+                                font, 1/drawing_thickness, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+        return frame
+
+
+
     def draw_arena(self, frame, drawing_thickness):
         """
         draw arena
         """
-        if self.arena["type"] == "polygon":
-            for idx, point in enumerate(self.arena["points"][:-1]):
-                cv2.line(frame, tuple(point), tuple(self.arena["points"][idx + 1]),
+        if self.arena:
+            if self.arena["type"] == "polygon":
+                for idx, point in enumerate(self.arena["points"][:-1]):
+                    cv2.line(frame, tuple(point), tuple(self.arena["points"][idx + 1]),
+                             color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                cv2.line(frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
                          color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-            cv2.line(frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
-                     color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-            # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
-            # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+                # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
+                # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
-        if self.arena["type"] == "circle":
-            cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
-                       color=ARENA_COLOR, thickness=drawing_thickness)
-            # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+            if self.arena["type"] == "circle":
+                cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
+                           color=ARENA_COLOR, thickness=drawing_thickness)
+                # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
 
-        if self.arena["type"] == "rectangle":
-            cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
-                          color=ARENA_COLOR, thickness=drawing_thickness)
+            if self.arena["type"] == "rectangle":
+                cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
+                              color=ARENA_COLOR, thickness=drawing_thickness)
+
         return frame
 
 
@@ -1729,6 +1776,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
             # draw areas
+            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
+
+            '''
             for area in self.areas:
                 if "type" in self.areas[area]:
                     if self.areas[area]["type"] == "circle":
@@ -1751,10 +1801,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                  color=RED, lineType=8, thickness=drawing_thickness)
                         cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
                                     font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+            '''
 
             # draw arena
-            if self.arena:
-                frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
+            frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
 
             # draw reference (100 px square)
             if self.actionDraw_reference.isChecked():
