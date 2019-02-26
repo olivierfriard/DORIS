@@ -411,11 +411,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         modules = []
         modules.append("OpenCV")
-        modules.append("version {}".format(cv2.__version__))
+        modules.append(f"version {cv2.__version__}")
 
         # matplotlib
         modules.append("\nMatplotlib")
-        modules.append("version {}".format(matplotlib.__version__))
+        modules.append(f"version {matplotlib.__version__}")
 
         about_dialog = msg = QMessageBox()
         # about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
@@ -424,11 +424,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setDefaultButton(QMessageBox.Ok)
         about_dialog.setEscapeButton(QMessageBox.Ok)
 
-        about_dialog.setInformativeText(("<b>DORIS</b> v. {ver} - {date}"
+        about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
         "<p>Copyright &copy; 2017-2018 Olivier Friard<br>"
         "Department of Life Sciences and Systems Biology<br>"
-        "University of Torino - Italy<br>").format(ver=version.__version__,
-                                                   date=version.__version_date__))
+        "University of Torino - Italy<br>"))
 
         details = ("Python {python_ver} ({architecture}) - Qt {qt_ver} - PyQt{pyqt_ver} on {system}\n"
         "CPU type: {cpu_info}\n\n"
@@ -1739,7 +1738,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 if dist_max > self.sb_max_distance.value():
 
-                    logging.debug(f"distance is greater then allowed: {dist_max}".format(obj_indexes))
+                    logging.debug(f"distance is greater then allowed: {dist_max}")
 
                     # self.flag_stop_analysis = True
                     self.update_info(all_objects, filtered_objects, self.objects_to_track)
@@ -1801,36 +1800,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
-            # draw areas
-            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
-
-            '''
-            for area in self.areas:
-                if "type" in self.areas[area]:
-                    if self.areas[area]["type"] == "circle":
-                        cv2.circle(frame_with_objects, tuple(self.areas[area]["center"]), self.areas[area]["radius"],
-                                   color=AREA_COLOR, thickness=drawing_thickness)
-                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["center"]),
-                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-
-                    if self.areas[area]["type"] == "rectangle":
-                        cv2.rectangle(frame_with_objects, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
-                                      color=AREA_COLOR, thickness=drawing_thickness)
-                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["pt1"]),
-                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-
-                    if self.areas[area]["type"] == "polygon":
-                        for idx, point in enumerate(self.areas[area]["points"][:-1]):
-                            cv2.line(frame_with_objects, tuple(point), tuple(self.areas[area]["points"][idx + 1]),
-                                     color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                        cv2.line(frame_with_objects, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]),
-                                 color=RED, lineType=8, thickness=drawing_thickness)
-                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
-                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-            '''
-
             # draw arena
             frame_with_objects = self.draw_arena(frame_with_objects, drawing_thickness)
+
+            # draw areas
+            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
 
             # draw reference (100 px square)
             if self.actionDraw_reference.isChecked():
@@ -1986,24 +1960,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # update information on GUI
         if all_objects is not None:
-            self.lb_all.setText("All detected objects ({})".format(len(all_objects)))
+            self.lb_all.setText(f"All detected objects ({len(all_objects)})")
             out = ""
             for idx in sorted(all_objects.keys()):
-                out += "Object #{}: {} px\n".format(idx, all_objects[idx]["area"])
+                out += f"Object #{idx}: {all_objects[idx]['area']} px\n"
             self.te_all_objects.setText(out)
 
-        self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
+        self.lb_filtered.setText(f"Filtered objects ({len(filtered_objects)})")
 
         out = ""
         for idx in filtered_objects:
-            out += "Object #{}: {} px\n".format(idx, filtered_objects[idx]["area"])
+            out += f"Object #{idx}: {filtered_objects[idx]['area']} px\n"
         self.te_filtered_objects.setText(out)
 
         if tracked_objects:
             self.lb_tracked_objects.setStyleSheet("")
             out = ""
             for idx in tracked_objects:
-                out += "Object #{}: {} px\n".format(idx, tracked_objects[idx]["area"])
+                out += f"Object #{idx}: {tracked_objects[idx]['area']} px\n"
             self.te_tracked_objects.setText(out)
         else:
             self.lb_tracked_objects.setStyleSheet("color: red")
@@ -2363,7 +2337,7 @@ if __name__ == "__main__":
 
     options = parser.parse_args()
     if options.version:
-        print("version {} release date: {}".format(version.__version__, version.__version_date__))
+        print(f"version {version.__version__} release date: {version.__version_date__}")
         sys.exit()
 
     app = QApplication(sys.argv)
@@ -2389,14 +2363,14 @@ if __name__ == "__main__":
             if os.path.isfile(options.video_file):
                 w.open_video(options.video_file)
             else:
-                print("{} not found".format(options.video_file))
+                print(f"{options.video_file} not found")
                 sys.exit()
 
         if options.directory:
             if os.path.isdir(options.directory):
                 w.load_dir_images(options.directory)
             else:
-                print("{} directory not found".format(options.directory))
+                print(f"{options.directory} directory not found")
                 sys.exit()
 
     w.show()
