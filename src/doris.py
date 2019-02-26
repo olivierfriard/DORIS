@@ -366,7 +366,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.scale_points = []
         self.add_area = {}
         self.arena = {}
-        '''self.mem_filtered_objects = {}'''
+        self.filtered_objects = {}
         self.all_objects = {}
         self.objects_to_track = {}
         self.scale = 1
@@ -1871,8 +1871,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         separate initial aggregated objects using k-means clustering to arbitrary number of objects
         """
 
-        logging.debug("function: force_objects_number")
 
+        logging.debug("function: force_objects_number")
+        if not self.filtered_objects:
+            return
         logging.debug(f"filtered objects: {list(self.filtered_objects.keys())}")
 
         nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects to filter", "Number of objects:", 1, 1, 1000, 1)
