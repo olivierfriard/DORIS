@@ -22,8 +22,11 @@ This file is part of DORIS.
 Requirements:
 pyqt5
 opencv
+pandas
 numpy
 matplotlib
+scikit-learn
+sklearn
 
 optional:
 mpl_scatter_density (pip3 install mpl_scatter_density)
