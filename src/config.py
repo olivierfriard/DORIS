@@ -27,13 +27,13 @@ DEFAULT_FRAME_SCALE = 0.5
 
 DIST_MAX = 20
 
-THRESHOLD_METHODS = ["Adaptive (mean)", "Adaptive (Gaussian)", "Simple"]
+THRESHOLD_METHODS = ["Simple", "Adaptive (mean)", "Adaptive (Gaussian)"]
 
 BLUR_DEFAULT_VALUE = 3
 SHOW_CENTROID_DEFAULT = False
 SHOW_CONTOUR_DEFAULT = True
 
-THRESHOLD_DEFAULT = 50
+THRESHOLD_DEFAULT = 128
 VIEWER_WIDTH = 480
 
 # BGR colors

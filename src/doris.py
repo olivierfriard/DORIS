@@ -387,11 +387,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw.append(FrameViewer())
         self.fw[0].setWindowTitle("Original frame")
         self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
-        self.fw[0].setGeometry(100, 100, 512, 512)
+        self.fw[0].setGeometry(10, 10, 512, 512)
         # self.fw[0].show()
 
         self.fw.append(FrameViewer())
-        self.fw[1].setGeometry(640, 100, 512, 512)
+        self.fw[1].setGeometry(560, 10, 512, 512)
         self.fw[1].setWindowTitle("Processed frame")
 
         self.running_tracking = False
@@ -458,10 +458,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         for w in [self.sb_threshold]:
-            w.setEnabled(self.cb_threshold_method.currentIndex() == 2)  # Simple threshold
+            w.setEnabled(self.cb_threshold_method.currentIndex() == THRESHOLD_METHODS.index("Simple"))  # Simple threshold
 
         for w in [self.sb_block_size, self.sb_offset]:
-            w.setEnabled(self.cb_threshold_method.currentIndex() != 2)  # Simple threshold
+            w.setEnabled(self.cb_threshold_method.currentIndex() != THRESHOLD_METHODS.index("Simple"))  # Simple threshold
 
         self.process_and_show()
 
@@ -537,25 +537,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         change scale of frame viewer
         """
+        logging.debug("function: frame_viewer_scale")
 
         self.fw[fw_idx].show()
-        self.fw[fw_idx].lb_frame.clear()
-        self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-        if fw_idx == 0:
-            self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                               Qt.KeepAspectRatio))
-            self.frame_width = self.fw[fw_idx].lb_frame.width()
-            self.frame_scale = scale
+        try:
+            self.fw[fw_idx].lb_frame.clear()
+            self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
+            if fw_idx == 0:
+                self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                   Qt.KeepAspectRatio))
+                self.frame_width = self.fw[fw_idx].lb_frame.width()
+                self.frame_scale = scale
 
-        if fw_idx == 1:
-            processed_frame = self.frame_processing(self.frame)
-            self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                              Qt.KeepAspectRatio))
-            self.processed_frame_scale = scale
+            if fw_idx == 1:
+                processed_frame = self.frame_processing(self.frame)
+                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                                  Qt.KeepAspectRatio))
+                self.processed_frame_scale = scale
 
-        self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
-        self.process_and_show()
-
+            self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
+            self.process_and_show()
+        except Exception:
+            logging.critical("error")
 
     def for_back_ward(self, direction="forward"):
 

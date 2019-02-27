@@ -149,17 +149,17 @@
        <widget class="QComboBox" name="cb_threshold_method">
         <item>
          <property name="text">
+          <string>Simple</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
           <string>Adaptive (mean)</string>
          </property>
         </item>
         <item>
          <property name="text">
           <string>Adaptive (Gaussian)</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Simple</string>
          </property>
         </item>
        </widget>
