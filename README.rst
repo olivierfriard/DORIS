@@ -28,3 +28,11 @@ Requirements
 * scipy
 * sklearn
 
+
+Download binary versions
+==================================
+
+See the `Releases page <https://github.com/olivierfriard/DORIS/releases>`_
+
+
+
