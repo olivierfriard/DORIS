@@ -29,6 +29,12 @@ Requirements
 * sklearn
 
 
+User guide
+==================================
+
+https://doris.readthedocs.io/en/latest/
+
+
 Download binary versions
 ==================================
 
