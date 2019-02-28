@@ -34,7 +34,7 @@ User guide
 
 https://doris.readthedocs.io/en/latest/
 
-A video tutorial is available at www.youtube.com/watch?v=toSXiqsWRzY
+A video tutorial is available at www.youtube.com/watch?v=toSXiqsWRzY (no audio)
 
 
 Download binary versions
