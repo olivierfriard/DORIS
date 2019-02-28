@@ -21,7 +21,7 @@ Requirements
 
 * matplotlib
 * numpy
-* opencv-contrib-python
+* opencv-contrib-python (>=4.0.0)
 * pandas
 * PyQt5
 * scikit-learn
