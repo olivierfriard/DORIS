@@ -20,7 +20,7 @@ Requirements
 
 * matplotlib
 * numpy
-* opencv-contrib-python (>=4.0.0)
+* opencv-python-headless (>=4.0.0)
 * pandas
 * PyQt5
 * scikit-learn
