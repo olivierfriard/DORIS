@@ -17,7 +17,7 @@ This project was inspired by **Tracktor project**: https://github.com/vivekhsrid
 
 
 Requirements
-==============================
+========================================================================================
 
 * matplotlib
 * numpy
@@ -30,15 +30,15 @@ Requirements
 
 
 User guide
-==================================
+========================================================================================
 
 https://doris.readthedocs.io/en/latest/
 
 A video tutorial is available at https://www.youtube.com/watch?v=toSXiqsWRzY (no audio)
 
 
-Download binary versions
-==================================
+Download binaries (executable versions for Linux, Windows and Mac OS)
+========================================================================================
 
 See the `Releases page <https://github.com/olivierfriard/DORIS/releases>`_
 
