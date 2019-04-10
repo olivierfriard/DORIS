@@ -78,7 +78,7 @@ from doris_ui import Ui_MainWindow
 
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
                             datefmt='%H:%M:%S',
-                            level=logging.DEBUG)
+                            level=logging.INFO)
 
 COLORS_LIST = doris_functions.COLORS_LIST
 
@@ -880,7 +880,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 else:
                     self.add_area["pt2"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
                     # reorder vortex
-                    print(self.add_area)
+                    logging.debug(self.add_area)
                     self.add_area["pt1"], self.add_area["pt2"] = ([min(self.add_area["pt1"][0], self.add_area["pt2"][0]), min(self.add_area["pt1"][1],self.add_area["pt2"][1])],
                                                                  [max(self.add_area["pt1"][0], self.add_area["pt2"][0]), max(self.add_area["pt1"][1], self.add_area["pt2"][1])])
                     self.lw_area_definition.addItem(str(self.add_area))
@@ -1322,7 +1322,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images_index = 0
             self.pb()
 
-            logging.info(f"self.frame.shape: {self.frame.shape}")
+            logging.debug(f"self.frame.shape: {self.frame.shape}")
 
             self.video_height, self.video_width, _ = self.frame.shape
 
@@ -1453,7 +1453,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug(f"coord_df: {self.coord_df.head()}")
 
-        logging.info(f"objects to track: {list(self.objects_to_track.keys())}")
+        logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
 
         self.process_and_show()
 
@@ -1598,13 +1598,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                  )
 
-        logging.info(f"number of all filtered objects: {len(filtered_objects)}")
-        logging.info(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
+        logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
+        logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
         # no filtered object
         if len(filtered_objects) == 0 and len(self.objects_to_track):
-            logging.info("No filtered objects")
+            logging.debug("No filtered objects")
             self.statusBar.showMessage("No filtered objects!")
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
@@ -1621,7 +1621,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # if self.frame_idx - 1 not in self.mem_position_objects:
             if True:  # disabled aggregation of points to previous centroid due to a bug
-                logging.info("Filtered object are less than objects to track: applying k-means clustering")
+                logging.debug("Filtered object are less than objects to track: applying k-means clustering")
 
                 contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                 new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
@@ -1655,7 +1655,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 filtered_objects = dict(new_filtered_objects)
 
             else: # previous centroids known
-                logging.info("filtered object are less than objects to track: group by distances to centroids")
+                logging.debug("filtered object are less than objects to track: group by distances to centroids")
                 contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                 myarray = np.vstack(contours_list)
                 myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])

@@ -356,13 +356,11 @@ def detect_and_filter_objects(frame,
 
         # check if object area is >= of minimal size
         if min_size and all_objects[idx]["area"] < min_size:
-            # print("skipped #{} for min area".format(idx))
             obj_to_del_idx.append(idx)
             continue
 
         # check if object area is <= of maximal size
         if max_size and all_objects[idx]["area"] > max_size:
-            # print("skipped #{} for max area".format(idx))
             obj_to_del_idx.append(idx)
             continue
 
@@ -373,7 +371,6 @@ def detect_and_filter_objects(frame,
             '''
             if ((all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension
                 or (all_objects[idx]["max"][1] - all_objects[idx]["min"][1]) > max_extension):
-                # print("skipped #{} for max extension".format(idx))
                 obj_to_del_idx.append(idx)
                 continue
 
