@@ -1313,6 +1313,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + list(p.glob("*.PNG")))
 
             self.total_frame_nb = len(self.dir_images)
+            logging.info(f"images number: {self.total_frame_nb}")
             self.hs_frame.setMinimum(1)
             self.hs_frame.setMaximum(self.total_frame_nb)
             self.hs_frame.setTickInterval(10)
@@ -1332,7 +1333,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.fw[idx].show()
 
             self.fw[0].setWindowTitle(f"Original frame - {dir_images}")
-            self.statusBar.showMessage(f"{len(self.dir_images)} image(s) found")
+            self.statusBar.showMessage(f"{self.total_frame_nb} image(s) found")
 
 
     def update_frame_index(self):
@@ -1341,12 +1342,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.dir_images:
             self.frame_idx = self.dir_images_index
+            self.lb_frames.setText(f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}")
+
         else:
             self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
 
-        self.lb_frames.setText((f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}&nbsp;&nbsp;&nbsp;&nbsp;"
-                                f"Time: <b>{dt.timedelta(seconds=round(self.frame_idx/self.fps, 3))}</b>&nbsp;&nbsp;&nbsp;&nbsp;"
-                                f"({self.frame_idx/self.fps:.3f} seconds)"))
+            self.lb_frames.setText((f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}&nbsp;&nbsp;&nbsp;&nbsp;"
+                                    f"Time: <b>{dt.timedelta(seconds=round(self.frame_idx/self.fps, 3))}</b>&nbsp;&nbsp;&nbsp;&nbsp;"
+                                    f"({self.frame_idx/self.fps:.3f} seconds)"))
 
 
     def frame_processing(self, frame):
