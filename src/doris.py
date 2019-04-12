@@ -1310,7 +1310,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
         if dir_images:
             p = pathlib.Path(dir_images)
-            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + + list(p.glob("*.PNG")))
+            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + list(p.glob("*.PNG")))
 
             self.total_frame_nb = len(self.dir_images)
             self.hs_frame.setMinimum(1)
