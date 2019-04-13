@@ -78,7 +78,7 @@ from doris_ui import Ui_MainWindow
 
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
                             datefmt='%H:%M:%S',
-                            level=logging.INFO)
+                            level=logging.DEBUG)
 
 COLORS_LIST = doris_functions.COLORS_LIST
 
@@ -557,15 +557,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         except Exception:
             logging.critical("error")
 
+
     def for_back_ward(self, direction="forward"):
 
         logging.debug("function: for_back_ward")
 
-        step = self.sb_frame_offset.value() - 1 if direction == "forward" else -self.sb_frame_offset.value() - 1
+        step = (self.sb_frame_offset.value() - 1) if direction == "forward" else (-self.sb_frame_offset.value() - 1)
+        logging.info(f"step: {step}")
 
         if self.dir_images:
-            if 0 < self.dir_images_index + step < len(self.dir_images):
+            logging.info(f"self.dir_images_index + step: {self.dir_images_index + step}")
+            if 0 <= self.dir_images_index + step < len(self.dir_images):
                 self.dir_images_index += step
+            else:
+                self.dir_images_index -= 1
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
         elif self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step)
@@ -636,6 +641,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug("function: define_arena")
 
+        if not self.dir_images and self.capture is None:
+            return
+
         if self.flag_define_arena:
             self.flag_define_arena = ""
         else:
@@ -687,7 +695,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return ratio and pen thickness for contours according to video resolution
         """
 
-        logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
+        #logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
 
         ratio = video_width / frame_width
         if ratio <= 1:
@@ -695,7 +703,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             drawing_thickness = round(ratio)
 
-        logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
+        #logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
 
         return ratio, drawing_thickness
 
@@ -1264,19 +1272,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: open_video")
 
         if not file_name:
-            file_name, _ = QFileDialog(self).getOpenFileName(self, "Open video", "", "All files (*)")
+            file_name, _ = QFileDialog().getOpenFileName(self, "Open video", "", "All files (*)")
         if file_name:
             if not os.path.isfile(file_name):
                 QMessageBox.critical(self, "DORIS", f"{file_name} not found")
                 return
 
+            if self.capture:
+                self.capture.release()
+
             self.capture = cv2.VideoCapture(file_name)
 
             if not self.capture.isOpened():
-                QMessageBox.critical(self, "DORIS", "Could not open {}".format(file_name))
+                QMessageBox.critical(self, "DORIS", f"Could not open {pathlib.Path(file_name).name}")
+                self.capture.release()
                 return
 
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            if self.total_frame_nb < 0:
+                QMessageBox.critical(self, "DORIS", f"{pathlib.Path(file_name).name} has an unknown format")
+                self.capture.release()
+                return
+
             self.hs_frame.setMinimum(1)
             self.hs_frame.setMaximum(self.total_frame_nb)
             self.hs_frame.setTickInterval(10)
@@ -1296,8 +1313,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
 
-            self.fw[0].setWindowTitle(f"Original frame - {file_name}")
-            self.statusBar.showMessage("video loaded ({}x{})".format(self.video_width, self.video_height))
+            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
+            self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
 
 
     def load_dir_images(self, dir_images):
@@ -1307,7 +1324,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: load_dir_images")
 
         if not dir_images:
-            dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
+            dir_images = QFileDialog().getExistingDirectory(self, "Select Directory")
         if dir_images:
             p = pathlib.Path(dir_images)
             self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + list(p.glob("*.PNG")))
@@ -1320,7 +1337,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.lb_frames.setText(f"<b>{self.total_frame_nb}</b> images")
 
-            self.dir_images_index = 0
+            self.dir_images_index = -1
             self.pb()
 
             logging.debug(f"self.frame.shape: {self.frame.shape}")
@@ -1332,7 +1349,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
-            self.fw[0].setWindowTitle(f"Original frame - {dir_images}")
+            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(dir_images).name}")
             self.statusBar.showMessage(f"{self.total_frame_nb} image(s) found")
 
 
@@ -1342,7 +1359,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.dir_images:
             self.frame_idx = self.dir_images_index
-            self.lb_frames.setText(f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}")
+            self.lb_frames.setText(f"Frame: <b>{self.frame_idx + 1}</b> / {self.total_frame_nb}")
 
         else:
             self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
@@ -1428,6 +1445,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         select objects to track and create the dataframes for recording objects positions and presence in area
         """
+        if not self.dir_images and self.capture is None:
+            return
 
         if all_:
             self.objects_to_track = {}
@@ -1491,7 +1510,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
-            logging.debug(f"idx: {idx}, marker_color: {marker_color}")
+
+            #logging.debug(f"idx: {idx}, marker_color: {marker_color}")
 
             if self.actionShow_contour_of_object.isChecked():
                 if marker_type == RECTANGLE:
@@ -1622,7 +1642,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
-            # if self.frame_idx - 1 not in self.mem_position_objects:
+            #if self.frame_idx - 1 not in self.mem_position_objects:
             if True:  # disabled aggregation of points to previous centroid due to a bug
                 logging.debug("Filtered object are less than objects to track: applying k-means clustering")
 
@@ -1659,29 +1679,33 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             else: # previous centroids known
                 logging.debug("filtered object are less than objects to track: group by distances to centroids")
-                contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-                myarray = np.vstack(contours_list)
+                contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
+                centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
+                myarray = np.vstack(contours_list1)
                 myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
-                centroids = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
+                centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
 
-                logging.debug(f"Known centroids: {centroids}")
-
-                new_contours = doris_functions.group(myarray, centroids)
+                logging.debug(f"Known centroids: {centroids_list0}")
+                logging.debug(f"Detected centroids: {centroids_list1}")
+                
+                new_contours = doris_functions.group2(myarray, centroids_list0, centroids_list1)
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
-
-                    #cnt = cv2.convexHull(cnt)
+                    #cnt = cv2.convexHull(cnt1)
+                    
+                    '''
                     M = cv2.moments(cnt)
-
                     if M["m00"] != 0:
                         cx = int(M["m10"] / M["m00"])
                         cy = int(M["m01"] / M["m00"])
                     else:
                         cx, cy = 0, 0
+                    '''
+
                     n = np.vstack(cnt).squeeze()
                     try:
                         x, y = n[:, 0], n[:, 1]
@@ -1689,12 +1713,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         x = n[0]
                         y = n[1]
 
+                    # centroid
+                    cx = int(np.mean(x))
+                    cy = int(np.mean(y))
+
                     new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
                                                      "contour": cnt,
                                                      "area": cv2.contourArea(cnt),
                                                      "min": (int(np.min(x)), int(np.min(y))),
                                                      "max": (int(np.max(x)), int(np.max(y)))
                                                     }
+                    print(idx, "centroid", (cx, cy))
                 filtered_objects = dict(new_filtered_objects)
 
 
@@ -1702,28 +1731,32 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             mem_costs = {}
             obj_indexes = list(filtered_objects.keys())
             # iterate all combinations of detected objects of length( self.objects_to_track)
-            logging.debug(f"combinations of filtered objects: {obj_indexes}")
+            
+            # logging.debug(f"combinations of filtered objects: {obj_indexes}")
 
             if self.frame_idx -1 in self.mem_position_objects:
 
                 for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
                     cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1], dict([(idx, filtered_objects[idx]) for idx in indexes]))
-                    logging.debug(f"index: {indexes} cost: {cost}")
+
+                    # logging.debug(f"index: {indexes} cost: {cost}")
+
                     mem_costs[cost] = indexes
 
             else:
                 for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
                     cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
-                    logging.debug(f"index: {indexes} cost: {cost}")
+                    # logging.debug(f"index: {indexes} cost: {cost}")
                     mem_costs[cost] = indexes
 
             min_cost = min(list(mem_costs.keys()))
-            logging.debug(f"minimal cost: {min_cost}")
+            # logging.debug(f"minimal cost: {min_cost}")
 
             # select new objects to track
 
             new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-            logging.debug(f"new objects to track : {list(new_objects_to_track.keys())}")
+
+            # logging.debug(f"new objects to track : {list(new_objects_to_track.keys())}")
 
             self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
@@ -1771,8 +1804,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             self.always_skip_frame = True
 
                     if response == "Go to previous frame":
-                        self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) - 2)
-                        self.pb()
+                        self.for_back_ward(direction="backward")
                         return
 
                     if response == "Close":
@@ -1928,11 +1960,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def closeEvent(self, event):
-        try:
+        if self.capture:
             self.capture.release()
-            cv2.destroyAllWindows()
-        except Exception:
-            pass
 
         try:
             self.fw[0].close()

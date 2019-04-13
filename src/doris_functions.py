@@ -31,6 +31,7 @@ import logging
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
+from scipy.spatial import distance
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -153,14 +154,112 @@ def plot_density(df, x_lim, y_lim):
         plt.tight_layout()
         plt.show()
 
-def group(points, aggregators):
+
+def group(points, centroids):
     """
-    group points by distance to aggregator points
+    group points by distance to centroids
     """
-    distances = [((points[:,0] - aggregator[0]) **2 + (points[:,1] - aggregator[1]) **2)**.5 for aggregator in aggregators]
+
+    def f_clu(cc, ctrOK):
+        # assegna ciascun punto al centroide piu vicino
+        nclu = np.shape(ctrOK)[0]
+        nobj = np.shape(cc)[0]
+        clu = np.zeros(nobj)
+        for i in np.arange(nobj):
+            zz = np.sum((np.dot(np.ones((nclu, 1)),np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
+            clu[i] = (zz == np.min(zz)).nonzero()[0][0]
+        return clu
+
+    clu = f_clu(points, centroids)
+    print(f"clu: {clu}")
+    clusters = []
+    for idx, centroid in enumerate(centroids):
+        clusters.append(points[(clu == idx).nonzero()[0],:]  )
+
+
+    '''
+    distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
     results = [points[d==np.minimum(*distances)] for d in distances]
+
     return results
+    '''
+    return clusters
+
+
+def group2(points, centroids_list0, centroids_list1):
+    """
+    group points by distance to centroids
+    """
+
+    def f_obj(ctr0, nobj0, ctr1, nobj1):
+        # trova i centroidi dei "nobj1" oggetti
+
+        dd = np.zeros((nobj0, nobj1))
+        riga = []
+        colonna = []
+        ctrOK = np.zeros((nobj1,2))
+        for i in np.arange(nobj0):
+            for ii in np.arange(nobj1):
+                dd[i, ii] = distance.euclidean(ctr0[i, :], ctr1[ii, :])
+        dv = np.sort(np.reshape(dd,nobj0*nobj1, 0))
+        for i in np.arange(nobj1):
+            r0,c0 = (dd == dv[i]).nonzero()
+            
+            riga = np.concatenate((riga, r0))
+            colonna = np.concatenate((colonna, c0))
+        conta = 0
+        for i in np.arange(nobj0):
+            x = (riga == i).nonzero()[0]
+            if len(x) == 1:
+                ctrOK[conta, 0] = ctr0[int(riga[x]), 0]
+                ctrOK[conta, 1] = ctr0[int(riga[x]), 1]
+                conta += 1
+            else:
+                for j in np.arange(len(x)):
+                    ctrOK[conta, 0] = (ctr0[int(riga[x[j]]), 0] + ctr1[int(colonna[x[j]]), 0]) / 2
+                    ctrOK[conta, 1] = (ctr0[int(riga[x[j]]), 1] + ctr1[int(colonna[x[j]]), 1]) / 2
+                    conta += 1
+        return ctrOK
+
+
+    def f_clu(cc, ctrOK):
+        # assegna ciascun punto al centroide piu vicino
+        nclu = np.shape(ctrOK)[0]
+        nobj = np.shape(cc)[0]
+        clu = np.zeros(nobj)
+        for i in np.arange(nobj):
+            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
+            clu[i] = (zz == np.min(zz)).nonzero()[0][0]
+        return clu
+
+    print(f"centroids_list0 {centroids_list0}")
+    print(f"centroids_list1 {centroids_list1}")
+    '''
+    problem with:
+    centroids_list0 [(508, 556), (555, 552), (511, 503), (555, 491)]
+    centroids_list1 [(555, 552), (511, 515), (555, 491)]
+    '''
+
+    ctrOK = f_obj(np.array(centroids_list1), len(centroids_list1), np.array(centroids_list0), len(centroids_list0))
+    print("ctrOK", ctrOK)
+
+    clu = f_clu(points, ctrOK)
+    print(f"clu: {clu}")
+    clusters = []
+    for idx, _ in enumerate(ctrOK):
+        clusters.append(points[(clu == idx).nonzero()[0],:]  )
+
+
+    '''
+    distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
+
+    results = [points[d==np.minimum(*distances)] for d in distances]
+
+    return results
+    '''
+    return clusters
+
 
 
 def apply_k_means(contours, n_inds):
@@ -524,3 +623,4 @@ def reorder_objects(mem_objects: dict, objects: dict) -> dict:
     else:
 
         return objects
+
