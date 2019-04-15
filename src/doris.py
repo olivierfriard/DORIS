@@ -222,7 +222,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         super(Ui_MainWindow, self).__init__(parent)
         self.setupUi(self)
 
-        self.setWindowTitle("DORIS v. {} - (c) Olivier Friard".format(version.__version__))
+        self.setWindowTitle(f"DORIS v. {version.__version__} - (c) Olivier Friard")
         self.statusBar = QStatusBar()
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
@@ -289,7 +289,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_run_tracking.clicked.connect(self.run_tracking)
         self.pb_run_tracking_frame_interval.clicked.connect(self.run_tracking_frames_interval)
-        self.pb_stop.clicked.connect(self.stop)
+        self.pb_stop.clicked.connect(self.stop_button)
 
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
 
@@ -347,7 +347,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_df = None
         self.areas_df = None
         self.fgbg = None
-        self.flag_stop_analysis = False
+        self.flag_stop_tracking = False
         self.video_height = 0
         self.video_width = 0
         self.frame_width = VIEWER_WIDTH
@@ -413,6 +413,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # matplotlib
         modules.append("\nMatplotlib")
         modules.append(f"version {matplotlib.__version__}")
+        modules_str = "\n".join(modules)
 
         about_dialog = msg = QMessageBox()
         # about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
@@ -422,19 +423,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setEscapeButton(QMessageBox.Ok)
 
         about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
-        "<p>Copyright &copy; 2017-2018 Olivier Friard<br>"
+        "<p>Copyright &copy; 2017-2019 Olivier Friard<br><br>"
+        '<a href="http://www.boris.unito.it/pages/doris">www.boris.unito.it/pages/doris</a> for more details.<br><br>'
         "Department of Life Sciences and Systems Biology<br>"
         "University of Torino - Italy<br>"))
 
-        details = ("Python {python_ver} ({architecture}) - Qt {qt_ver} - PyQt{pyqt_ver} on {system}\n"
-        "CPU type: {cpu_info}\n\n"
-        "{modules}").format(python_ver=platform.python_version(),
-                            architecture="64-bit" if sys.maxsize > 2**32 else "32-bit",
-                            pyqt_ver=PYQT_VERSION_STR,
-                            system=platform.system(),
-                            qt_ver=QT_VERSION_STR,
-                            cpu_info=platform.machine(),
-                            modules="\n".join(modules))
+        architecture = '64-bit' if sys.maxsize > 2**32 else '32-bit'
+        details = (f"Python {platform.python_version()} ({architecture}) "
+                   f"- Qt {QT_VERSION_STR} - PyQt{PYQT_VERSION_STR} on {platform.system()}\n"
+                   f"CPU type: {platform.machine()}\n\n"
+                   f"{modules_str}")
 
         about_dialog.setDetailedText(details)
 
@@ -1637,8 +1635,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects)
             self.display_processed_frame(processed_frame)
-            self.flag_stop_analysis = True
             QMessageBox.critical(self, "DORIS", "No object detected")
+            if self.running_tracking:
+                self.flag_stop_tracking = True
             return
 
         # filtered object are less than objects to track
@@ -1692,7 +1691,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 logging.debug(f"Known centroids: {centroids_list0}")
                 logging.debug(f"Detected centroids: {centroids_list1}")
-                
+
                 new_contours = doris_functions.group2(myarray, centroids_list0, centroids_list1)
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
@@ -1701,7 +1700,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
                     #cnt = cv2.convexHull(cnt1)
-                    
+
                     '''
                     M = cv2.moments(cnt)
                     if M["m00"] != 0:
@@ -1736,7 +1735,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             mem_costs = {}
             obj_indexes = list(filtered_objects.keys())
             # iterate all combinations of detected objects of length( self.objects_to_track)
-            
+
             # logging.debug(f"combinations of filtered objects: {obj_indexes}")
 
             if self.frame_idx -1 in self.mem_position_objects:
@@ -1781,7 +1780,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     logging.debug(f"distance is greater then allowed: {dist_max}")
 
-                    # self.flag_stop_analysis = True
                     self.update_info(all_objects, filtered_objects, self.objects_to_track)
                     frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                                      self.objects_to_track,
@@ -1816,7 +1814,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         return
 
                     if response == "Stop tracking":
-                        self.flag_stop_analysis = True
+                        self.flag_stop_tracking = True
                         return
 
         self.filtered_objects = filtered_objects
@@ -2037,7 +2035,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.dir_images_index < len(self.dir_images) - 1:
                 self.dir_images_index += 1
             else:
-                self.flag_stop_analysis = False
+                self.flag_stop_tracking = False
                 self.statusBar.showMessage("Last image of dir")
                 return False
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
@@ -2047,8 +2045,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.capture is not None:
                 ret, self.frame = self.capture.read()
                 if not ret:
+                    self.flag_stop_tracking = False
                     return False
             else:
+                self.flag_stop_tracking = False
                 return False
 
         self.update_frame_index()
@@ -2149,6 +2149,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.objects_number.append(nb)
 
 
+    def stop_tracking(self):
+        self.running_tracking = False
+        self.flag_stop_tracking = False
+        self.pb_run_tracking.setChecked(False)
+        self.pb_run_tracking_frame_interval.setChecked(False)
+        logging.info("tracking stopped")
+
+
     def run_tracking(self):
         """
         run tracking from current frame to end
@@ -2157,34 +2165,39 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check if objects to track are defined
         if not self.objects_to_track :
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            self.pb_run_tracking.setChecked(False)
             return
 
-        if self.flag_stop_analysis:
+        '''
+        if self.flag_stop_tracking:
             return
+        '''
+
         if self.running_tracking:
+            self.flag_stop_tracking = True
             return
 
         if not self.dir_images:
             try:
                 self.capture
             except:
+                self.stop_tracking()
                 QMessageBox.warning(self, "DORIS", "No video")
                 return
 
         self.running_tracking = True
+        self.pb_run_tracking.setChecked(True)
         while True:
             if not self.pb():
-                self.running_tracking = False
-                logging.info("tracking finished")
+                self.stop_tracking()
                 break
 
             app.processEvents()
-            if self.flag_stop_analysis:
-                self.running_tracking = False
-                logging.info("tracking stopped")
+            if self.flag_stop_tracking:
+                self.stop_tracking()
                 break
 
-        self.flag_stop_analysis = False
+        self.flag_stop_tracking = False
 
 
     def run_tracking_frames_interval(self):
@@ -2194,11 +2207,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check if objects to track are defined
         if not self.objects_to_track :
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
-            return
-        if self.running_tracking:
-            QMessageBox.warning(self, "DORIS", "A tracking task is already running")
+            self.pb_run_tracking_frame_interval.setChecked(False)
             return
 
+        if self.running_tracking:
+            self.flag_stop_tracking = True
+            '''QMessageBox.warning(self, "DORIS", "A tracking task is already running")'''
+            return
 
         try:
             text, ok = QInputDialog.getText(self, "Run tracking", "Frames interval: (ex. 123-456)")
@@ -2217,31 +2232,29 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.running_tracking = True
         while True:
             if not self.pb():
-                self.running_tracking = False
-                logging.info("tracking finished")
+                self.stop_tracking()
                 break
 
             app.processEvents()
 
             if self.frame_idx >= stop_frame:
-                logging.info("tracking finished")
-                self.running_tracking = False
+                self.stop_tracking()
                 break
 
-            if self.flag_stop_analysis:
-                self.running_tracking = False
-                logging.info("tracking stopped")
+            if self.flag_stop_tracking:
+                self.stop_tracking()
                 break
 
-        self.flag_stop_analysis = False
+        self.flag_stop_tracking = False
 
 
 
-    def stop(self):
+    def stop_button(self):
         """
         stop analysis
         """
-        self.flag_stop_analysis = True
+        if self.running_tracking:
+            self.flag_stop_tracking = True
 
 
     def open_project(self, file_name=""):
