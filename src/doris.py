@@ -78,7 +78,7 @@ from doris_ui import Ui_MainWindow
 
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
                             datefmt='%H:%M:%S',
-                            level=logging.INFO)
+                            level=logging.DEBUG)
 
 COLORS_LIST = doris_functions.COLORS_LIST
 
@@ -1599,6 +1599,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                  )
 
         logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
+
+        contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+        logging.debug(f"contours_list before: {contours_list}")
         logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
@@ -1621,10 +1624,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # if self.frame_idx - 1 not in self.mem_position_objects:
             if True:  # disabled aggregation of points to previous centroid due to a bug
-                logging.debug("Filtered object are less than objects to track: applying k-means clustering")
+                logging.debug("Filtered object(s) are less than objects to track: applying k-means clustering")
 
                 contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                 new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
+
+                logging.debug(f"new contours after kmeans: {new_contours}")
 
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
