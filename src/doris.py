@@ -559,21 +559,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def for_back_ward(self, direction="forward"):
 
         logging.debug("function: for_back_ward")
+        if direction == "forward":
+            step = self.sb_frame_offset.value()
+        if direction == "backward":
+            step = - self.sb_frame_offset.value()
 
-        step = (self.sb_frame_offset.value() - 1) if direction == "forward" else (-self.sb_frame_offset.value() - 1)
+        #step = (self.sb_frame_offset.value() - 1) if direction == "forward" else (-self.sb_frame_offset.value() - 1)
         logging.info(f"step: {step}")
 
         if self.dir_images:
             logging.info(f"self.dir_images_index + step: {self.dir_images_index + step}")
-            if 0 <= self.dir_images_index + step < len(self.dir_images):
-                self.dir_images_index += step
-            else:
-                self.dir_images_index -= 1
+            self.dir_images_index += step
+            if self.dir_images_index >= len(self.dir_images):
+                self.dir_images_index = len(self.dir_images) - 1
+            if self.dir_images_index < 0:
+                self.dir_images_index = 0
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
         elif self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step)
+            ret, self.frame = self.capture.read()
 
-        self.pb()
+        self.update_frame_index()
+        self.process_and_show()
 
 
     def go_to_frame(self, frame_nb: int):
@@ -582,6 +589,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.dir_images:
             self.dir_images_index = frame_nb
+            if self.dir_images_index >= len(self.dir_images):
+                self.dir_images_index = len(self.dir_images) - 1
+            if self.dir_images_index < 0:
+                self.dir_images_index = 0
+
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
         elif self.capture is not None:
             try:
@@ -589,6 +601,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except Exception:
                 logging.debug("exception in function go_to_frame")
                 pass
+        self.update_frame_index()
+
+        self.process_and_show()
 
 
     def pb_go_to_frame(self):
@@ -601,7 +616,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except ValueError:
                 return
             self.go_to_frame(frame_nb=int(self.le_goto_frame.text()) - 1)
-            self.pb()
 
 
     def add_area_func(self, shape):
@@ -1086,8 +1100,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug("function: reset")
 
+        if self.running_tracking:
+            return
+
+        if dialog.MessageDialog("DORIS", "Confirm reset?", ["Yes", "Cancel"]) == "Cancel":
+            return
+
         if self.dir_images:
-            self.dir_images_index = 0
+            self.dir_images_index = -1
         else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
         self.objects_to_track = {}
@@ -1107,6 +1127,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         logging.debug("function: next_frame")
+
+        if self.running_tracking:
+            return
 
         if not self.pb():
             return
@@ -1382,7 +1405,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return doris_functions.image_processing(frame,
                                                 blur=self.sb_blur.value(),
                                                 threshold_method=threshold_method,
-                                                invert=self.cb_invert.isChecked())
+                                                invert=self.cb_invert.isChecked(),
+                                                arena=self.arena
+                                                )
 
 
     def define_coordinate_center_1point(self):
@@ -1622,7 +1647,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
 
         contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-        logging.debug(f"contours_list before: {contours_list}")
+        #logging.debug(f"contours_list before: {contours_list}")
         logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
@@ -1644,8 +1669,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
-            #if self.frame_idx - 1 not in self.mem_position_objects:
-            if True:  # disabled aggregation of points to previous centroid due to a bug
+            if self.frame_idx - 1 not in self.mem_position_objects:
+            #if True:  # disabled aggregation of points to previous centroid due to a bug
                 logging.debug("Filtered object(s) are less than objects to track: applying k-means clustering")
 
                 contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]

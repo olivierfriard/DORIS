@@ -198,25 +198,28 @@ def group2(points, centroids_list0, centroids_list1):
         dd = np.zeros((nobj0, nobj1))
         riga = []
         colonna = []
-        ctrOK = np.zeros((nobj1,2))
+        ctrOK = np.zeros((nobj1, 2))
         for i in np.arange(nobj0):
             for ii in np.arange(nobj1):
                 dd[i, ii] = distance.euclidean(ctr0[i, :], ctr1[ii, :])
         dv = np.sort(np.reshape(dd,nobj0*nobj1, 0))
         for i in np.arange(nobj1):
             r0,c0 = (dd == dv[i]).nonzero()
-            
+
             riga = np.concatenate((riga, r0))
             colonna = np.concatenate((colonna, c0))
         conta = 0
         for i in np.arange(nobj0):
             x = (riga == i).nonzero()[0]
+            print("x", x)
             if len(x) == 1:
+                print("conta", conta)
                 ctrOK[conta, 0] = ctr0[int(riga[x]), 0]
                 ctrOK[conta, 1] = ctr0[int(riga[x]), 1]
                 conta += 1
             else:
                 for j in np.arange(len(x)):
+                    print("conta", conta)
                     ctrOK[conta, 0] = (ctr0[int(riga[x[j]]), 0] + ctr1[int(colonna[x[j]]), 0]) / 2
                     ctrOK[conta, 1] = (ctr0[int(riga[x[j]]), 1] + ctr1[int(colonna[x[j]]), 1]) / 2
                     conta += 1
@@ -300,6 +303,69 @@ def apply_k_means(contours, n_inds):
 
 
 def image_processing(frame,
+                     blur=5,
+                     threshold_method={},
+                     invert=False,
+                     arena={}):
+    """
+    apply treament to frame
+    returns treated frame
+    """
+
+    if frame is None:
+        return None
+
+    '''
+    if self.fgbg:
+        frame = self.fgbg.apply(frame)
+    '''
+
+    # blur
+    if blur:
+        frame = cv2.blur(frame, (blur, blur))
+
+    # threshold
+    # color to gray levels
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    if threshold_method["name"] == "Simple":
+        ret, frame = cv2.threshold(frame, threshold_method["cut-off"], 255, cv2.THRESH_BINARY)
+
+    if threshold_method["name"] in ["Adaptive (mean)", "Adaptive (Gaussian)"]:
+        tm = cv2.ADAPTIVE_THRESH_MEAN_C if threshold_method["name"] == "Adaptive (mean)" else cv2.ADAPTIVE_THRESH_GAUSSIAN_C
+        frame = cv2.adaptiveThreshold(frame,
+                                      255,
+                                      tm,
+                                      cv2.THRESH_BINARY,
+                                      threshold_method["block_size"] if threshold_method["block_size"] % 2 else threshold_method["block_size"] + 1,
+                                      threshold_method["offset"])
+
+    if invert:
+        frame = (255 - frame)
+
+    if arena:
+        mask = np.zeros(frame.shape[:2], np.uint8)
+
+        if arena["type"] == "polygon":
+
+            cv2.fillConvexPoly(mask, np.array(arena["points"]), 255)
+
+        if arena["type"] == "circle":
+            cv2.circle(mask, tuple(arena["center"]), arena["radius"],
+                       color=255, thickness=cv2.FILLED)
+
+        if arena["type"] == "rectangle":
+            cv2.rectangle(mask, tuple(arena["points"][0]), tuple(arena["points"][1]),
+                          color=255, thickness=cv2.FILLED)
+        inverted_mask = 255 - mask
+
+        frame = np.where(inverted_mask==255, 0, frame)
+
+    return frame
+
+
+
+def image_processing_old(frame,
                      blur=5,
                      threshold_method={},
                      invert=False):
