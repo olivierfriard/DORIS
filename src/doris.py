@@ -157,6 +157,10 @@ class FrameViewer(QWidget):
         super().__init__()
 
         self.vbox = QVBoxLayout()
+        self.cb_stay_on_top = QCheckBox("Stay on top")
+        self.cb_stay_on_top.setChecked(True)
+        self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
+        self.vbox.addWidget(self.cb_stay_on_top)
 
         self.lb_frame = Click_label()
         self.lb_frame.setAlignment(Qt.AlignTop | Qt.AlignLeft)
@@ -164,18 +168,20 @@ class FrameViewer(QWidget):
 
         self.setLayout(self.vbox)
 
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+
+    def cb_stay_on_top_clicked(self):
+        print("clicked")
+        if self.cb_stay_on_top.isChecked():
+            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
+        self.show()
+
 
     def closeEvent(self, event):
-        #qm = QMessageBox
-        #ret = qm.question(self,'', "Are you sure to close this window?", qm.Yes | qm.No)
-
-        #if ret == qm.Yes:
         event.accept()
 
-    '''
-    def pbOK_clicked(self):
-        self.close()
-    '''
 
 font = FONT
 
@@ -400,6 +406,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
+        self.setGeometry(0, 0, 1200, 1000)
+
 
     def about(self):
         """
@@ -452,10 +460,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         threshold method changed
         """
 
-        for w in [self.sb_threshold]:
+        for w in [self.lb_threshold, self.sb_threshold]:
             w.setEnabled(self.cb_threshold_method.currentIndex() == THRESHOLD_METHODS.index("Simple"))  # Simple threshold
 
-        for w in [self.sb_block_size, self.sb_offset]:
+        for w in [self.lb_adaptive_threshold, self.lb_block_size, self.lb_offset,
+                  self.sb_block_size, self.sb_offset]:
             w.setEnabled(self.cb_threshold_method.currentIndex() != THRESHOLD_METHODS.index("Simple"))  # Simple threshold
 
         self.process_and_show()
@@ -1095,7 +1104,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def reset(self):
         """
-        go to 1st frame
+        reset analysis and go to 1st frame
         """
 
         logging.debug("function: reset")
@@ -1113,8 +1122,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
         self.mem_position_objects = {}
-
-        self.reset_xy_analysis()
+        self.coord_df = None
+        self.areas_df = None
+        
+        self.te_xy.clear()
+        self.te_number_objects.clear()
 
         self.always_skip_frame = False
 
@@ -1708,22 +1720,30 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             else: # previous centroids known
                 logging.debug("filtered object are less than objects to track: group by distances to centroids")
+
                 contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
+
                 centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
-                myarray = np.vstack(contours_list1)
-                myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
+
+                points1 = np.vstack(contours_list1)
+
+                points1 = points1.reshape(points1.shape[0], points1.shape[2])
+
                 centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
 
                 logging.debug(f"Known centroids: {centroids_list0}")
                 logging.debug(f"Detected centroids: {centroids_list1}")
 
-                new_contours = doris_functions.group2(myarray, centroids_list0, centroids_list1)
+                # new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
+
+                new_contours = doris_functions.group0(points1, centroids_list0)
+
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
-                    # print("cnt", type(cnt))
+                    print("cnt", len(cnt), type(cnt))
                     #cnt = cv2.convexHull(cnt1)
 
                     '''
@@ -1813,7 +1833,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.display_processed_frame(processed_frame)
 
                     if not self.always_skip_frame:
-                        buttons = ["Accept movement", "Skip frame", "Always skip frame", "Close", "Go to previous frame"]
+                        buttons = ["Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Close", "Go to previous frame"]
                         if self.running_tracking:
                             buttons.append("Stop tracking")
 
@@ -1823,12 +1843,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                          "What do you want to do?"),
                                                         buttons)
                     else:
-                        response = "Skip frame"
+                        response = SKIP_FRAME
 
-                    if response in ["Skip frame", "Always skip frame"]:
+                    if response in [SKIP_FRAME, ALWAYS_SKIP_FRAME]:
+                        # frame skipped and positions are taken from previous frame
                         self.objects_to_track = self.mem_position_objects[self.frame_idx - 1]
                         self.mem_position_objects[self.frame_idx] = dict(self.mem_position_objects[self.frame_idx - 1])
-                        if response == "Always skip frame":
+                        if response == ALWAYS_SKIP_FRAME:
                             self.always_skip_frame = True
 
                     if response == "Go to previous frame":

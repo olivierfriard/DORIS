@@ -39,13 +39,6 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 
-'''
-try:
-    import mpl_scatter_density
-except ModuleNotFoundError:
-    print("mpl_scatter_density not found")
-'''
-
 
 def rgbstr_to_bgr_tuple(rgb_str):
     return struct.unpack('BBB', bytes.fromhex(rgb_str))[::-1]
@@ -78,8 +71,6 @@ def plot_path(df, x_lim, y_lim):
     plt.show()
 
 
-
-
 def plot_positions(df, x_lim, y_lim,):
     """
     plot positions
@@ -109,7 +100,6 @@ def plot_positions(df, x_lim, y_lim,):
 
     plt.tight_layout()
     plt.show()
-
 
 
 def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
@@ -155,6 +145,37 @@ def plot_density(df, x_lim, y_lim):
         plt.show()
 
 
+def group0(points, centroids):
+    
+    print(points)
+    print(centroids)
+
+    distances = np.zeros([len(points), len(centroids)])
+
+    for idx1, p in enumerate(points):
+        for idx2, c in enumerate(centroids):
+            distances[idx1, idx2] = ((p[0] - c[0]) **2 + (p[1] - c[1]) **2)**.5 
+    
+    # print(distances)
+    
+    #mini = np.minimum(distances[:,0], distances[:,1]) 
+    mini = np.min(distances, axis=1)
+    
+    # print(mini)
+    
+    new_ctr = []
+    for idx, _ in enumerate(centroids):
+        new_ctr.append([])
+    
+    for idx1 in range(len(points)):
+        # print(points[idx1,:])
+        for idx2 in range(len(centroids)):
+            if distances[idx1, idx2] == mini[idx1]:
+                new_ctr[idx2].append(tuple(points[idx1,:]))
+
+    return [np.array(x) for x in new_ctr]
+
+
 def group(points, centroids):
     """
     group points by distance to centroids
@@ -166,7 +187,7 @@ def group(points, centroids):
         nobj = np.shape(cc)[0]
         clu = np.zeros(nobj)
         for i in np.arange(nobj):
-            zz = np.sum((np.dot(np.ones((nclu, 1)),np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
+            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
             clu[i] = (zz == np.min(zz)).nonzero()[0][0]
         return clu
 
@@ -177,14 +198,15 @@ def group(points, centroids):
         clusters.append(points[(clu == idx).nonzero()[0],:]  )
 
 
-    '''
-    distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
+    
+    # distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
-    results = [points[d==np.minimum(*distances)] for d in distances]
+    # results = [points[d==np.minimum(*distances)] for d in distances]
 
-    return results
-    '''
+    # return results
+    
     return clusters
+
 
 
 def group2(points, centroids_list0, centroids_list1):
@@ -202,9 +224,10 @@ def group2(points, centroids_list0, centroids_list1):
         for i in np.arange(nobj0):
             for ii in np.arange(nobj1):
                 dd[i, ii] = distance.euclidean(ctr0[i, :], ctr1[ii, :])
-        dv = np.sort(np.reshape(dd,nobj0*nobj1, 0))
+
+        dv = np.sort(np.reshape(dd, nobj0 * nobj1, 0))
         for i in np.arange(nobj1):
-            r0,c0 = (dd == dv[i]).nonzero()
+            r0, c0 = (dd == dv[i]).nonzero()
 
             riga = np.concatenate((riga, r0))
             colonna = np.concatenate((colonna, c0))
@@ -223,6 +246,7 @@ def group2(points, centroids_list0, centroids_list1):
                     ctrOK[conta, 0] = (ctr0[int(riga[x[j]]), 0] + ctr1[int(colonna[x[j]]), 0]) / 2
                     ctrOK[conta, 1] = (ctr0[int(riga[x[j]]), 1] + ctr1[int(colonna[x[j]]), 1]) / 2
                     conta += 1
+
         return ctrOK
 
 
@@ -248,11 +272,12 @@ def group2(points, centroids_list0, centroids_list1):
     print("ctrOK", ctrOK)
 
     clu = f_clu(points, ctrOK)
+
     print(f"clu: {clu}")
+
     clusters = []
     for idx, _ in enumerate(ctrOK):
         clusters.append(points[(clu == idx).nonzero()[0],:]  )
-
 
     '''
     distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]

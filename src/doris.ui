@@ -137,49 +137,6 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QLabel" name="label_14">
-        <property name="text">
-         <string>Threshold method</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QComboBox" name="cb_threshold_method">
-        <item>
-         <property name="text">
-          <string>Simple</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Adaptive (mean)</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>Adaptive (Gaussian)</string>
-         </property>
-        </item>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_7">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_10">
       <item>
        <widget class="QLabel" name="label_8">
@@ -213,22 +170,31 @@
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
+       <widget class="QLabel" name="label_14">
+        <property name="text">
+         <string>Threshold method</string>
         </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
+       </widget>
       </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_4">
+      <item>
+       <widget class="QComboBox" name="cb_threshold_method">
+        <item>
+         <property name="text">
+          <string>Simple</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Adaptive (mean)</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Adaptive (Gaussian)</string>
+         </property>
+        </item>
+       </widget>
+      </item>
       <item>
        <widget class="QLabel" name="lb_threshold">
         <property name="text">
@@ -244,14 +210,14 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_15">
+       <widget class="QLabel" name="lb_adaptive_threshold">
         <property name="text">
          <string>Adaptive threshold:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_16">
+       <widget class="QLabel" name="lb_block_size">
         <property name="text">
          <string>Block size</string>
         </property>
@@ -265,7 +231,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="label_17">
+       <widget class="QLabel" name="lb_offset">
         <property name="text">
          <string>Offset</string>
         </property>
@@ -279,7 +245,7 @@
        </widget>
       </item>
       <item>
-       <spacer name="horizontalSpacer_8">
+       <spacer name="horizontalSpacer_2">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>
         </property>
@@ -644,7 +610,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -682,23 +648,6 @@
            </widget>
           </item>
           <item>
-           <spacer name="horizontalSpacer_9">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_20">
-          <item>
            <widget class="QLabel" name="label_21">
             <property name="text">
              <string>Scale (Units/pixel)</string>
@@ -733,7 +682,7 @@
            </widget>
           </item>
           <item>
-           <spacer name="horizontalSpacer_12">
+           <spacer name="horizontalSpacer_9">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>

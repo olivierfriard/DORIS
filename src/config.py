@@ -95,3 +95,6 @@ COLORS_LIST = ["#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941", "#006FA6",
         "#BF5650", "#E83000", "#66796D", "#DA007C", "#FF1A59", "#8ADBB4", "#1E0200", "#5B4E51",
         "#C895C5", "#320033", "#FF6832", "#66E1D3", "#CFCDAC", "#D0AC94", "#7ED379", "#012C58"]
 '''
+
+SKIP_FRAME = "Skip frame"
+ALWAYS_SKIP_FRAME = "Always skip frame"
