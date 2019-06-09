@@ -147,8 +147,10 @@ def plot_density(df, x_lim, y_lim):
 
 def group0(points, centroids):
     
+    '''
     print(points)
     print(centroids)
+    '''
 
     distances = np.zeros([len(points), len(centroids)])
 
@@ -156,7 +158,14 @@ def group0(points, centroids):
         for idx2, c in enumerate(centroids):
             distances[idx1, idx2] = ((p[0] - c[0]) **2 + (p[1] - c[1]) **2)**.5 
     
-    # print(distances)
+    #distances2 = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
+
+    '''
+    print("distances")
+    print(distances)
+    '''
+    #print("distances2")
+    #print(distances2)
     
     #mini = np.minimum(distances[:,0], distances[:,1]) 
     mini = np.min(distances, axis=1)
@@ -168,12 +177,12 @@ def group0(points, centroids):
         new_ctr.append([])
     
     for idx1 in range(len(points)):
-        # print(points[idx1,:])
         for idx2 in range(len(centroids)):
             if distances[idx1, idx2] == mini[idx1]:
                 new_ctr[idx2].append(tuple(points[idx1,:]))
 
     return [np.array(x) for x in new_ctr]
+
 
 
 def group(points, centroids):

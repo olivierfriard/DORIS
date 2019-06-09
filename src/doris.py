@@ -170,6 +170,7 @@ class FrameViewer(QWidget):
 
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
 
+
     def cb_stay_on_top_clicked(self):
         print("clicked")
         if self.cb_stay_on_top.isChecked():
@@ -406,7 +407,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
-        self.setGeometry(0, 0, 1200, 1000)
+        self.setGeometry(0, 0, 1100, 750)
+        
+        self.pick_point = None
 
 
     def about(self):
@@ -780,6 +783,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
         # frame = self.frame.copy()
+        
+        if self.pick_point:
+            print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+            self.pick_point = False
+        
 
         # set coordinate center with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -843,7 +851,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.scale_points = []
                     self.reload_frame()
                     self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
-
 
         # add area
         if self.add_area:
@@ -1677,11 +1684,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.flag_stop_tracking = True
             return
 
+        # test match shapes
+        '''
+        if self.frame_idx - 1 in self.mem_position_objects:
+            for o in filtered_objects:
+                for o2 in self.mem_position_objects[self.frame_idx - 1]:
+                    print(f"match shapes: {o} - {o2}", cv2.matchShapes(filtered_objects[o]["contour"],
+                                         self.mem_position_objects[self.frame_idx - 1][o2]["contour"],
+                                         1, 0.0)
+                    )
+        '''
+
+
         # filtered object are less than objects to track
         # apply clustering
         if len(filtered_objects) < len(self.objects_to_track):
 
-            if self.frame_idx - 1 not in self.mem_position_objects:
+            if self.frame_idx - 1 not in self.mem_position_objects:  # k-means
             #if True:  # disabled aggregation of points to previous centroid due to a bug
                 logging.debug("Filtered object(s) are less than objects to track: applying k-means clustering")
 
@@ -1721,14 +1740,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else: # previous centroids known
                 logging.debug("filtered object are less than objects to track: group by distances to centroids")
 
+                # test if object does not moved and shape unmodified
+                '''
+                for o in filtered_objects:
+                    #for o2 in self.mem_position_objects[self.frame_idx - 1]:
+                    match_shape = cv2.matchShapes(filtered_objects[o]["contour"],
+                                         self.mem_position_objects[self.frame_idx - 1][o]["contour"],
+                                         1, 0.0)
+                    print(f"match shapes {o} ", match_shape)
+                    print(filtered_objects[o]["centroid"],
+                          self.mem_position_objects[self.frame_idx - 1][o]["centroid"])
+                    #dist_centroid = ()
+                    #if match_shape
+                '''
+
+
                 contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
 
                 centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
-
                 points1 = np.vstack(contours_list1)
-
                 points1 = points1.reshape(points1.shape[0], points1.shape[2])
-
                 centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
 
                 logging.debug(f"Known centroids: {centroids_list0}")
@@ -1737,14 +1768,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 # new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
 
                 new_contours = doris_functions.group0(points1, centroids_list0)
+                if [True for x in new_contours if len(x) == 0]:
+                    print("one contour is null. Applying k-means")
+                    contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+                    new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
+
 
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
-                    print("cnt", len(cnt), type(cnt))
-                    #cnt = cv2.convexHull(cnt1)
+                    print(f"idx: {idx} len cnt {len(cnt)}")
+                    cnt = cv2.convexHull(cnt)
 
                     '''
                     M = cv2.moments(cnt)
@@ -1772,7 +1808,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                      "min": (int(np.min(x)), int(np.min(y))),
                                                      "max": (int(np.max(x)), int(np.max(y)))
                                                     }
-                    print(idx, "centroid", (cx, cy))
+                    # print(idx, "centroid", (cx, cy))
                 filtered_objects = dict(new_filtered_objects)
 
 
@@ -1794,7 +1830,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             else:
                 for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
-                    cost = doris_functions.cost_sum_assignment(self.objects_to_track, dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                    cost = doris_functions.cost_sum_assignment(self.objects_to_track,
+                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
                     # logging.debug(f"index: {indexes} cost: {cost}")
                     mem_costs[cost] = indexes
 
@@ -1815,7 +1852,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check max distance from previous detected objects
         if self.sb_max_distance.value():
             if self.frame_idx - 1 in self.mem_position_objects:
-                p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]])
+                p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"]
+                               for k in self.mem_position_objects[self.frame_idx - 1]])
                 p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
                 dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
 
@@ -1823,7 +1861,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 if dist_max > self.sb_max_distance.value():
 
-                    logging.debug(f"distance is greater then allowed: {dist_max}")
+                    logging.debug(f"distance is greater than allowed by user: {dist_max}")
 
                     self.update_info(all_objects, filtered_objects, self.objects_to_track)
                     frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -1833,7 +1871,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.display_processed_frame(processed_frame)
 
                     if not self.always_skip_frame:
-                        buttons = ["Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Close", "Go to previous frame"]
+                        buttons = ["Pick positions", "Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Go to previous frame"]
                         if self.running_tracking:
                             buttons.append("Stop tracking")
 
@@ -1847,16 +1885,25 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     if response in [SKIP_FRAME, ALWAYS_SKIP_FRAME]:
                         # frame skipped and positions are taken from previous frame
+                        if self.cb_record_xy.isChecked():
+                            for idx in sorted(list(self.objects_to_track.keys())):
+                                self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
+                                self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
+
                         self.objects_to_track = self.mem_position_objects[self.frame_idx - 1]
                         self.mem_position_objects[self.frame_idx] = dict(self.mem_position_objects[self.frame_idx - 1])
                         if response == ALWAYS_SKIP_FRAME:
                             self.always_skip_frame = True
+                        return
+                    if response == "Pick positions":
+                        self.pick_point = True
+                        while self.pick_point:
+                            app.processEvents()
+                            
+
 
                     if response == "Go to previous frame":
                         self.for_back_ward(direction="backward")
-                        return
-
-                    if response == "Close":
                         return
 
                     if response == "Stop tracking":
