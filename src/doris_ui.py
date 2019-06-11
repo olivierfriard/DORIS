@@ -265,6 +265,9 @@ class Ui_MainWindow(object):
         self.pb_select_objects_to_track = QtWidgets.QPushButton(self.centralwidget)
         self.pb_select_objects_to_track.setObjectName("pb_select_objects_to_track")
         self.verticalLayout_4.addWidget(self.pb_select_objects_to_track)
+        self.pb_repick_objects = QtWidgets.QPushButton(self.centralwidget)
+        self.pb_repick_objects.setObjectName("pb_repick_objects")
+        self.verticalLayout_4.addWidget(self.pb_repick_objects)
         self.horizontalLayout_21.addLayout(self.verticalLayout_4)
         self.verticalLayout_6.addLayout(self.horizontalLayout_21)
         self.label_12 = QtWidgets.QLabel(self.centralwidget)
@@ -537,7 +540,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -581,6 +584,7 @@ class Ui_MainWindow(object):
         self.lb_tracked_objects.setText(_translate("MainWindow", "Tracked objects"))
         self.pb_track_all_filtered.setText(_translate("MainWindow", "Track all filtered objects"))
         self.pb_select_objects_to_track.setText(_translate("MainWindow", "Select objects to track"))
+        self.pb_repick_objects.setText(_translate("MainWindow", "Repick objects from image"))
         self.label_12.setText(_translate("MainWindow", "Tracking"))
         self.label_20.setText(_translate("MainWindow", "Tag"))
         self.label.setText(_translate("MainWindow", "Origin of referential system"))

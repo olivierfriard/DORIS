@@ -43,7 +43,7 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
                              QSizePolicy, QCheckBox, QHBoxLayout, QPushButton,
-                             QMessageBox)
+                             QMessageBox, QComboBox)
 
 import logging
 import os
@@ -153,14 +153,33 @@ class FrameViewer(QWidget):
     """
     widget for visualizing frame
     """
+
+    zoom_changed_signal = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
 
         self.vbox = QVBoxLayout()
+
+
+        # some widgets
+        hbox = QHBoxLayout()
+
+        hbox.addWidget(QLabel("Zoom"))
+        self.zoom = QComboBox()
+        self.zoom.addItems(["2", "1", "0.5", "0.25"])
+        self.zoom.setCurrentIndex(1)
+        self.zoom.currentIndexChanged.connect(self.zoom_changed)
+        hbox.addWidget(self.zoom)
+
         self.cb_stay_on_top = QCheckBox("Stay on top")
         self.cb_stay_on_top.setChecked(True)
         self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
-        self.vbox.addWidget(self.cb_stay_on_top)
+        hbox.addWidget(self.cb_stay_on_top)
+
+        hbox.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
+        self.vbox.addLayout(hbox)
 
         self.lb_frame = Click_label()
         self.lb_frame.setAlignment(Qt.AlignTop | Qt.AlignLeft)
@@ -170,6 +189,9 @@ class FrameViewer(QWidget):
 
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
 
+    def zoom_changed(self):
+        print(self.zoom.currentText())
+        self.zoom_changed_signal.emit(self.zoom.currentText())
 
     def cb_stay_on_top_clicked(self):
         print("clicked")
@@ -178,7 +200,6 @@ class FrameViewer(QWidget):
         else:
             self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
         self.show()
-
 
     def closeEvent(self, event):
         event.accept()
@@ -322,6 +343,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
         self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
         self.pb_track_all_filtered.clicked.connect(lambda: self.select_objects_to_track(all_=True))
+        self.pb_repick_objects.clicked.connect(self.repick_objects)
 
         # coordinates analysis
         self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
@@ -391,10 +413,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw.append(FrameViewer())
         self.fw[0].setWindowTitle("Original frame")
         self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
+        self.fw[0].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(0))
         self.fw[0].setGeometry(10, 10, 512, 512)
         # self.fw[0].show()
 
         self.fw.append(FrameViewer())
+        self.fw[1].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(1))
         self.fw[1].setGeometry(560, 10, 512, 512)
         self.fw[1].setWindowTitle("Processed frame")
 
@@ -408,8 +432,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
         self.setGeometry(0, 0, 1100, 750)
-        
+
         self.pick_point = None
+
+        self.repicked_objects = None
 
 
     def about(self):
@@ -525,6 +551,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["frame_scale"] = self.frame_scale
         config["processed_frame_scale"] = self.processed_frame_scale
 
+        config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
+        config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
+
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
         config["record_objects_coordinates"] = self.cb_record_xy.isChecked()
@@ -536,8 +565,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.project_path = project_file_path
             self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
         except:
+            raise
             logging.critical(f"project not saved: {project_file_path}")
             QMessageBox.critical(self, "DORIS", f"project not saved: {project_file_path}")
+
+
+    def frame_viewer_scale2(self, fw_idx):
+        """
+        change scale of frame viewer
+        """
+        logging.debug("function: frame_viewer_scale")
+
+        self.fw[fw_idx].show()
+        try:
+            self.fw[fw_idx].lb_frame.clear()
+            scale = eval(self.fw[fw_idx].zoom.currentText())
+            self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
+            if fw_idx == 0:
+                self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                   Qt.KeepAspectRatio))
+                self.frame_width = self.fw[fw_idx].lb_frame.width()
+                self.frame_scale = scale
+
+            if fw_idx == 1:
+                processed_frame = self.frame_processing(self.frame)
+                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                                  Qt.KeepAspectRatio))
+                self.processed_frame_scale = scale
+
+            self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
+            self.process_and_show()
+        except Exception:
+            logging.critical("error")
 
 
     def frame_viewer_scale(self, fw_idx, scale):
@@ -571,8 +630,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def for_back_ward(self, direction="forward"):
 
         logging.debug("function: for_back_ward")
+
         if direction == "forward":
             step = self.sb_frame_offset.value()
+
         if direction == "backward":
             step = - self.sb_frame_offset.value()
 
@@ -587,8 +648,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.dir_images_index < 0:
                 self.dir_images_index = 0
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+
         elif self.capture is not None:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step)
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step - 1)
             ret, self.frame = self.capture.read()
 
         self.update_frame_index()
@@ -783,13 +845,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
         # frame = self.frame.copy()
-        
+
+        ''' pick object
         if self.pick_point:
             print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
             self.pick_point = False
-        
+        '''
+        if self.repicked_objects is not None:
 
-        # set coordinate center with 1 point
+            # cancel
+            if event.button() in [Qt.RightButton, Qt.MidButton]:
+                self.repicked_objects = None
+                return
+
+            for o in self.objects_to_track:
+                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]),
+                                            (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                            False) >= 0):
+                    self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                    self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the frame")
+
+
+        # set coordinates of center with 1 point
         if self.flag_define_coordinate_center_1point:
             self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
             self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
@@ -801,7 +878,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.reload_frame()
             self.statusBar.showMessage(f"Referential origin defined")
 
-        # set coordinate center with 3 points circle
+        # set coordinates of center with the center of a 3 points defined circle
         if self.flag_define_coordinate_center_3points:
             self.coordinate_center_def.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
             cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
@@ -855,13 +932,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # add area
         if self.add_area:
 
-            if event.button() == 4:
+            if event.button() == Qt.MidButton:
                 self.add_area = {}
                 self.statusBar.showMessage("New area canceled")
                 self.reload_frame()
                 return
 
-            if event.button() == 1:
+            if event.button() == Qt.LeftButton:
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
@@ -928,7 +1005,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.add_area["type"] == "polygon":
 
-                if event.button() == 2:  # right click to finish
+                if event.button() == Qt.RightButton:  # right click to finish
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
@@ -936,7 +1013,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage("The new polygon area is defined")
                     return
 
-                if event.button() == 1:  # left button
+                if event.button() == Qt.LeftButton:
                     '''
                     cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                                color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
@@ -956,7 +1033,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.flag_define_arena:
 
             # cancel arena creation (mid button)
-            if event.button() == 4:
+            if event.button() == Qt.MidButton:
                 self.flag_define_arena = ""
                 self.pb_define_arena.setEnabled(True)
                 self.statusBar.showMessage("Arena creation canceled")
@@ -990,7 +1067,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.flag_define_arena == "polygon":
 
-                if event.button() == 2:  # right click to finish
+                if event.button() == Qt.RightButton:  # right click to finish
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
@@ -1131,7 +1208,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.mem_position_objects = {}
         self.coord_df = None
         self.areas_df = None
-        
+
         self.te_xy.clear()
         self.te_number_objects.clear()
 
@@ -1522,6 +1599,125 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.process_and_show()
 
 
+    def repick_objects(self):
+        """
+        allow user repick objects from image by clicking
+        """
+
+        import copy
+        if not self.objects_to_track:
+            return
+        self.statusBar.showMessage(f"Click object #1 on the frame")
+        self.repicked_objects = []
+        while True:
+            app.processEvents()
+            if self.repicked_objects is None:
+                break
+            if len(self.repicked_objects) == len(self.objects_to_track):  # all objects clicked
+                break
+
+        self.statusBar.showMessage(f"Done")
+        if self.repicked_objects is None:
+            return
+
+        print(self.repicked_objects)
+
+        new_order2 = copy.deepcopy({o: [] for o in list(self.objects_to_track.keys())})
+        new_order = {}
+
+        for idx, (x, y) in enumerate(self.repicked_objects):
+            for o in self.objects_to_track:
+                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
+                    new_order2[o].append(idx + 1)
+                    new_order[o] = idx + 1
+
+        print(f"new order of objects: {new_order}")
+        print(f"new order2  of objects: {new_order2}")
+
+        if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
+        #if True:
+
+            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+
+            new_objects_to_track = {}
+            new_objects_to_track2 = {}
+            for o in new_order:
+                new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
+                new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
+
+            print()
+            print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
+            print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
+
+
+            self.objects_to_track = copy.deepcopy(new_objects_to_track2)
+
+            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                         self.objects_to_track,
+                                                                         marker_type=MARKER_TYPE)
+            self.display_frame(frame_with_objects)
+
+            self.repicked_objects = None
+
+        else:  # more new positions by old objects\
+
+                contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
+                points1 = np.vstack(contours_list1)
+                points1 = points1.reshape(points1.shape[0], points1.shape[2])
+
+                # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
+                # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
+                centroids_list0 = self.repicked_objects
+
+                logging.debug(f"Known centroids: {centroids_list0}")
+
+                new_contours = doris_functions.group0(points1, centroids_list0)
+                print(len(new_contours))
+                #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
+
+                new_filtered_objects = {}
+                # add info to objects: centroid, area ...
+                for idx, cnt in enumerate(new_contours):
+                    print(f"idx: {idx} len cnt {len(cnt)}")
+                    cnt = cv2.convexHull(cnt)
+
+                    '''
+                    M = cv2.moments(cnt)
+                    if M["m00"] != 0:
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                    else:
+                        cx, cy = 0, 0
+                    '''
+
+                    n = np.vstack(cnt).squeeze()
+                    try:
+                        x, y = n[:, 0], n[:, 1]
+                    except Exception:
+                        x = n[0]
+                        y = n[1]
+
+                    # centroid
+                    cx = int(np.mean(x))
+                    cy = int(np.mean(y))
+
+                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                                     "contour": cnt,
+                                                     "area": cv2.contourArea(cnt),
+                                                     "min": (int(np.min(x)), int(np.min(y))),
+                                                     "max": (int(np.max(x)), int(np.max(y)))
+                                                    }
+                    # print(idx, "centroid", (cx, cy))
+                print("new_filtered_objects", [new_filtered_objects[x]["centroid"] for x in new_filtered_objects])
+
+                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                                         new_filtered_objects,
+                                                                         marker_type=MARKER_TYPE)
+                self.display_frame(frame_with_objects)
+
+
     def draw_reference_clicked(self):
         """
         click on draw reference menu option
@@ -1811,7 +2007,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     # print(idx, "centroid", (cx, cy))
                 filtered_objects = dict(new_filtered_objects)
 
-
+        # assign filtered objects to objects to track
         if self.objects_to_track:
             mem_costs = {}
             obj_indexes = list(filtered_objects.keys())
@@ -1822,7 +2018,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.frame_idx -1 in self.mem_position_objects:
 
                 for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
-                    cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1], dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                    cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1],
+                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
 
                     # logging.debug(f"index: {indexes} cost: {cost}")
 
@@ -1851,22 +2048,47 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check max distance from previous detected objects
         if self.sb_max_distance.value():
+
             if self.frame_idx - 1 in self.mem_position_objects:
+
                 p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"]
                                for k in self.mem_position_objects[self.frame_idx - 1]])
+
                 p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
+
+                distances = doris_functions.distances(p1, p2)
+                logging.debug(f"distances: {distances}")
+
+                distant_objects = [idx_object for idx_object, distance in enumerate(distances) if distance > self.sb_max_distance.value()]
+
                 dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
 
                 logging.debug(f"dist max: {dist_max}")
 
-                if dist_max > self.sb_max_distance.value():
+                #if dist_max > self.sb_max_distance.value():
+                if distant_objects:
 
-                    logging.debug(f"distance is greater than allowed by user: {dist_max}")
+                    logging.debug(f"distance is greater than allowed by user: {distant_objects}")
 
                     self.update_info(all_objects, filtered_objects, self.objects_to_track)
                     frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                                      self.objects_to_track,
                                                                      marker_type=MARKER_TYPE)
+
+                    # show previous positions
+                    ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
+                    for distant_object in distant_objects:
+                        marker_color = COLORS_LIST[(distant_object) % len(COLORS_LIST)]
+                        self.draw_circle_cross(frame_with_objects,
+                                               self.mem_position_objects[self.frame_idx - 1][distant_object + 1]["centroid"],
+                                               marker_color, drawing_thickness)
+
+                        cv2.putText(frame_with_objects,
+                                    str(f" ({distant_object + 1})"),
+                                    self.mem_position_objects[self.frame_idx - 1][distant_object + 1]["centroid"],
+                                    font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
+
+
                     self.display_frame(frame_with_objects)
                     self.display_processed_frame(processed_frame)
 
@@ -1876,8 +2098,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             buttons.append("Stop tracking")
 
                         response = dialog.MessageDialog("DORIS",
-                                                        (f"Object moved of {dist_max} pixels.\n"
-                                                         f"The maximum distance allowed between frames is {self.sb_max_distance.value()}.\n\n"
+                                                        (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> moved more than allowed.<br>"
+                                                         f"The maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
                                                          "What do you want to do?"),
                                                         buttons)
                     else:
@@ -1896,10 +2118,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             self.always_skip_frame = True
                         return
                     if response == "Pick positions":
-                        self.pick_point = True
-                        while self.pick_point:
-                            app.processEvents()
-                            
+                        #self.pick_point = True
+                        self.repick_objects()
 
 
                     if response == "Go to previous frame":
@@ -2158,6 +2378,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record objects positions and presence in areas defined by user
         """
 
+        if not self.objects_to_track:
+            return
+
         # objects positions
         if self.cb_record_xy.isChecked():
 
@@ -2180,7 +2403,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
                     self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
 
-            logging.debug(f"coord_df: {self.coord_df}")
+            # logging.debug(f"coord_df: {self.coord_df}")
 
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()
@@ -2417,14 +2640,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except KeyError:
                 self.areas = {}
 
-            '''
-            if "record_number_of_objects_by_area" in config:
-                self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
-
-            if "record_objects_coordinates" in config:
-                self.cb_record_xy.setChecked(config["record_objects_coordinates"])
-            '''
-
             if "video_file_path" in config:
                 try:
                     if os.path.isfile(config["video_file_path"]):
@@ -2450,8 +2665,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
             self.actionDraw_reference.setChecked(config.get("show_reference", False))
             self.sb_max_distance.setValue(config.get("max_distance", 0))
+
+            original_frame_viewer_position = config.get("original_frame_viewer_position", [20, 20])
+            self.fw[0].move(*original_frame_viewer_position)
+
             self.frame_scale = config.get("frame_scale", DEFAULT_FRAME_SCALE)
+            self.fw[0].zoom.setCurrentText(str(self.frame_scale))
             self.frame_viewer_scale(0, self.frame_scale)
+
+
+            self.fw[1].move(*config.get("processed_frame_viewer_position", [40, 40]))
+
             self.processed_frame_scale = config.get("processed_frame_scale", DEFAULT_FRAME_SCALE)
             self.frame_viewer_scale(1, self.processed_frame_scale)
 

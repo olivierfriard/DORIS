@@ -582,6 +582,13 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QPushButton" name="pb_repick_objects">
+          <property name="text">
+           <string>Repick objects from image</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>

@@ -45,6 +45,7 @@ def rgbstr_to_bgr_tuple(rgb_str):
 
 
 COLORS_LIST = [rgbstr_to_bgr_tuple(x) for x in config.RGBSTR_COLORS_LIST]
+print(COLORS_LIST)
 
 
 def plot_path(df, x_lim, y_lim):
@@ -146,7 +147,7 @@ def plot_density(df, x_lim, y_lim):
 
 
 def group0(points, centroids):
-    
+
     '''
     print(points)
     print(centroids)
@@ -156,8 +157,8 @@ def group0(points, centroids):
 
     for idx1, p in enumerate(points):
         for idx2, c in enumerate(centroids):
-            distances[idx1, idx2] = ((p[0] - c[0]) **2 + (p[1] - c[1]) **2)**.5 
-    
+            distances[idx1, idx2] = ((p[0] - c[0]) **2 + (p[1] - c[1]) **2)**.5
+
     #distances2 = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
     '''
@@ -166,16 +167,16 @@ def group0(points, centroids):
     '''
     #print("distances2")
     #print(distances2)
-    
-    #mini = np.minimum(distances[:,0], distances[:,1]) 
+
+    #mini = np.minimum(distances[:,0], distances[:,1])
     mini = np.min(distances, axis=1)
-    
+
     # print(mini)
-    
+
     new_ctr = []
     for idx, _ in enumerate(centroids):
         new_ctr.append([])
-    
+
     for idx1 in range(len(points)):
         for idx2 in range(len(centroids)):
             if distances[idx1, idx2] == mini[idx1]:
@@ -207,13 +208,13 @@ def group(points, centroids):
         clusters.append(points[(clu == idx).nonzero()[0],:]  )
 
 
-    
+
     # distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
     # results = [points[d==np.minimum(*distances)] for d in distances]
 
     # return results
-    
+
     return clusters
 
 
@@ -221,6 +222,7 @@ def group(points, centroids):
 def group2(points, centroids_list0, centroids_list1):
     """
     group points by distance to centroids
+    author: Sergio Castellano
     """
 
     def f_obj(ctr0, nobj0, ctr1, nobj1):
