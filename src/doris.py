@@ -1623,99 +1623,96 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         print(self.repicked_objects)
 
         new_order2 = copy.deepcopy({o: [] for o in list(self.objects_to_track.keys())})
-        new_order = {}
+        #new_order = {}
 
         for idx, (x, y) in enumerate(self.repicked_objects):
             for o in self.objects_to_track:
                 if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
                     new_order2[o].append(idx + 1)
-                    new_order[o] = idx + 1
+                    #new_order[o] = idx + 1
 
-        print(f"new order of objects: {new_order}")
-        print(f"new order2  of objects: {new_order2}")
+        #print(f"new order of objects: {new_order}")
+        #print(f"new order2  of objects: {new_order2}")
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
         #if True:
 
-            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+            #print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
 
-            new_objects_to_track = {}
+            #new_objects_to_track = {}
             new_objects_to_track2 = {}
-            for o in new_order:
+            for o in new_order2:
                 new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
-                new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
+                #new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
 
-            print()
-            print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
-            print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
+            #print()
+            #print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
+            #print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
 
 
             self.objects_to_track = copy.deepcopy(new_objects_to_track2)
 
-            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+            #print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
 
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                         self.objects_to_track,
-                                                                         marker_type=MARKER_TYPE)
+                                                             self.objects_to_track,
+                                                             marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects)
 
             self.repicked_objects = None
 
         else:  # more new positions by old objects\
 
-                contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
-                points1 = np.vstack(contours_list1)
-                points1 = points1.reshape(points1.shape[0], points1.shape[2])
+            contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
+            points1 = np.vstack(contours_list1)
+            points1 = points1.reshape(points1.shape[0], points1.shape[2])
 
-                # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
-                # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
-                centroids_list0 = self.repicked_objects
+            # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
+            # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
+            centroids_list0 = self.repicked_objects
 
-                logging.debug(f"Known centroids: {centroids_list0}")
+            logging.debug(f"Known centroids: {centroids_list0}")
 
-                new_contours = doris_functions.group0(points1, centroids_list0)
-                print(len(new_contours))
-                #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
+            new_contours = doris_functions.group0(points1, centroids_list0)
+            #print(len(new_contours))
+            #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
 
-                new_filtered_objects = {}
-                # add info to objects: centroid, area ...
-                for idx, cnt in enumerate(new_contours):
-                    print(f"idx: {idx} len cnt {len(cnt)}")
-                    cnt = cv2.convexHull(cnt)
+            new_filtered_objects = {}
+            # add info to objects: centroid, area ...
+            for idx, cnt in enumerate(new_contours):
 
-                    '''
-                    M = cv2.moments(cnt)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                    else:
-                        cx, cy = 0, 0
-                    '''
+                logging.debug(f"idx: {idx} len cnt {len(cnt)}")
 
-                    n = np.vstack(cnt).squeeze()
-                    try:
-                        x, y = n[:, 0], n[:, 1]
-                    except Exception:
-                        x = n[0]
-                        y = n[1]
+                cnt = cv2.convexHull(cnt)
 
-                    # centroid
-                    cx = int(np.mean(x))
-                    cy = int(np.mean(y))
+                n = np.vstack(cnt).squeeze()
+                try:
+                    x, y = n[:, 0], n[:, 1]
+                except Exception:
+                    x = n[0]
+                    y = n[1]
 
-                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                                     "contour": cnt,
-                                                     "area": cv2.contourArea(cnt),
-                                                     "min": (int(np.min(x)), int(np.min(y))),
-                                                     "max": (int(np.max(x)), int(np.max(y)))
-                                                    }
-                    # print(idx, "centroid", (cx, cy))
-                print("new_filtered_objects", [new_filtered_objects[x]["centroid"] for x in new_filtered_objects])
+                # centroid
+                cx = int(np.mean(x))
+                cy = int(np.mean(y))
 
-                frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                         new_filtered_objects,
-                                                                         marker_type=MARKER_TYPE)
-                self.display_frame(frame_with_objects)
+                new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                                 "contour": cnt,
+                                                 "area": cv2.contourArea(cnt),
+                                                 "min": (int(np.min(x)), int(np.min(y))),
+                                                 "max": (int(np.max(x)), int(np.max(y)))
+                                                }
+
+            # print("new_filtered_objects", [(x, new_filtered_objects[x]["centroid"]) for x in new_filtered_objects])
+
+            self.objects_to_track = copy.deepcopy(new_filtered_objects)
+
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                             self.objects_to_track,
+                                                             marker_type=MARKER_TYPE)
+
+
+            self.display_frame(frame_with_objects)
 
 
     def draw_reference_clicked(self):
@@ -1747,9 +1744,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
-            marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
 
-            #logging.debug(f"idx: {idx}, marker_color: {marker_color}")
+            marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
 
             if self.actionShow_contour_of_object.isChecked():
                 if marker_type == RECTANGLE:
@@ -1952,18 +1948,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
                 contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
-
                 centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
                 points1 = np.vstack(contours_list1)
                 points1 = points1.reshape(points1.shape[0], points1.shape[2])
+
                 centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
 
                 logging.debug(f"Known centroids: {centroids_list0}")
                 logging.debug(f"Detected centroids: {centroids_list1}")
 
-                # new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
+                new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
 
-                new_contours = doris_functions.group0(points1, centroids_list0)
+                #new_contours = doris_functions.group0(points1, centroids_list0)
+
                 if [True for x in new_contours if len(x) == 0]:
                     print("one contour is null. Applying k-means")
                     contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
@@ -1975,17 +1972,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
-                    print(f"idx: {idx} len cnt {len(cnt)}")
-                    cnt = cv2.convexHull(cnt)
 
-                    '''
-                    M = cv2.moments(cnt)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                    else:
-                        cx, cy = 0, 0
-                    '''
+                    print(f"idx: {idx} len cnt {len(cnt)}")
+
+                    cnt = cv2.convexHull(cnt)
 
                     n = np.vstack(cnt).squeeze()
                     try:
