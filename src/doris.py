@@ -155,16 +155,19 @@ class FrameViewer(QWidget):
     """
 
     zoom_changed_signal = pyqtSignal(str)
+    show_contour_changed_signal = pyqtSignal(bool)
 
-    def __init__(self):
+
+    def __init__(self, idx):
         super().__init__()
 
         self.vbox = QVBoxLayout()
-
+        self.idx = idx
 
         # some widgets
         hbox = QHBoxLayout()
 
+        # zoom
         hbox.addWidget(QLabel("Zoom"))
         self.zoom = QComboBox()
         self.zoom.addItems(["2", "1", "0.5", "0.25"])
@@ -172,10 +175,20 @@ class FrameViewer(QWidget):
         self.zoom.currentIndexChanged.connect(self.zoom_changed)
         hbox.addWidget(self.zoom)
 
+        # show contour
+        if idx == 0:
+            self.cb_show_contour = QCheckBox("Show object contour")
+            self.cb_show_contour.setChecked(True)
+            self.cb_show_contour.clicked.connect(self.cb_show_contour_clicked)
+            hbox.addWidget(self.cb_show_contour)
+
+
+        # stay on top
         self.cb_stay_on_top = QCheckBox("Stay on top")
         self.cb_stay_on_top.setChecked(True)
         self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
         hbox.addWidget(self.cb_stay_on_top)
+
 
         hbox.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
@@ -189,17 +202,32 @@ class FrameViewer(QWidget):
 
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
 
+
     def zoom_changed(self):
-        print(self.zoom.currentText())
+        """
+        zoom changed
+        """
         self.zoom_changed_signal.emit(self.zoom.currentText())
 
+
+    def cb_show_contour_clicked(self):
+        """
+
+        """
+        self.show_contour_changed_signal.emit(self.cb_show_contour.isChecked())
+
+
+
     def cb_stay_on_top_clicked(self):
-        print("clicked")
+        """
+        manage the window z - position (stay on top)
+        """
         if self.cb_stay_on_top.isChecked():
             self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         else:
             self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
         self.show()
+
 
     def closeEvent(self, event):
         event.accept()
@@ -268,7 +296,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionDraw_reference.triggered.connect(self.process_and_show)
         self.actionShow_centroid_of_object.triggered.connect(self.process_and_show)
-        self.actionShow_contour_of_object.triggered.connect(self.process_and_show)
+        self.actionShow_contour_of_object.triggered.connect(self.actionShow_contour_changed)
         self.actionOrigin_from_point.triggered.connect(self.define_coordinate_center_1point)
         self.actionOrigin_from_center_of_3_points_circle.triggered.connect(self.define_coordinate_center_3points_circle)
         self.actionSelect_objects_to_track.triggered.connect(lambda: self.select_objects_to_track(all_=False))
@@ -369,7 +397,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_time_in_areas.clicked.connect(self.time_in_areas)
 
         self.always_skip_frame = False
-        self.frame = None
+        self.frame, self.previous_frame = None, None
         self.capture = None
         self.output = ""
         self.videoFileName = ""
@@ -410,17 +438,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
         self.fw = []
-        self.fw.append(FrameViewer())
+        self.fw.append(FrameViewer(0))
         self.fw[0].setWindowTitle("Original frame")
         self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
         self.fw[0].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(0))
+        self.fw[0].show_contour_changed_signal.connect(self.cb_show_contour_changed)
         self.fw[0].setGeometry(10, 10, 512, 512)
         # self.fw[0].show()
 
-        self.fw.append(FrameViewer())
+        self.fw.append(FrameViewer(1))
         self.fw[1].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(1))
         self.fw[1].setGeometry(560, 10, 512, 512)
         self.fw[1].setWindowTitle("Processed frame")
+
+        self.fw.append(FrameViewer(2))
+        self.fw[2].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(2))
+        self.fw[2].setGeometry(800, 10, 512, 512)
+        self.fw[2].setWindowTitle("Previous frame")
+
 
         self.running_tracking = False
 
@@ -474,6 +509,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setDetailedText(details)
 
         _ = about_dialog.exec_()
+
+    def actionShow_contour_changed(self):
+        self.fw[0].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
+        self.process_and_show()
+
+    def cb_show_contour_changed(self):
+        self.actionShow_contour_of_object.setChecked(self.fw[0].cb_show_contour.isChecked())
+        self.process_and_show()
 
 
     def hs_frame_moved(self):
@@ -647,10 +690,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.dir_images_index = len(self.dir_images) - 1
             if self.dir_images_index < 0:
                 self.dir_images_index = 0
+            self.previous_frame = self.frame
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
         elif self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step - 1)
+            self.previous_frame = self.frame
             ret, self.frame = self.capture.read()
 
         self.update_frame_index()
@@ -668,13 +713,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.dir_images_index < 0:
                 self.dir_images_index = 0
 
+            self.previous_frame = cv2.imread(str(self.dir_images[self.dir_images_index - 1]), -1)
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+
         elif self.capture is not None:
             try:
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_nb)
+                # TO DO read frame ?
             except Exception:
                 logging.debug("exception in function go_to_frame")
                 pass
+
         self.update_frame_index()
 
         self.process_and_show()
@@ -1604,9 +1653,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         allow user repick objects from image by clicking
         """
 
-        import copy
+
         if not self.objects_to_track:
             return
+
+        if self.previous_frame is not None:
+            self.fw[2].show()
+            frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
+                                                             self.mem_position_objects[self.frame_idx - 1],
+                                                             # self.objects_to_track,
+                                                             marker_type=MARKER_TYPE)
+
+            # self.frame_viewer_scale(2, self.frame_scale)
+            self.display_frame(frame_with_objects, 2)
+
+
         self.statusBar.showMessage(f"Click object #1 on the frame")
         self.repicked_objects = []
         while True:
@@ -1622,32 +1683,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         print(self.repicked_objects)
 
-        new_order2 = copy.deepcopy({o: [] for o in list(self.objects_to_track.keys())})
-        #new_order = {}
+        #new_order2 = {o: [] for o in self.objects_to_track}
+        new_order2 = {}
+        new_order = {}
 
         for idx, (x, y) in enumerate(self.repicked_objects):
             for o in self.objects_to_track:
                 if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
-                    new_order2[o].append(idx + 1)
-                    #new_order[o] = idx + 1
+                    if o not in new_order2:
+                        new_order2[o] = [idx + 1]
+                    else:
+                        new_order2[o].append(idx + 1)
+                    new_order[o] = idx + 1
 
-        #print(f"new order of objects: {new_order}")
-        #print(f"new order2  of objects: {new_order2}")
+        print(f"new order of objects: {new_order}")
+        print(f"new order2  of objects: {new_order2}")
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
         #if True:
 
-            #print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
 
-            #new_objects_to_track = {}
+            #print(new_order.keys() == new_order2.keys())
+
+            new_objects_to_track = {}
             new_objects_to_track2 = {}
             for o in new_order2:
                 new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
-                #new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
+                new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
 
-            #print()
-            #print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
-            #print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
+            print()
+            print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
+            print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
 
 
             self.objects_to_track = copy.deepcopy(new_objects_to_track2)
@@ -1742,14 +1809,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         marker color from index of object in COLORS_LIST
         """
 
+        logging.debug("function: draw_maker_on_objects")
+
+        # print([(x, objects[x]["centroid"]) for x in objects])
+
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
 
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
 
             if self.actionShow_contour_of_object.isChecked():
+
                 if marker_type == RECTANGLE:
                     cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
+
                 if marker_type == CONTOUR:
                     cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
 
@@ -1763,20 +1836,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-    def display_frame(self, frame):
+    def display_frame(self, frame, viewer_idx=0):
         """
-        display the current frame in viewer
+        display the current frame in viewer of index viewer_idx
         """
 
-        self.fw[0].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[0].lb_frame.size(), Qt.KeepAspectRatio))
+        self.fw[viewer_idx].lb_frame.setPixmap((frame2pixmap(frame) if viewer_idx in [0, 2] else QPixmap.fromImage(toQImage(frame))).scaled(self.fw[viewer_idx].lb_frame.size(),
+                                               Qt.KeepAspectRatio))
 
 
+    '''
     def display_processed_frame(self, frame):
         """
         show treated frame in viewer
         """
 
         self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
+    '''
 
 
     def draw_areas(self, frame, drawing_thickness):
@@ -1869,8 +1945,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
                                                              marker_type=MARKER_TYPE)
-            self.display_frame(frame_with_objects)
-            self.display_processed_frame(processed_frame)
+            self.display_frame(frame_with_objects, 0)
+            self.display_frame(processed_frame, 1)
+            #self.display_processed_frame(processed_frame)
             QMessageBox.critical(self, "DORIS", "No object detected")
             if self.running_tracking:
                 self.flag_stop_tracking = True
@@ -2079,8 +2156,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                     font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
 
 
-                    self.display_frame(frame_with_objects)
-                    self.display_processed_frame(processed_frame)
+                    self.display_frame(frame_with_objects, 0)
+                    self.display_frame(processed_frame, 1)
+                    #self.display_processed_frame(processed_frame)
 
                     if not self.always_skip_frame:
                         buttons = ["Pick positions", "Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Go to previous frame"]
@@ -2156,8 +2234,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
             # display frames
-            self.display_frame(frame_with_objects)
-            self.display_processed_frame(processed_frame)
+            self.display_frame(frame_with_objects, 0)
+            self.display_frame(processed_frame, 1)
+
+            #self.display_processed_frame(processed_frame)
 
         #  record objects data
         self.record_objects_data(self.frame_idx, self.objects_to_track)
@@ -2270,8 +2350,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.capture.release()
 
         try:
-            self.fw[0].close()
-            self.fw[1].close()
+            for i in range(3):
+               self.fw[i].close()
         except Exception:
             pass
 
@@ -2335,17 +2415,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: pb")
 
         if self.dir_images:
+
             if self.dir_images_index < len(self.dir_images) - 1:
                 self.dir_images_index += 1
             else:
                 self.flag_stop_tracking = False
                 self.statusBar.showMessage("Last image of dir")
                 return False
+            self.previous_frame = self.frame
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
         else:
 
             if self.capture is not None:
+                self.previous_frame = self.frame
                 ret, self.frame = self.capture.read()
                 if not ret:
                     self.flag_stop_tracking = False
