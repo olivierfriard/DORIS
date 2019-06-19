@@ -146,7 +146,7 @@ def plot_density(df, x_lim, y_lim):
         plt.show()
 
 
-def group0(points, centroids):
+def group_of(points, centroids):
 
     '''
     print(points)
@@ -220,7 +220,7 @@ def group(points, centroids):
 
 
 
-def group2(points, centroids_list0, centroids_list1):
+def group_sc(points, centroids_list0, centroids_list1):
     """
     group points by distance to centroids
     author: Sergio Castellano

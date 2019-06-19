@@ -37,13 +37,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="pb_next_frame">
-        <property name="text">
-         <string>next frame</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QLabel" name="label_11">
         <property name="text">
          <string>frame number</string>
@@ -61,6 +54,34 @@
        <widget class="QPushButton" name="pb_goto_frame">
         <property name="text">
          <string>Go to</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lb_start_from">
+        <property name="text">
+         <string>Start from</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="sb_start_from">
+        <property name="maximum">
+         <number>1000000</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lb_stop_to">
+        <property name="text">
+         <string>Stop to</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="sb_stop_to">
+        <property name="maximum">
+         <number>1000000</number>
         </property>
        </widget>
       </item>

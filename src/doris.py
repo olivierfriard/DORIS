@@ -324,7 +324,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.hs_frame.setValue(1)
         self.hs_frame.sliderMoved.connect(self.hs_frame_moved)
 
-        self.pb_next_frame.clicked.connect(self.next_frame)
+        # self.pb_next_frame.clicked.connect(self.next_frame)
         self.pb_1st_frame.clicked.connect(self.reset)
 
         self.pb_define_scale.clicked.connect(self.define_scale)
@@ -585,6 +585,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.dir_images:
             config["dir_images"] = str(self.dir_images[0].parent)
 
+        config["start_from"] = self.sb_start_from.value()
+        config["stop_to"] = self.sb_stop_to.value()
         config["blur"] = self.sb_blur.value()
         config["invert"] = self.cb_invert.isChecked()
         config["arena"] = self.arena
@@ -609,6 +611,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
         config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
+
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -732,7 +735,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         elif self.capture is not None:
             try:
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_nb)
-                # TO DO read frame ?
+                ret, self.frame = self.capture.read()
+
             except Exception:
                 logging.debug("exception in function go_to_frame")
                 pass
@@ -1279,20 +1283,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def next_frame(self):
-        """
-        go to next frame
-        """
-
-        logging.debug("function: next_frame")
-
-        if self.running_tracking:
-            return
-
-        if not self.pb():
-            return
-
-
     def reset_xy_analysis(self):
         """
         reset recorded positions
@@ -1690,6 +1680,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 break
 
         self.statusBar.showMessage(f"Done")
+
+        # hide previous frame
+        self.fw[2].hide()
+
         if self.repicked_objects is None:
             return
 
@@ -1752,7 +1746,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             logging.debug(f"Known centroids: {centroids_list0}")
 
-            new_contours = doris_functions.group0(points1, centroids_list0)
+            new_contours = doris_functions.group_of(points1, centroids_list0)
             #print(len(new_contours))
             #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
 
@@ -1762,7 +1756,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 logging.debug(f"idx: {idx} len cnt {len(cnt)}")
 
-                cnt = cv2.convexHull(cnt)
+                #cnt = cv2.convexHull(cnt)
 
                 n = np.vstack(cnt).squeeze()
                 try:
@@ -2004,7 +1998,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
 
-                    cnt = cv2.convexHull(cnt)
+                    #cnt = cv2.convexHull(cnt)
+
                     M = cv2.moments(cnt)
 
                     if M["m00"] != 0:
@@ -2055,9 +2050,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 logging.debug(f"Known centroids: {centroids_list0}")
                 logging.debug(f"Detected centroids: {centroids_list1}")
 
-                new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
+                #new_contours = doris_functions.group_sc(points1, centroids_list0, centroids_list1)
 
-                #new_contours = doris_functions.group_sc(points1, centroids_list0)
+                new_contours = doris_functions.group_of(points1, centroids_list0)
 
                 if [True for x in new_contours if len(x) == 0]:
                     print("one contour is null. Applying k-means")
@@ -2073,7 +2068,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     print(f"idx: {idx} len cnt {len(cnt)}")
 
-                    cnt = cv2.convexHull(cnt)
+                    #cnt = cv2.convexHull(cnt)
 
                     n = np.vstack(cnt).squeeze()
                     try:
@@ -2560,10 +2555,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def stop_tracking(self):
+        """
+        stop running tracking
+        """
         self.running_tracking = False
         self.flag_stop_tracking = False
         self.pb_run_tracking.setChecked(False)
         self.pb_run_tracking_frame_interval.setChecked(False)
+        self.always_skip_frame = False
         logging.info("tracking stopped")
 
 
@@ -2687,13 +2686,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             with open(file_name) as f_in:
                 config = json.loads(f_in.read())
 
+            self.sb_start_from.setValue(config.get("start_from", 0))
+            self.sb_stop_to.setValue(config.get("stop_to", 0))
             self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
-
-            if "invert" in config:
-                self.cb_invert.setChecked(config["invert"])
-
-            if "normalize_coordinates" in config:
-                self.cb_normalize_coordinates.setChecked(config["normalize_coordinates"])
+            self.cb_invert.setChecked(config.get("invert", False))
+            self.cb_normalize_coordinates.setChecked(config.get("normalize_coordinates", False))
 
             try:
                 self.arena = config["arena"]
@@ -2704,10 +2701,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except KeyError:
                 print("arena not found")
 
-            if "min_object_size" in config:
-                self.sbMin.setValue(config["min_object_size"])
-            if "max_object_size" in config:
-                self.sbMax.setValue(config["max_object_size"])
+            self.sbMin.setValue(config.get("min_object_size", 0))
+            self.sbMax.setValue(config.get("max_object_size", 0))
             if "object_max_extension" in config:
                 self.sb_max_extension.setValue(config["object_max_extension"])
             if "percent_out_of_arena" in config:
@@ -2767,13 +2762,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fw[0].zoom.setCurrentText(str(self.frame_scale))
             self.frame_viewer_scale(0, self.frame_scale)
 
-
             self.fw[1].move(*config.get("processed_frame_viewer_position", [40, 40]))
 
             self.processed_frame_scale = config.get("processed_frame_scale", DEFAULT_FRAME_SCALE)
             self.frame_viewer_scale(1, self.processed_frame_scale)
 
-            self.process_and_show()
+            if self.sb_start_from.value():
+                self.go_to_frame(self.sb_start_from.value())
+            else:
+                self.process_and_show()
 
         except Exception:
             print("Error in project file")
