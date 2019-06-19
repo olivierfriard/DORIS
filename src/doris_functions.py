@@ -189,6 +189,7 @@ def group0(points, centroids):
 def group(points, centroids):
     """
     group points by distance to centroids
+    NOT WORKING
     """
 
     def f_clu(cc, ctrOK):

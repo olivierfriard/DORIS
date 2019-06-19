@@ -156,6 +156,7 @@ class FrameViewer(QWidget):
 
     zoom_changed_signal = pyqtSignal(str)
     show_contour_changed_signal = pyqtSignal(bool)
+    change_frame_signal = pyqtSignal(str)
 
 
     def __init__(self, idx):
@@ -203,6 +204,16 @@ class FrameViewer(QWidget):
         self.setWindowFlags(Qt.WindowStaysOnTopHint)
 
 
+    def keyPressEvent(self, event):
+        ek = event.key()
+
+        print(ek, event.text()) # Qt.Key_Up:
+        if ek == Qt.Key_Left:
+            self.change_frame_signal.emit("backward")
+        if ek == Qt.Key_Right:
+            self.change_frame_signal.emit("forward")
+
+
     def zoom_changed(self):
         """
         zoom changed
@@ -215,7 +226,6 @@ class FrameViewer(QWidget):
 
         """
         self.show_contour_changed_signal.emit(self.cb_show_contour.isChecked())
-
 
 
     def cb_stay_on_top_clicked(self):
@@ -443,6 +453,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
         self.fw[0].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(0))
         self.fw[0].show_contour_changed_signal.connect(self.cb_show_contour_changed)
+        self.fw[0].change_frame_signal.connect(self.for_back_ward)
         self.fw[0].setGeometry(10, 10, 512, 512)
         # self.fw[0].show()
 
@@ -510,9 +521,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         _ = about_dialog.exec_()
 
+
     def actionShow_contour_changed(self):
         self.fw[0].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
         self.process_and_show()
+
 
     def cb_show_contour_changed(self):
         self.actionShow_contour_of_object.setChecked(self.fw[0].cb_show_contour.isChecked())
@@ -1650,9 +1663,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def repick_objects(self):
         """
-        allow user repick objects from image by clicking
+        allow user repick objects from image manually (using mouse)
         """
-
 
         if not self.objects_to_track:
             return
@@ -1728,7 +1740,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.repicked_objects = None
 
-        else:  # more new positions by old objects\
+        else:  # more new positions than old objects
 
             contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
             points1 = np.vstack(contours_list1)
@@ -1807,6 +1819,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         draw marker (rectangle or contour) around objects
         marker color from index of object in COLORS_LIST
+
+        Args:
+            frame np.array(): image where to draw markers
+            objects (dict): objects to draw
+            marker_type (str): select the marker type to draw: rectangle or contour
+        Returns:
+            np.array: frame with objects drawn
         """
 
         logging.debug("function: draw_maker_on_objects")
@@ -1829,9 +1848,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.putText(frame, str(idx), objects[idx]["max"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
 
             if self.actionShow_centroid_of_object.isChecked():
+
                 self.draw_circle_cross(frame, objects[idx]["centroid"], marker_color, drawing_thickness)
                 if not self.actionShow_contour_of_object.isChecked():
                     cv2.putText(frame, str(idx), objects[idx]["centroid"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
+
+            if self.actionShow_object_path.isChecked():
+                try:
+                    for i in range(-OBJECT_PATH_LENGTH, -1):
+                        cv2.line(frame,
+                                 self.mem_position_objects[self.frame_idx + i][idx]["centroid"],
+                                 self.mem_position_objects[self.frame_idx + i + 1][idx]["centroid"],
+                                 marker_color, drawing_thickness + 1)
+                except:
+                    # positions history not long enough
+                    pass
 
         return frame
 
@@ -1843,16 +1874,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.fw[viewer_idx].lb_frame.setPixmap((frame2pixmap(frame) if viewer_idx in [0, 2] else QPixmap.fromImage(toQImage(frame))).scaled(self.fw[viewer_idx].lb_frame.size(),
                                                Qt.KeepAspectRatio))
-
-
-    '''
-    def display_processed_frame(self, frame):
-        """
-        show treated frame in viewer
-        """
-
-        self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
-    '''
 
 
     def draw_areas(self, frame, drawing_thickness):
@@ -2029,14 +2050,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 points1 = np.vstack(contours_list1)
                 points1 = points1.reshape(points1.shape[0], points1.shape[2])
 
-                centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
+                centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]]
 
                 logging.debug(f"Known centroids: {centroids_list0}")
                 logging.debug(f"Detected centroids: {centroids_list1}")
 
                 new_contours = doris_functions.group2(points1, centroids_list0, centroids_list1)
 
-                #new_contours = doris_functions.group0(points1, centroids_list0)
+                #new_contours = doris_functions.group_sc(points1, centroids_list0)
 
                 if [True for x in new_contours if len(x) == 0]:
                     print("one contour is null. Applying k-means")

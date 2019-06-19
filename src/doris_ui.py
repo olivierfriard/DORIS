@@ -512,6 +512,9 @@ class Ui_MainWindow(object):
         self.actionShow_contour_of_object.setObjectName("actionShow_contour_of_object")
         self.actionSave_project_as = QtWidgets.QAction(MainWindow)
         self.actionSave_project_as.setObjectName("actionSave_project_as")
+        self.actionShow_object_path = QtWidgets.QAction(MainWindow)
+        self.actionShow_object_path.setCheckable(True)
+        self.actionShow_object_path.setObjectName("actionShow_object_path")
         self.menuFile.addAction(self.actionOpen_video)
         self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
@@ -534,6 +537,7 @@ class Ui_MainWindow(object):
         self.menuView.addAction(self.actionDraw_reference)
         self.menuView.addAction(self.actionShow_centroid_of_object)
         self.menuView.addAction(self.actionShow_contour_of_object)
+        self.menuView.addAction(self.actionShow_object_path)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
@@ -649,4 +653,5 @@ class Ui_MainWindow(object):
         self.actionShow_centroid_of_object.setText(_translate("MainWindow", "Show centroid of object"))
         self.actionShow_contour_of_object.setText(_translate("MainWindow", "Show contour of object"))
         self.actionSave_project_as.setText(_translate("MainWindow", "Save project as..."))
+        self.actionShow_object_path.setText(_translate("MainWindow", "Show object path on frame"))
 
