@@ -355,7 +355,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_run_tracking.clicked.connect(self.run_tracking)
         self.pb_run_tracking_frame_interval.clicked.connect(self.run_tracking_frames_interval)
+        '''
         self.pb_stop.clicked.connect(self.stop_button)
+        '''
 
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
 
@@ -374,7 +376,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
 
+        '''
         self.sb_percent_out_of_arena.valueChanged.connect(self.process_and_show)
+        '''
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
         self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
@@ -472,7 +476,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.threshold_method_changed()
 
+        '''
         self.sb_percent_out_of_arena.setValue(int(TOLERANCE_OUTSIDE_ARENA * 100))
+        '''
 
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
@@ -592,7 +598,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
+        '''
         config["percent_out_of_arena"] = self.sb_percent_out_of_arena.value()
+        '''
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
@@ -714,8 +722,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.previous_frame = self.frame
             ret, self.frame = self.capture.read()
 
-        self.update_frame_index()
-        self.process_and_show()
+        if self.dir_images or self.capture is not None:
+            self.update_frame_index()
+            self.process_and_show()
 
 
     def go_to_frame(self, frame_nb: int):
@@ -1259,6 +1268,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug("function: reset")
 
+        if not self.dir_images and self.capture is None:
+            return
+
         if self.running_tracking:
             return
 
@@ -1267,7 +1279,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.dir_images:
             self.dir_images_index = -1
-        else:
+        if self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
@@ -1943,7 +1955,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   max_size=self.sbMax.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
+                                                                  #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                  )
 
         logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
@@ -2272,7 +2284,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                    max_size=self.sbMax.value(),
                                                                    arena=self.arena,
                                                                    max_extension=self.sb_max_extension.value(),
-                                                                   tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
+                                                                   #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                    )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -2294,7 +2306,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                         max_size=self.sbMax.value(),
                                                                         arena=self.arena,
                                                                         max_extension=self.sb_max_extension.value(),
-                                                                        tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
+                                                                        #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                         )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -2657,13 +2669,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_stop_tracking = False
 
 
-
+    '''
     def stop_button(self):
         """
         stop analysis
         """
         if self.running_tracking:
             self.flag_stop_tracking = True
+    '''
 
 
     def open_project(self, file_name=""):
@@ -2705,8 +2718,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.sbMax.setValue(config.get("max_object_size", 0))
             if "object_max_extension" in config:
                 self.sb_max_extension.setValue(config["object_max_extension"])
+            '''
             if "percent_out_of_arena" in config:
                 self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
+            '''
             if "threshold_method" in config:
                 self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
             if "block_size" in config:
@@ -2735,6 +2750,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.open_video(config["video_file_path"])
                     else:
                         QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
+                        return None
                 except Exception:
                     pass
 
@@ -2744,6 +2760,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.load_dir_images(config["dir_images"])
                     else:
                         QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
+                        return None
                 except Exception:
                     pass
 
@@ -2805,7 +2822,8 @@ if __name__ == "__main__":
 
     if options.project_file:
         if os.path.isfile(options.project_file):
-            w.open_project(options.project_file)
+            if w.open_project(options.project_file) is None:
+                sys.exit()
         else:
             print(f"{options.project_file} not found!")
             sys.exit()

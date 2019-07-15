@@ -642,7 +642,7 @@
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
-        <string>Objects position</string>
+        <string>Objects coordinates</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
@@ -759,7 +759,7 @@
           <item>
            <widget class="QPushButton" name="pb_save_xy">
             <property name="text">
-             <string>Save objects positions</string>
+             <string>Save objects coordinates</string>
             </property>
            </widget>
           </item>
@@ -773,7 +773,7 @@
           <item>
            <widget class="QPushButton" name="pb_plot_positions">
             <property name="text">
-             <string>Plot positions</string>
+             <string>Plot coordinates</string>
             </property>
            </widget>
           </item>
@@ -787,7 +787,7 @@
           <item>
            <widget class="QPushButton" name="pb_distances">
             <property name="text">
-             <string>Distances</string>
+             <string>Save distances</string>
             </property>
            </widget>
           </item>
@@ -955,13 +955,6 @@
         </property>
         <property name="checkable">
          <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="pb_stop">
-        <property name="text">
-         <string>Stop</string>
         </property>
        </widget>
       </item>
