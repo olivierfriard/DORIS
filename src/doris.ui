@@ -750,9 +750,9 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_12">
           <item>
-           <widget class="QPushButton" name="pb_reset_xy">
+           <widget class="QPushButton" name="pb_delete_coordinates">
             <property name="text">
-             <string>Reset</string>
+             <string>Delete coordinates</string>
             </property>
            </widget>
           </item>
@@ -896,9 +896,9 @@
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_14">
               <item>
-               <widget class="QPushButton" name="pb_reset_areas">
+               <widget class="QPushButton" name="pb_delete_area_analysis">
                 <property name="text">
-                 <string>Reset</string>
+                 <string>Delete analysis</string>
                 </property>
                </widget>
               </item>

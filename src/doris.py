@@ -388,7 +388,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_repick_objects.clicked.connect(self.repick_objects)
 
         # coordinates analysis
-        self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
+        self.pb_delete_coordinates.clicked.connect(self.delete_coordinates)
         self.pb_save_xy.clicked.connect(self.save_objects_positions)
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
@@ -404,7 +404,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_add_area.setMenu(menu)
         self.pb_remove_area.clicked.connect(self.remove_area)
-        self.pb_reset_areas.clicked.connect(self.reset_areas_analysis)
+        self.pb_delete_area_analysis.clicked.connect(self.delete_areas_analysis)
         self.pb_save_areas.clicked.connect(self.save_areas)
         self.pb_active_areas.clicked.connect(self.activate_areas)
         self.pb_save_objects_number.clicked.connect(self.save_objects_areas)
@@ -1281,6 +1281,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.dir_images_index = -1
         if self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
         self.mem_position_objects = {}
@@ -1295,11 +1296,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def reset_xy_analysis(self):
+    def delete_coordinates(self):
         """
-        reset recorded positions
+        reset recorded coordinates
         """
         if self.coord_df is not None and self.objects_to_track:
+
+            if dialog.MessageDialog("DORIS", "Confirm deletion of coordinates?", ["Yes", "Cancel"]) == "Cancel":
+                return
             # init dataframe for recording objects coordinates
             self.initialize_positions_dataframe()
             self.te_xy.clear()
@@ -1307,21 +1311,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def save_objects_positions(self):
         """
-        save results of recorded positions in TSV file
+        save results of recorded coordinates in TSV file
         """
         if self.coord_df is not None:
             file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
             if file_name:
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
         else:
-            QMessageBox.warning(self, "DORIS", "no positions to be saved")
+            QMessageBox.warning(self, "DORIS", "No coordinates to save")
 
 
-    def reset_areas_analysis(self):
+    def delete_areas_analysis(self):
         """
         reset areas analysis
         """
         if self.areas_df is not None and self.objects_to_track:
+            if dialog.MessageDialog("DORIS", "Confirm deletion of area analysis?", ["Yes", "Cancel"]) == "Cancel":
+                return
             self.initialize_areas_dataframe()
 
             self.te_number_objects.clear()
@@ -1454,6 +1460,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open video", "", "All files (*)")
+
         if file_name:
             if not os.path.isfile(file_name):
                 QMessageBox.critical(self, "DORIS", f"{file_name} not found")
@@ -1493,6 +1500,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for idx in range(2):
                 self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
+
+            self.initialize_positions_dataframe()
+
+            self.initialize_areas_dataframe()
 
             self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
             self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
@@ -1607,9 +1618,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         initialize dataframe for recording objects coordinates
         """
         columns = ["tag", "frame"]
+        print("self.objects_to_track", self.objects_to_track)
         for idx in self.objects_to_track:
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+
+        print("self.coord_df", self.coord_df)
 
 
     def initialize_areas_dataframe(self):
@@ -1628,6 +1642,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         select objects to track and create the dataframes for recording objects positions and presence in area
         """
+        logging.debug(f"function select_objects_to_track")
+
         if not self.dir_images and self.capture is None:
             return
 
@@ -1650,17 +1666,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if ib.elements[idx].isChecked():
                     self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
 
-        self.initialize_positions_dataframe()
+        # self.initialize_positions_dataframe()
 
-        self.initialize_areas_dataframe()
+        # self.initialize_areas_dataframe()
 
+        if self.frame_idx - 1 in self.mem_position_objects:
+            del self.mem_position_objects[self.frame_idx - 1]
         self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
 
         logging.debug(f"coord_df: {self.coord_df.head()}")
 
         logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
 
+        print("self.coord_df", self.coord_df)
+
         self.process_and_show()
+
+        print("self.coord_df", self.coord_df)
 
 
     def repick_objects(self):
@@ -2496,6 +2518,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # tag
             self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
 
+            logging.debug(f"coord_df 1: {self.coord_df}")
+
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
                     self.coord_df.ix[frame_idx, f"x{idx}"] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
@@ -2504,7 +2528,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
                     self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
 
-            # logging.debug(f"coord_df: {self.coord_df}")
+            logging.debug(f"coord_df 2: {self.coord_df}")
 
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()
