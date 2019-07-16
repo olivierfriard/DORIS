@@ -83,56 +83,6 @@ logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(lev
 COLORS_LIST = doris_functions.COLORS_LIST
 
 
-class Input_dialog(QDialog):
-    """
-    dialog for user input. Elements can be checkbox, lineedit, spinbox
-
-    """
-
-    def __init__(self, label_caption, elements_list):
-        super().__init__()
-
-        hbox = QVBoxLayout()
-        self.label = QLabel()
-        self.label.setText(label_caption)
-        hbox.addWidget(self.label)
-
-        self.elements = {}
-        for element in elements_list:
-            if element[0] == "cb":
-                self.elements[element[1]] = QCheckBox(element[1])
-                self.elements[element[1]].setChecked(element[2])
-                hbox.addWidget(self.elements[element[1]])
-            if element[0] == "le":
-                lb = QLabel(element[1])
-                hbox.addWidget(lb)
-                self.elements[element[1]] = QLineEdit()
-                hbox.addWidget(self.elements[element[1]])
-            if element[0] == "sb":
-                lb = QLabel(element[1])
-                hbox.addWidget(lb)
-                self.elements[element[1]] = QSpinBox()
-                self.elements[element[1]].setRange(element[2], element[3])
-                self.elements[element[1]].setSingleStep(element[4])
-                self.elements[element[1]].setValue(element[5])
-                hbox.addWidget(self.elements[element[1]])
-
-        hbox2 = QHBoxLayout()
-
-        self.pbCancel = QPushButton("Cancel")
-        self.pbCancel.clicked.connect(self.reject)
-        hbox2.addWidget(self.pbCancel)
-
-        self.pbOK = QPushButton("OK")
-        self.pbOK.clicked.connect(self.accept)
-        self.pbOK.setDefault(True)
-        hbox2.addWidget(self.pbOK)
-
-        hbox.addLayout(hbox2)
-
-        self.setLayout(hbox)
-
-        self.setWindowTitle("title")
 
 
 class Click_label(QLabel):
@@ -741,7 +691,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.previous_frame = cv2.imread(str(self.dir_images[self.dir_images_index - 1]), -1)
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
-        elif self.capture is not None:
+        if self.capture is not None:
             try:
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_nb)
                 ret, self.frame = self.capture.read()
@@ -1536,6 +1486,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.video_height, self.video_width, _ = self.frame.shape
 
+            self.initialize_positions_dataframe()
+
+            self.initialize_areas_dataframe()
+
             # default scale
             for idx in range(2):
                 self.frame_viewer_scale(idx, 0.5)
@@ -1618,12 +1572,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         initialize dataframe for recording objects coordinates
         """
         columns = ["tag", "frame"]
-        print("self.objects_to_track", self.objects_to_track)
         for idx in self.objects_to_track:
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
 
-        print("self.coord_df", self.coord_df)
+        logging.debug(f"self.coord_df: {self.coord_df}" )
 
 
     def initialize_areas_dataframe(self):
@@ -1647,6 +1600,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not self.dir_images and self.capture is None:
             return
 
+        self.show_all_filtered_objects()
+
         if all_:
             self.objects_to_track = {}
             for idx in self.filtered_objects:
@@ -1655,21 +1610,36 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         else:
             elements = []
             for idx in self.filtered_objects:
-                elements.append(("cb", f"Object # {idx}", False))
+                elements.append(f"Object # {idx}")
+            w = dialog.CheckListWidget(elements)
+            w.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+            if w.exec_():
+                logging.debug(f"objects checked: {w.checked}")
+                self.objects_to_track = {}
+                for el in w.checked:
+                    self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(el.replace("Object # ", ""))])
+
+            else:
+                return
+
+            '''
             ib = Input_dialog("Select the objects to track", elements)
 
             if not ib.exec_():
                 return
 
+
             self.objects_to_track = {}
             for idx in ib.elements:
                 if ib.elements[idx].isChecked():
                     self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
+            '''
 
         # self.initialize_positions_dataframe()
 
         # self.initialize_areas_dataframe()
 
+        # delete positions on last frame
         if self.frame_idx - 1 in self.mem_position_objects:
             del self.mem_position_objects[self.frame_idx - 1]
         self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
@@ -1687,7 +1657,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def repick_objects(self):
         """
-        allow user repick objects from image manually (using mouse)
+        allow user to manually repick objects from image by clicking
         """
 
         if not self.objects_to_track:
@@ -2235,10 +2205,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         if response == ALWAYS_SKIP_FRAME:
                             self.always_skip_frame = True
                         return
-                    if response == "Pick positions":
-                        #self.pick_point = True
-                        self.repick_objects()
 
+                    if response == "Pick positions":
+                        self.repick_objects()
 
                     if response == "Go to previous frame":
                         self.for_back_ward(direction="backward")

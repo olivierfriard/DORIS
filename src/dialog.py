@@ -21,9 +21,11 @@ This file is part of DORIS.
 
 """
 
+import sys
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import *
+
 
 def MessageDialog(title, text, buttons):
     response = ""
@@ -38,5 +40,110 @@ def MessageDialog(title, text, buttons):
     message.exec_()
     return message.clickedButton().text()
 
+
+class CheckListWidget(QDialog):
+    """
+    widget for visualizing list with check boxes
+    """
+    def __init__(self, items):
+        super().__init__()
+
+        self.setWindowTitle("")
+        self.checked = []
+
+        hbox = QVBoxLayout()
+
+        self.lb = QLabel("")
+        hbox.addWidget(self.lb)
+
+        self.lv = QListView()
+        hbox.addWidget(self.lv)
+
+        hbox2 = QHBoxLayout()
+
+        self.pbCancel = QPushButton("Cancel")
+        self.pbCancel.clicked.connect(self.reject)
+        hbox2.addWidget(self.pbCancel)
+
+        self.pbOK = QPushButton("OK")
+        self.pbOK.clicked.connect(self.ok)
+        hbox2.addWidget(self.pbOK)
+
+        hbox.addLayout(hbox2)
+
+        self.setLayout(hbox)
+
+        self.model = QStandardItemModel(self.lv)
+
+        for string in items:
+            item = QStandardItem(string)
+            item.setCheckable(True)
+            self.model.appendRow(item)
+
+        self.lv.setModel(self.model)
+
+
+    def ok(self):
+        self.checked = []
+        i = 0
+        while self.model.item(i):
+            if self.model.item(i).checkState():
+                self.checked.append(self.model.item(i).text())
+            i += 1
+        self.accept()
+
+
+'''
+class Input_dialog(QDialog):
+    """
+    dialog for user input. Elements can be checkbox, lineedit, spinbox
+
+    """
+
+    def __init__(self, label_caption, elements_list):
+        super().__init__()
+
+        hbox = QVBoxLayout()
+        self.label = QLabel()
+        self.label.setText(label_caption)
+        hbox.addWidget(self.label)
+
+        self.elements = {}
+        for element in elements_list:
+            if element[0] == "cb":
+                self.elements[element[1]] = QCheckBox(element[1])
+                self.elements[element[1]].setChecked(element[2])
+                hbox.addWidget(self.elements[element[1]])
+            if element[0] == "le":
+                lb = QLabel(element[1])
+                hbox.addWidget(lb)
+                self.elements[element[1]] = QLineEdit()
+                hbox.addWidget(self.elements[element[1]])
+            if element[0] == "sb":
+                lb = QLabel(element[1])
+                hbox.addWidget(lb)
+                self.elements[element[1]] = QSpinBox()
+                self.elements[element[1]].setRange(element[2], element[3])
+                self.elements[element[1]].setSingleStep(element[4])
+                self.elements[element[1]].setValue(element[5])
+                hbox.addWidget(self.elements[element[1]])
+
+        hbox2 = QHBoxLayout()
+
+        self.pbCancel = QPushButton("Cancel")
+        self.pbCancel.clicked.connect(self.reject)
+        hbox2.addWidget(self.pbCancel)
+
+        self.pbOK = QPushButton("OK")
+        self.pbOK.clicked.connect(self.accept)
+        self.pbOK.setDefault(True)
+        hbox2.addWidget(self.pbOK)
+
+        hbox.addLayout(hbox2)
+
+        self.setLayout(hbox)
+
+        self.setWindowTitle("title")
+'''
 
 

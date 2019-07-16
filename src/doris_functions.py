@@ -319,24 +319,28 @@ def apply_k_means(contours, n_inds):
     """
 
     logging.debug("function: apply_k_means")
-    centroids = []
+    try:
+        centroids = []
 
-    logging.debug(f"len contours: {len(contours)}")
-    # Clustering contours to separate individuals
-    myarray = np.vstack(contours)
-    myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
+        logging.debug(f"len contours: {len(contours)}")
+        # Clustering contours to separate individuals
+        myarray = np.vstack(contours)
+        myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
 
-    kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init = 50).fit(myarray)
-    '''l = len(kmeans.cluster_centers_)'''
+        kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init = 50).fit(myarray)
+        '''l = len(kmeans.cluster_centers_)'''
 
-    new_contours = [myarray[kmeans.labels_==i] for i in range(n_inds)]
+        new_contours = [myarray[kmeans.labels_==i] for i in range(n_inds)]
 
-    '''
-    for i in range(n_inds):
-        new_contours.append(myarray[kmeans.labels_==i])
-    '''
+        '''
+        for i in range(n_inds):
+            new_contours.append(myarray[kmeans.labels_==i])
+        '''
 
-    return new_contours
+        return new_contours
+
+    except Exception:
+        pass
 
 
 def image_processing(frame,
