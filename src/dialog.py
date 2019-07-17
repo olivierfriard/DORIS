@@ -136,7 +136,7 @@ class Results_dialog(QDialog):
         save content of self.ptText
         """
 
-        fn = QFileDialog(self).getSaveFileName(self, "Save results", "", "Text files (*.txt *.tsv);;All files (*)")
+        fn = QFileDialog().getSaveFileName(self, "Save results", "", "Text files (*.txt *.tsv);;All files (*)")
         file_name = fn[0] if type(fn) is tuple else fn
 
         if file_name:
@@ -144,7 +144,7 @@ class Results_dialog(QDialog):
                 with open(file_name, "w") as f:
                     f.write(self.ptText.toPlainText())
             except Exception:
-                QMessageBox.critical(self, programName, "The file {} can not be saved".format(file_name))
+                QMessageBox.critical(self, "DORIS", "The file {} can not be saved".format(file_name))
 
 
 '''
