@@ -38,7 +38,7 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
-from PyQt5.QtGui import (QPixmap, QImage, qRgb)
+from PyQt5.QtGui import (QPixmap, QImage, qRgb, QFont)
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
@@ -338,6 +338,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_repick_objects.clicked.connect(self.repick_objects)
 
         # coordinates analysis
+        self.pb_view_coordinates.clicked.connect(self.view_coordinates)
         self.pb_delete_coordinates.clicked.connect(self.delete_coordinates)
         self.pb_save_xy.clicked.connect(self.save_objects_positions)
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
@@ -1246,6 +1247,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
+    def view_coordinates(self):
+        """
+        view dataframe of recorded coordinates
+        """
+        if self.coord_df is not None and self.objects_to_track:
+
+            w = dialog.Results_dialog()
+            w.setWindowFlags(Qt.WindowStaysOnTopHint)
+
+            w.setWindowTitle("DORIS - Object's coordinates")
+            w.ptText.setReadOnly(True)
+            font = QFont("Monospace")
+            w.ptText.setFont(font)
+            '''
+            with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+                print(df)
+            '''
+            w.ptText.appendPlainText(self.coord_df.to_string())
+            w.exec_()
+
+
+
     def delete_coordinates(self):
         """
         reset recorded coordinates
@@ -1960,7 +1983,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # no filtered object
         if len(filtered_objects) == 0 and len(self.objects_to_track):
             logging.debug("No filtered objects")
-            self.statusBar.showMessage("No filtered objects!")
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
                                                              marker_type=MARKER_TYPE)
@@ -2365,6 +2387,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def closeEvent(self, event):
+
+
+        if self.coord_df is not None:
+            if dialog.MessageDialog("DORIS",
+                                    (f"Check if your data are saved and confirm close."),
+                                    ["Cancel", "Close program"]) == "Cancel":
+                event.ignore()
+                return
+
         if self.capture:
             self.capture.release()
 
@@ -2467,7 +2498,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        record objects positions and presence in areas defined by user
+        record objects coordinates and presence in areas defined by user
         """
 
         if not self.objects_to_track:
@@ -2487,7 +2518,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # tag
             self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
 
-            logging.debug(f"coord_df 1: {self.coord_df}")
+            '''logging.debug(f"coord_df 1: {self.coord_df}")'''
 
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
@@ -2497,7 +2528,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
                     self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
 
-            logging.debug(f"coord_df 2: {self.coord_df}")
+            # set NaN to next frames
+            self.coord_df.loc[frame_idx + 1:] = np.nan
+
+            '''logging.debug(f"coord_df 2: {self.coord_df}")'''
 
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()

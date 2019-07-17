@@ -709,16 +709,23 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_12">
           <item>
-           <widget class="QPushButton" name="pb_delete_coordinates">
+           <widget class="QPushButton" name="pb_save_xy">
             <property name="text">
-             <string>Delete coordinates</string>
+             <string>Save objects coordinates</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pb_save_xy">
+           <widget class="QPushButton" name="pb_view_coordinates">
             <property name="text">
-             <string>Save objects coordinates</string>
+             <string>View coordinates</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pb_delete_coordinates">
+            <property name="text">
+             <string>Delete coordinates</string>
             </property>
            </widget>
           </item>

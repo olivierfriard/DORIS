@@ -22,4 +22,4 @@ This file is part of DORIS.
 """
 
 __version__ = "0.0.15"
-__version_date__ = "2019-07-16"
+__version_date__ = "2019-07-17"
