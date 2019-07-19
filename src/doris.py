@@ -870,8 +870,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         logging.debug("function: frame_mousepressed")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
-        # frame = self.frame.copy()
-
         ''' pick object
         if self.pick_point:
             print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
@@ -1077,17 +1075,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.display_frame(self.frame)
                 self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len(self.arena["points"])))
 
-                if len(self.arena["points"]) == 2:
+                if len(self.arena["points"]) == 2:  # rectangle area finished
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
+                    # check top-left and right-bottom
+                    min_x = min(self.arena["points"][0][0], self.arena["points"][1][0])
+                    max_x = max(self.arena["points"][0][0], self.arena["points"][1][0])
+                    min_y = min(self.arena["points"][0][1], self.arena["points"][1][1])
+                    max_y = max(self.arena["points"][0][1], self.arena["points"][1][1])
+                    self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
+
                     self.arena = {**self.arena, **{"type": "rectangle", "name": "arena"}}
                     self.le_arena.setText("{}".format(self.arena))
 
+                    '''
                     cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
                                   color=ARENA_COLOR, thickness=drawing_thickness)
-                    #self.display_frame(self.frame)
+                    '''
+                    cv2.rectangle(self.frame, self.arena["points"][0], self.arena["points"][1],
+                                  color=ARENA_COLOR, thickness=drawing_thickness)
+
                     self.process_and_show()
                     self.statusBar.showMessage("The rectangle arena is defined")
 
@@ -1671,11 +1680,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
 
-        print("self.coord_df", self.coord_df)
-
         self.process_and_show()
-
-        print("self.coord_df", self.coord_df)
 
 
     def repick_objects(self):
@@ -1714,8 +1719,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.repicked_objects is None:
             return
 
-        print(self.repicked_objects)
-
         #new_order2 = {o: [] for o in self.objects_to_track}
         new_order2 = {}
         new_order = {}
@@ -1729,13 +1732,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         new_order2[o].append(idx + 1)
                     new_order[o] = idx + 1
 
+        '''
         print(f"new order of objects: {new_order}")
         print(f"new order2  of objects: {new_order2}")
+        '''
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
         #if True:
 
+            '''
             print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
+            '''
 
             #print(new_order.keys() == new_order2.keys())
 
@@ -1745,9 +1752,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
                 new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
 
+            '''
             print()
             print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
             print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
+            '''
 
 
             self.objects_to_track = copy.deepcopy(new_objects_to_track2)
@@ -2092,7 +2101,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
 
+                    '''
                     print(f"idx: {idx} len cnt {len(cnt)}")
+                    '''
 
                     #cnt = cv2.convexHull(cnt)
 

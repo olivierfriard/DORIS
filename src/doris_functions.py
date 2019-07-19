@@ -203,7 +203,9 @@ def group(points, centroids):
         return clu
 
     clu = f_clu(points, centroids)
+    '''
     print(f"clu: {clu}")
+    '''
     clusters = []
     for idx, centroid in enumerate(centroids):
         clusters.append(points[(clu == idx).nonzero()[0],:]  )
@@ -246,15 +248,21 @@ def group_sc(points, centroids_list0, centroids_list1):
         conta = 0
         for i in np.arange(nobj0):
             x = (riga == i).nonzero()[0]
+            '''
             print("x", x)
+            '''
             if len(x) == 1:
+                '''
                 print("conta", conta)
+                '''
                 ctrOK[conta, 0] = ctr0[int(riga[x]), 0]
                 ctrOK[conta, 1] = ctr0[int(riga[x]), 1]
                 conta += 1
             else:
                 for j in np.arange(len(x)):
+                    '''
                     print("conta", conta)
+                    '''
                     ctrOK[conta, 0] = (ctr0[int(riga[x[j]]), 0] + ctr1[int(colonna[x[j]]), 0]) / 2
                     ctrOK[conta, 1] = (ctr0[int(riga[x[j]]), 1] + ctr1[int(colonna[x[j]]), 1]) / 2
                     conta += 1
@@ -272,8 +280,11 @@ def group_sc(points, centroids_list0, centroids_list1):
             clu[i] = (zz == np.min(zz)).nonzero()[0][0]
         return clu
 
+    '''
     print(f"centroids_list0 {centroids_list0}")
     print(f"centroids_list1 {centroids_list1}")
+    '''
+
     '''
     problem with:
     centroids_list0 [(508, 556), (555, 552), (511, 503), (555, 491)]
@@ -281,11 +292,15 @@ def group_sc(points, centroids_list0, centroids_list1):
     '''
 
     ctrOK = f_obj(np.array(centroids_list1), len(centroids_list1), np.array(centroids_list0), len(centroids_list0))
+    '''
     print("ctrOK", ctrOK)
+    '''
 
     clu = f_clu(points, ctrOK)
 
+    '''
     print(f"clu: {clu}")
+    '''
 
     clusters = []
     for idx, _ in enumerate(ctrOK):
