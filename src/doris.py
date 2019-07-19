@@ -1481,7 +1481,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # default scale
             for idx in range(2):
-                print(ZOOM_LEVELS.index(str(DEFAULT_FRAME_SCALE)))
                 self.fw[idx].zoom.setCurrentIndex(ZOOM_LEVELS.index(str(DEFAULT_FRAME_SCALE)))
                 self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
