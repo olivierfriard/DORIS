@@ -483,7 +483,11 @@
          </widget>
         </item>
         <item>
-         <widget class="QTextEdit" name="te_all_objects"/>
+         <widget class="QTextEdit" name="te_all_objects">
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="pb_show_all_objects">
@@ -510,6 +514,9 @@
             <width>16777215</width>
             <height>16777215</height>
            </size>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -545,6 +552,9 @@
             <width>16777215</width>
             <height>16777215</height>
            </size>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -704,6 +714,9 @@
             <family>Monospace</family>
            </font>
           </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
          </widget>
         </item>
         <item>
@@ -857,6 +870,9 @@
                 <family>Monospace</family>
                </font>
               </property>
+              <property name="readOnly">
+               <bool>true</bool>
+              </property>
              </widget>
             </item>
             <item>
@@ -957,6 +973,7 @@
     <addaction name="actionOpen_video"/>
     <addaction name="actionLoad_directory_of_images"/>
     <addaction name="separator"/>
+    <addaction name="actionNew_project"/>
     <addaction name="actionOpen_project"/>
     <addaction name="actionSave_project"/>
     <addaction name="actionSave_project_as"/>
@@ -1150,6 +1167,11 @@
    </property>
    <property name="text">
     <string>Show object path on frame</string>
+   </property>
+  </action>
+  <action name="actionNew_project">
+   <property name="text">
+    <string>New project</string>
    </property>
   </action>
  </widget>

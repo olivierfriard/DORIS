@@ -45,8 +45,6 @@ def rgbstr_to_bgr_tuple(rgb_str):
 
 
 COLORS_LIST = [rgbstr_to_bgr_tuple(x) for x in config.RGBSTR_COLORS_LIST]
-print(COLORS_LIST)
-
 
 def plot_path(df, x_lim, y_lim):
     """

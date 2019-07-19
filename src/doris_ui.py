@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -223,6 +225,7 @@ class Ui_MainWindow(object):
         self.lb_all.setObjectName("lb_all")
         self.verticalLayout.addWidget(self.lb_all)
         self.te_all_objects = QtWidgets.QTextEdit(self.centralwidget)
+        self.te_all_objects.setReadOnly(True)
         self.te_all_objects.setObjectName("te_all_objects")
         self.verticalLayout.addWidget(self.te_all_objects)
         self.pb_show_all_objects = QtWidgets.QPushButton(self.centralwidget)
@@ -236,6 +239,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.addWidget(self.lb_filtered)
         self.te_filtered_objects = QtWidgets.QTextEdit(self.centralwidget)
         self.te_filtered_objects.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.te_filtered_objects.setReadOnly(True)
         self.te_filtered_objects.setObjectName("te_filtered_objects")
         self.verticalLayout_2.addWidget(self.te_filtered_objects)
         self.pb_show_all_filtered_objects = QtWidgets.QPushButton(self.centralwidget)
@@ -252,6 +256,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_4.addWidget(self.lb_tracked_objects)
         self.te_tracked_objects = QtWidgets.QTextEdit(self.centralwidget)
         self.te_tracked_objects.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.te_tracked_objects.setReadOnly(True)
         self.te_tracked_objects.setObjectName("te_tracked_objects")
         self.verticalLayout_4.addWidget(self.te_tracked_objects)
         self.pb_track_all_filtered = QtWidgets.QPushButton(self.centralwidget)
@@ -325,6 +330,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setFamily("Monospace")
         self.te_xy.setFont(font)
+        self.te_xy.setReadOnly(True)
         self.te_xy.setObjectName("te_xy")
         self.verticalLayout_5.addWidget(self.te_xy)
         self.horizontalLayout_12 = QtWidgets.QHBoxLayout()
@@ -399,6 +405,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setFamily("Monospace")
         self.te_number_objects.setFont(font)
+        self.te_number_objects.setReadOnly(True)
         self.te_number_objects.setObjectName("te_number_objects")
         self.verticalLayout_8.addWidget(self.te_number_objects)
         self.horizontalLayout_14 = QtWidgets.QHBoxLayout()
@@ -510,9 +517,12 @@ class Ui_MainWindow(object):
         self.actionShow_object_path = QtWidgets.QAction(MainWindow)
         self.actionShow_object_path.setCheckable(True)
         self.actionShow_object_path.setObjectName("actionShow_object_path")
+        self.actionNew_project = QtWidgets.QAction(MainWindow)
+        self.actionNew_project.setObjectName("actionNew_project")
         self.menuFile.addAction(self.actionOpen_video)
         self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionNew_project)
         self.menuFile.addAction(self.actionOpen_project)
         self.menuFile.addAction(self.actionSave_project)
         self.menuFile.addAction(self.actionSave_project_as)
@@ -648,4 +658,4 @@ class Ui_MainWindow(object):
         self.actionShow_contour_of_object.setText(_translate("MainWindow", "Show contour of object"))
         self.actionSave_project_as.setText(_translate("MainWindow", "Save project as..."))
         self.actionShow_object_path.setText(_translate("MainWindow", "Show object path on frame"))
-
+        self.actionNew_project.setText(_translate("MainWindow", "New project"))

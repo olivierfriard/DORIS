@@ -157,7 +157,6 @@ class FrameViewer(QWidget):
     def keyPressEvent(self, event):
         ek = event.key()
 
-        print(ek, event.text()) # Qt.Key_Up:
         if ek == Qt.Key_Left:
             self.change_frame_signal.emit("backward")
         if ek == Qt.Key_Right:
@@ -264,6 +263,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
+        self.actionNew_project.triggered.connect(self.new_project)
         self.actionOpen_project.triggered.connect(self.open_project)
         self.actionSave_project.triggered.connect(self.save_project)
         self.actionSave_project_as.triggered.connect(self.save_project_as)
@@ -325,6 +325,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sbMax.valueChanged.connect(self.process_and_show)
 
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
+        self.sb_max_distance.setValue(DIST_MAX)
 
         '''
         self.sb_percent_out_of_arena.valueChanged.connect(self.process_and_show)
@@ -356,10 +357,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_add_area.setMenu(menu)
         self.pb_remove_area.clicked.connect(self.remove_area)
         self.pb_delete_area_analysis.clicked.connect(self.delete_areas_analysis)
-        self.pb_save_areas.clicked.connect(self.save_areas)
-        self.pb_active_areas.clicked.connect(self.activate_areas)
+        # self.pb_active_areas.clicked.connect(self.activate_areas)
         self.pb_save_objects_number.clicked.connect(self.save_objects_areas)
         self.pb_time_in_areas.clicked.connect(self.time_in_areas)
+
+        self.coordinate_center = [0, 0]
+        self.le_coordinates_center.setText(f"{self.coordinate_center}")
 
         self.always_skip_frame = False
         self.frame, self.previous_frame = None, None
@@ -422,7 +425,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[2].setGeometry(800, 10, 512, 512)
         self.fw[2].setWindowTitle("Previous frame")
 
-
         self.running_tracking = False
 
         self.threshold_method_changed()
@@ -468,7 +470,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         "Department of Life Sciences and Systems Biology<br>"
         "University of Torino - Italy<br>"))
 
-        architecture = '64-bit' if sys.maxsize > 2**32 else '32-bit'
+        architecture = "64-bit" if sys.maxsize > 2**32 else "32-bit"
         details = (f"Python {platform.python_version()} ({architecture}) "
                    f"- Qt {QT_VERSION_STR} - PyQt{PYQT_VERSION_STR} on {platform.system()}\n"
                    f"CPU type: {platform.machine()}\n\n"
@@ -1191,7 +1193,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def background(self):
         if self.cb_background.isChecked():
             self.fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
-            print("backgound substraction activated")
         else:
             self.fgbg = None
         for w in [self.lb_threshold, self.sb_threshold]:
@@ -1313,17 +1314,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.initialize_areas_dataframe()
 
             self.te_number_objects.clear()
-
-
-    def save_areas(self):
-        """
-        save defined areas to file
-        """
-        file_name, _ = QFileDialog().getSaveFileName(self, "Save areas to file", "", "All files (*)")
-        if file_name:
-            with open(file_name, "w") as f_out:
-                for idx in range(self.lw_area_definition.count()):
-                    f_out.write(self.lw_area_definition.item(idx).text() + "\n")
 
 
     def time_in_areas(self):
@@ -2092,7 +2082,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 new_contours = doris_functions.group_of(points1, centroids_list0)
 
                 if [True for x in new_contours if len(x) == 0]:
-                    print("one contour is null. Applying k-means")
+                    logging.debug("one contour is null. Applying k-means")
                     contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                     new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
 
@@ -2718,6 +2708,75 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_stop_tracking = True
     '''
 
+    def new_project(self):
+        """
+        initialize program fro new project
+        """
+
+        self.objects_to_track = {}
+        self.te_tracked_objects.clear()
+        self.mem_position_objects = {}
+        self.coord_df = None
+        self.areas_df = None
+
+        self.te_xy.clear()
+        self.te_number_objects.clear()
+
+        self.always_skip_frame = False
+        self.sb_start_from.setValue(0)
+        self.sb_stop_to.setValue(0)
+        self.sb_frame_offset.setValue(1)
+
+        self.coordinate_center = [0, 0]
+        self.le_coordinates_center.setText(f"{self.coordinate_center}")
+
+        self.flag_define_scale = False
+        self.scale_points = []
+        self.reload_frame()
+        self.scale = 1
+        self.le_scale.setText("1")
+
+        self.sbMin.setValue(0)
+        self.sbMax.setValue(0)
+        self.sb_max_extension.setValue(0)
+        self.sb_max_distance.setValue(DIST_MAX)
+        self.sb_blur.setValue(BLUR_DEFAULT_VALUE)
+        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
+        self.cb_threshold_method.setCurrentIndex(0)
+        self.le_tag.clear()
+
+        self.cb_record_xy.setChecked(False)
+        self.cb_normalize_coordinates.setChecked(False)
+        self.cb_display_analysis.setChecked(True)
+
+        self.clear_arena()
+
+        if self.capture:
+            self.capture.release()
+
+        self.te_all_objects.clear()
+        self.te_filtered_objects.clear()
+
+        self.project_path = ""
+        self.dir_images = ""
+        self.setWindowTitle(f"DORIS v. {version.__version__}")
+
+        self.frame_idx = 0
+
+        self.video_height, self.video_width = 0, 0
+        self.videoFileName = ""
+
+        self.lw_area_definition.clear()
+        self.areas = {}
+
+        self.__init__()
+
+        try:
+            for i in range(3):
+               self.fw[i].close()
+        except Exception:
+            pass
+
 
     def open_project(self, file_name=""):
         """
@@ -2752,7 +2811,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
                     self.le_arena.setText(str(config["arena"]))
             except KeyError:
-                print("arena not found")
+                logging.info("arena not found")
 
             self.sbMin.setValue(config.get("min_object_size", 0))
             self.sbMax.setValue(config.get("max_object_size", 0))
@@ -2830,7 +2889,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.process_and_show()
 
         except Exception:
-            print("Error in project file")
+            logging.warning("Error in project file")
             raise
 
         self.project_path = file_name
@@ -2847,8 +2906,8 @@ if __name__ == "__main__":
     parser.add_argument("-d", action="store", dest="directory", help="path of images directory")
     '''parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")'''
     '''parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")'''
-    parser.add_argument("--threshold", action="store", default=50, dest="threshold", help="Threshold value")
-    parser.add_argument("--blur", action="store", dest="blur", help="Blur value")
+    parser.add_argument("--threshold", action="store", default=THRESHOLD_DEFAULT, dest="threshold", help="Threshold value")
+    parser.add_argument("--blur", action="store", default=BLUR_DEFAULT_VALUE, dest="blur", help="Blur value")
     parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
 
 
