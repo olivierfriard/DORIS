@@ -24,6 +24,7 @@ This file is part of DORIS.
 import cv2
 
 DEFAULT_FRAME_SCALE = 0.5
+ZOOM_LEVELS = ["2", "1", "0.5", "0.25"]
 
 DIST_MAX = 20
 

@@ -121,7 +121,7 @@ class FrameViewer(QWidget):
         # zoom
         hbox.addWidget(QLabel("Zoom"))
         self.zoom = QComboBox()
-        self.zoom.addItems(["2", "1", "0.5", "0.25"])
+        self.zoom.addItems(config.ZOOM_LEVELS)
         self.zoom.setCurrentIndex(1)
         self.zoom.currentIndexChanged.connect(self.zoom_changed)
         hbox.addWidget(self.zoom)
@@ -1471,9 +1471,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
 
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+            logging.debug(f"FPS: {self.fps}")
 
             self.frame_idx = 0
-            # self.update_frame_index()
+
             self.pb()
             self.video_height, self.video_width, _ = self.frame.shape
             self.videoFileName = file_name
