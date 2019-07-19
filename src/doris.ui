@@ -607,7 +607,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -826,27 +826,6 @@
                <widget class="QPushButton" name="pb_remove_area">
                 <property name="text">
                  <string>Remove selected area</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="pb_open_areas">
-                <property name="text">
-                 <string>Load areas from disk</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="pb_save_areas">
-                <property name="text">
-                 <string>Save areas to disk</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="pb_active_areas">
-                <property name="text">
-                 <string>Activate areas</string>
                 </property>
                </widget>
               </item>
