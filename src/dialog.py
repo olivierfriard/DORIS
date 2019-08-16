@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 DORIS
 Detection of Objects Research Interactive Software

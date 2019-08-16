@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2019 Olivier Friard
+Copyright 2017-2018 Olivier Friard
 
 This file is part of DORIS.
 
@@ -19,17 +19,21 @@ This file is part of DORIS.
   You should have received a copy of the GNU General Public License
   along with this program; if not see <http://www.gnu.org/licenses/>.
 
+
 Requirements:
 pyqt5
 opencv
-pandas
 numpy
 matplotlib
-scikit-learn
-sklearn
 
 optional:
 mpl_scatter_density (pip3 install mpl_scatter_density)
+
+TODO:
+
+* add choice for backgroung algo
+* implement check of position when 1 object must be detected
+* automatic determination
 
 match shape
 http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contours_more_functions/py_contours_more_functions.html
@@ -38,52 +42,45 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 
 
 from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
-from PyQt5.QtGui import (QPixmap, QImage, qRgb, QFont)
-from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
+from PyQt5.QtGui import (QPixmap, QImage, qRgb)
+from PyQt5.QtWidgets import (QMainWindow, QApplication,QStatusBar,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
                              QWidget, QVBoxLayout, QLabel, QSpacerItem,
-                             QSizePolicy, QCheckBox, QHBoxLayout, QPushButton,
-                             QMessageBox, QComboBox)
+                             QSizePolicy)
 
-import logging
 import os
 import platform
 import json
 import numpy as np
-import pandas as pd
+#np.set_printoptions(threshold="nan")
 import cv2
 import copy
 
 import sys
 import time
 import pathlib
-import datetime as dt
 import math
 import matplotlib
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
-from matplotlib.figure import Figure
+
+try:
+    import mpl_scatter_density
+    flag_mpl_scatter_density = True
+except ModuleNotFoundError:
+    flag_mpl_scatter_density = False
 
 import argparse
-import itertools
 
 import doris_functions
 import version
 from config import *
-import dialog
 from doris_ui import Ui_MainWindow
 
 
-logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
-                            datefmt='%H:%M:%S',
-                            level=logging.DEBUG)
-
 COLORS_LIST = doris_functions.COLORS_LIST
-
-
-
 
 class Click_label(QLabel):
 
@@ -103,47 +100,10 @@ class FrameViewer(QWidget):
     """
     widget for visualizing frame
     """
-
-    zoom_changed_signal = pyqtSignal(str)
-    show_contour_changed_signal = pyqtSignal(bool)
-    change_frame_signal = pyqtSignal(str)
-
-
-    def __init__(self, idx):
-        super().__init__()
+    def __init__(self):
+        super(FrameViewer, self).__init__()
 
         self.vbox = QVBoxLayout()
-        self.idx = idx
-
-        # some widgets
-        hbox = QHBoxLayout()
-
-        # zoom
-        hbox.addWidget(QLabel("Zoom"))
-        self.zoom = QComboBox()
-        self.zoom.addItems(ZOOM_LEVELS)
-        self.zoom.setCurrentIndex(1)
-        self.zoom.currentIndexChanged.connect(self.zoom_changed)
-        hbox.addWidget(self.zoom)
-
-        # show contour
-        if idx == 0:
-            self.cb_show_contour = QCheckBox("Show object contour")
-            self.cb_show_contour.setChecked(True)
-            self.cb_show_contour.clicked.connect(self.cb_show_contour_clicked)
-            hbox.addWidget(self.cb_show_contour)
-
-
-        # stay on top
-        self.cb_stay_on_top = QCheckBox("Stay on top")
-        self.cb_stay_on_top.setChecked(True)
-        self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
-        hbox.addWidget(self.cb_stay_on_top)
-
-
-        hbox.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
-
-        self.vbox.addLayout(hbox)
 
         self.lb_frame = Click_label()
         self.lb_frame.setAlignment(Qt.AlignTop | Qt.AlignLeft)
@@ -151,45 +111,8 @@ class FrameViewer(QWidget):
 
         self.setLayout(self.vbox)
 
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
-
-
-    def keyPressEvent(self, event):
-        ek = event.key()
-
-        if ek == Qt.Key_Left:
-            self.change_frame_signal.emit("backward")
-        if ek == Qt.Key_Right:
-            self.change_frame_signal.emit("forward")
-
-
-    def zoom_changed(self):
-        """
-        zoom changed
-        """
-        self.zoom_changed_signal.emit(self.zoom.currentText())
-
-
-    def cb_show_contour_clicked(self):
-        """
-
-        """
-        self.show_contour_changed_signal.emit(self.cb_show_contour.isChecked())
-
-
-    def cb_stay_on_top_clicked(self):
-        """
-        manage the window z - position (stay on top)
-        """
-        if self.cb_stay_on_top.isChecked():
-            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-        else:
-            self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
-        self.show()
-
-
-    def closeEvent(self, event):
-        event.accept()
+    def pbOK_clicked(self):
+        self.close()
 
 
 font = FONT
@@ -200,7 +123,7 @@ def frame2pixmap(frame):
     """
     try:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    except Exception:
+    except:
         pass
     height, width = frame.shape[:2]
 
@@ -223,11 +146,38 @@ def toQImage(frame, copy=False):
             return qim.copy() if copy else qim
         elif len(im.shape) == 3:
             if im.shape[2] == 3:
-                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_RGB888)
+                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_RGB888);
                 return qim.copy() if copy else qim
             elif im.shape[2] == 4:
-                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32)
+                qim = QImage(im.data, im.shape[1], im.shape[0], im.strides[0], QImage.Format_ARGB32);
                 return qim.copy() if copy else qim
+
+
+def plot_density(x, y, x_lim=(0, 0), y_lim=(0,0)):
+
+    if flag_mpl_scatter_density:
+        x = np.array(x)
+        y = np.array(y)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
+        ax.scatter_density(x, y)
+        if x_lim != (0, 0):
+            ax.set_xlim(x_lim)
+        if y_lim != (0, 0):
+            ax.set_ylim(y_lim[::-1])
+
+        plt.show()
+
+    else:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Critical)
+        msg.setWindowTitle("DORIS")
+        msg.setText("the mpl_scatter_density module is required to plot density")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+        return
+
 
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
@@ -237,7 +187,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         super(Ui_MainWindow, self).__init__(parent)
         self.setupUi(self)
 
-        self.setWindowTitle(f"DORIS v. {version.__version__} - (c) Olivier Friard")
+        self.setWindowTitle("DORIS v. {} - (c) Olivier Friard".format(version.__version__))
         self.statusBar = QStatusBar()
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
@@ -253,42 +203,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.action_treated_1_4.triggered.connect(lambda: self.frame_viewer_scale(1, 0.25))
         self.action_treated_2.triggered.connect(lambda: self.frame_viewer_scale(1, 2))
 
-        self.actionDraw_reference.triggered.connect(self.process_and_show)
-        self.actionShow_centroid_of_object.triggered.connect(self.process_and_show)
-        self.actionShow_contour_of_object.triggered.connect(self.actionShow_contour_changed)
-        self.actionOrigin_from_point.triggered.connect(self.define_coordinate_center_1point)
-        self.actionOrigin_from_center_of_3_points_circle.triggered.connect(self.define_coordinate_center_3points_circle)
-        self.actionSelect_objects_to_track.triggered.connect(lambda: self.select_objects_to_track(all_=False))
-        self.actionDefine_scale.triggered.connect(self.define_scale)
+        self.actionDraw_reference.triggered.connect(self.draw_reference)
+        self.actionDefine_coordinate_center.triggered.connect(self.define_coordinate_center)
 
         self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
-        self.actionNew_project.triggered.connect(self.new_project)
         self.actionOpen_project.triggered.connect(self.open_project)
         self.actionSave_project.triggered.connect(self.save_project)
-        self.actionSave_project_as.triggered.connect(self.save_project_as)
         self.actionQuit.triggered.connect(self.close)
 
-        self.hs_frame.setMinimum(1)
-        self.hs_frame.setMaximum(100)
-        self.hs_frame.setValue(1)
-        self.hs_frame.sliderMoved.connect(self.hs_frame_moved)
-
-        # self.pb_next_frame.clicked.connect(self.next_frame)
+        self.pb_next_frame.clicked.connect(self.next_frame)
         self.pb_1st_frame.clicked.connect(self.reset)
 
-        self.pb_define_scale.clicked.connect(self.define_scale)
-        self.pb_reset_scale.clicked.connect(self.reset_scale)
-
-        # menu for Define origin button
-        menu = QMenu()
-        menu.addAction("Origin from center of 3 points circle", self.define_coordinate_center_3points_circle)
-        menu.addAction("Origin from a point", self.define_coordinate_center_1point)
-        self.pb_define_origin.setMenu(menu)
-
-        self.pb_reset_origin.clicked.connect(self.reset_origin)
-
-        self.pb_goto_frame.clicked.connect(self.pb_go_to_frame)
+        self.pb_goto_frame.clicked.connect(self.go_to_frame)
 
         self.pb_forward.clicked.connect(lambda: self.for_back_ward("forward"))
         self.pb_backward.clicked.connect(lambda: self.for_back_ward("backward"))
@@ -299,15 +226,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         menu1.addAction("Circle arena (3 points)", lambda: self.define_arena("circle (3 points)"))
         menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
         menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
-        self.pb_define_arena.setMenu(menu1)
 
+        self.pb_define_arena.setMenu(menu1)
         self.pb_clear_arena.clicked.connect(self.clear_arena)
 
-        self.pb_run_tracking.clicked.connect(self.run_tracking)
-        self.pb_run_tracking_frame_interval.clicked.connect(self.run_tracking_frames_interval)
-        '''
-        self.pb_stop.clicked.connect(self.stop_button)
-        '''
+        self.pbGo.clicked.connect(self.run_analysis)
+        self.pb_stop.clicked.connect(self.stop)
 
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
 
@@ -324,28 +248,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sbMin.valueChanged.connect(self.process_and_show)
         self.sbMax.valueChanged.connect(self.process_and_show)
 
+        self.sb_largest_number.valueChanged.connect(self.process_and_show)
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
-        self.sb_max_distance.setValue(DIST_MAX)
-
-        '''
-        self.sb_percent_out_of_arena.valueChanged.connect(self.process_and_show)
-        '''
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
-        self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
-        self.pb_separate_objects.clicked.connect(self.force_objects_number)
-        self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
-        self.pb_track_all_filtered.clicked.connect(lambda: self.select_objects_to_track(all_=True))
-        self.pb_repick_objects.clicked.connect(self.repick_objects)
 
         # coordinates analysis
-        self.pb_view_coordinates.clicked.connect(self.view_coordinates)
-        self.pb_delete_coordinates.clicked.connect(self.delete_coordinates)
-        self.pb_save_xy.clicked.connect(self.save_objects_positions)
-        self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
-        self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
+        self.pb_reset_xy.clicked.connect(self.reset_xy_analysis)
+        self.pb_save_xy.clicked.connect(self.save_xy)
+        self.pb_plot_path.clicked.connect(self.plot_path_clicked)
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
-        self.pb_distances.clicked.connect(self.distances)
+        self.pb_plot_xy_density.setEnabled(flag_mpl_scatter_density)
 
         # menu for area button
         menu = QMenu()
@@ -356,23 +269,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_add_area.setMenu(menu)
         self.pb_remove_area.clicked.connect(self.remove_area)
-        self.pb_delete_area_analysis.clicked.connect(self.delete_areas_analysis)
-        # self.pb_active_areas.clicked.connect(self.activate_areas)
-        self.pb_save_objects_number.clicked.connect(self.save_objects_areas)
-        self.pb_time_in_areas.clicked.connect(self.time_in_areas)
+        self.pb_open_areas.clicked.connect(self.open_areas)
+        self.pb_reset_areas.clicked.connect(self.reset_areas_analysis)
+        self.pb_save_areas.clicked.connect(self.save_areas)
+        self.pb_active_areas.clicked.connect(self.activate_areas)
+        self.pb_save_objects_number.clicked.connect(self.save_objects_number)
 
-        self.coordinate_center = [0, 0]
-        self.le_coordinates_center.setText(f"{self.coordinate_center}")
-
-        self.always_skip_frame = False
-        self.frame, self.previous_frame = None, None
+        self.frame = None
         self.capture = None
         self.output = ""
         self.videoFileName = ""
-        self.coord_df = None
-        self.areas_df = None
         self.fgbg = None
-        self.flag_stop_tracking = False
+        self.flag_stop_analysis = False
+        self.positions = []
         self.video_height = 0
         self.video_width = 0
         self.frame_width = VIEWER_WIDTH
@@ -380,123 +289,69 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fps = 0
         self.areas = {}
         self.flag_define_arena = False
-        self.flag_define_coordinate_center_1point = False
-        self.flag_define_coordinate_center_3points = False
-        self.flag_define_scale = False
-        self.coordinate_center = [0, 0]
-        self.coordinate_center_def = []
-        self.scale_points = []
+        self.flag_define_coordinate_center = False
+        self.coordinate_center = (0, 0)
         self.add_area = {}
         self.arena = {}
-        self.filtered_objects = {}
-        self.all_objects = {}
-        self.objects_to_track = {}
-        self.scale = 1
+        self.mem_filtered_objects = {}
 
         self.dir_images = []
         self.dir_images_index = 0
 
-        self.objects_number = []
-
-        self.mem_position_objects = {}
-
-        self.project_path = ""
+        self.positions, self.objects_number = [], []
 
         # default
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
         self.fw = []
-        self.fw.append(FrameViewer(0))
+        self.fw.append(FrameViewer())
         self.fw[0].setWindowTitle("Original frame")
         self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
-        self.fw[0].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(0))
-        self.fw[0].show_contour_changed_signal.connect(self.cb_show_contour_changed)
-        self.fw[0].change_frame_signal.connect(self.for_back_ward)
-        self.fw[0].setGeometry(10, 10, 512, 512)
+        self.fw[0].setGeometry(100, 100, 512, 512)
         # self.fw[0].show()
 
-        self.fw.append(FrameViewer(1))
-        self.fw[1].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(1))
-        self.fw[1].setGeometry(560, 10, 512, 512)
+        self.fw.append(FrameViewer())
+        self.fw[1].setGeometry(640, 100, 512, 512)
         self.fw[1].setWindowTitle("Processed frame")
-
-        self.fw.append(FrameViewer(2))
-        self.fw[2].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(2))
-        self.fw[2].setGeometry(800, 10, 512, 512)
-        self.fw[2].setWindowTitle("Previous frame")
-
-        self.running_tracking = False
 
         self.threshold_method_changed()
 
-        '''
-        self.sb_percent_out_of_arena.setValue(int(TOLERANCE_OUTSIDE_ARENA * 100))
-        '''
-
-        self.frame_scale = DEFAULT_FRAME_SCALE
-        self.processed_frame_scale = DEFAULT_FRAME_SCALE
-
-        self.setGeometry(0, 0, 1100, 750)
-
-        self.pick_point = None
-
-        self.repicked_objects = None
-
-
     def about(self):
-        """
-        About dialog box
-        """
 
         modules = []
         modules.append("OpenCV")
-        modules.append(f"version {cv2.__version__}")
+        modules.append("version {}".format(cv2.__version__))
 
         # matplotlib
         modules.append("\nMatplotlib")
-        modules.append(f"version {matplotlib.__version__}")
-        modules_str = "\n".join(modules)
+        modules.append("version {}".format(matplotlib.__version__))
 
         about_dialog = msg = QMessageBox()
-        # about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
+        #about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
         about_dialog.setWindowTitle("About DORIS")
         about_dialog.setStandardButtons(QMessageBox.Ok)
         about_dialog.setDefaultButton(QMessageBox.Ok)
         about_dialog.setEscapeButton(QMessageBox.Ok)
 
-        about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
-        "<p>Copyright &copy; 2017-2019 Olivier Friard<br><br>"
-        '<a href="http://www.boris.unito.it/pages/doris">www.boris.unito.it/pages/doris</a> for more details.<br><br>'
+        about_dialog.setInformativeText(("<b>DORIS</b> v. {ver} - {date}"
+        "<p>Copyright &copy; 2017-2018 Olivier Friard<br>"
         "Department of Life Sciences and Systems Biology<br>"
-        "University of Torino - Italy<br>"))
+        "University of Torino - Italy<br>").format(ver=version.__version__,
+                                                   date=version.__version_date__))
 
-        architecture = "64-bit" if sys.maxsize > 2**32 else "32-bit"
-        details = (f"Python {platform.python_version()} ({architecture}) "
-                   f"- Qt {QT_VERSION_STR} - PyQt{PYQT_VERSION_STR} on {platform.system()}\n"
-                   f"CPU type: {platform.machine()}\n\n"
-                   f"{modules_str}")
+        details = ("Python {python_ver} ({architecture}) - Qt {qt_ver} - PyQt{pyqt_ver} on {system}\n"
+        "CPU type: {cpu_info}\n\n"
+        "{modules}").format(python_ver=platform.python_version(),
+                            architecture="64-bit" if sys.maxsize > 2**32 else "32-bit",
+                            pyqt_ver=PYQT_VERSION_STR,
+                            system=platform.system(),
+                            qt_ver=QT_VERSION_STR,
+                            cpu_info=platform.machine(),
+                            modules="\n".join(modules))
 
         about_dialog.setDetailedText(details)
 
         _ = about_dialog.exec_()
-
-
-    def actionShow_contour_changed(self):
-        self.fw[0].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
-        self.process_and_show()
-
-
-    def cb_show_contour_changed(self):
-        self.actionShow_contour_of_object.setChecked(self.fw[0].cb_show_contour.isChecked())
-        self.process_and_show()
-
-
-    def hs_frame_moved(self):
-        """
-        slider moved by user
-        """
-        self.le_goto_frame.setText(str(self.hs_frame.value()))
-        self.pb_go_to_frame()
 
 
     def threshold_method_changed(self):
@@ -504,39 +359,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         threshold method changed
         """
 
-        for w in [self.lb_threshold, self.sb_threshold]:
-            w.setEnabled(self.cb_threshold_method.currentIndex() == THRESHOLD_METHODS.index("Simple"))  # Simple threshold
+        for w in [self.sb_threshold]:
+            w.setEnabled(self.cb_threshold_method.currentIndex() == 2)  # Simple threshold
 
-        for w in [self.lb_adaptive_threshold, self.lb_block_size, self.lb_offset,
-                  self.sb_block_size, self.sb_offset]:
-            w.setEnabled(self.cb_threshold_method.currentIndex() != THRESHOLD_METHODS.index("Simple"))  # Simple threshold
+        for w in [self.sb_block_size, self.sb_offset]:
+            w.setEnabled(self.cb_threshold_method.currentIndex() != 2)  # Simple threshold
 
         self.process_and_show()
-
-
-    def save_project_as(self):
-        """
-        save project as
-        """
-        project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
-                                                             "DORIS projects (*.doris);All files (*)")
-        if not project_file_path:
-            return
-        self.project_path = project_file_path
-        self.save_project()
 
 
     def save_project(self):
         """
         save parameters of current project in a text file
         """
-        if not self.project_path:
-            project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
-                                                                 "DORIS projects (*.doris);All files (*)")
-            if not project_file_path:
-                return
-        else:
-            project_file_path = self.project_path
+
+        project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
+                                                                    "All files (*)")
 
         config = {}
         if self.videoFileName:
@@ -544,180 +382,93 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.dir_images:
             config["dir_images"] = str(self.dir_images[0].parent)
 
-        config["start_from"] = self.sb_start_from.value()
-        config["stop_to"] = self.sb_stop_to.value()
         config["blur"] = self.sb_blur.value()
         config["invert"] = self.cb_invert.isChecked()
         config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
-        '''
-        config["percent_out_of_arena"] = self.sb_percent_out_of_arena.value()
-        '''
+        config["number_of_objects_to_detect"] = self.sb_largest_number.value()
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
         config["offset"] = self.sb_offset.value()
         config["cut_off"] = self.sb_threshold.value()
-        config["normalize_coordinates"] = self.cb_normalize_coordinates.isChecked()
+
         config["areas"] = self.areas
-        config["referential_system_origin"] = self.coordinate_center
-        config["scale"] = self.scale
-        config["show_centroid"] = self.actionShow_centroid_of_object.isChecked()
-        config["show_contour"] = self.actionShow_contour_of_object.isChecked()
-        config["show_reference"] = self.actionDraw_reference.isChecked()
-        config["max_distance"] = self.sb_max_distance.value()
-        config["frame_scale"] = self.frame_scale
-        config["processed_frame_scale"] = self.processed_frame_scale
-
-        config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
-        config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
-
-
-        '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
         config["record_objects_coordinates"] = self.cb_record_xy.isChecked()
+
+
         '''
+        with open(project_file_path, "w") as f_out:
 
-        try:
-            with open(project_file_path, "w") as f_out:
-                f_out.write(json.dumps(config))
-            self.project_path = project_file_path
-            self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
-        except:
-            raise
-            logging.critical(f"project not saved: {project_file_path}")
-            QMessageBox.critical(self, "DORIS", f"project not saved: {project_file_path}")
+            if self.videoFileName:
+                f_out.write('video_file_path = "{}"\n'.format(self.videoFileName))
 
-
-    def frame_viewer_scale2(self, fw_idx):
-        """
-        change scale of frame viewer
-        """
-        logging.debug("function: frame_viewer_scale")
-
-        self.fw[fw_idx].show()
-        try:
-            self.fw[fw_idx].lb_frame.clear()
-            scale = eval(self.fw[fw_idx].zoom.currentText())
-            self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-            if fw_idx == 0:
-                self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                   Qt.KeepAspectRatio))
-                self.frame_width = self.fw[fw_idx].lb_frame.width()
-                self.frame_scale = scale
-
-            if fw_idx == 1:
-                processed_frame = self.frame_processing(self.frame)
-                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                                  Qt.KeepAspectRatio))
-                self.processed_frame_scale = scale
-
-            self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
-            self.process_and_show()
-        except Exception:
-            logging.critical("error")
+            f_out.write("blur = {}\n".format(self.sb_blur.value()))
+            f_out.write("invert = {}\n".format(self.cb_invert.isChecked()))
+            if self.le_arena.text():
+                f_out.write("arena = {}\n".format(self.le_arena.text()))
+            f_out.write("min_object_size = {}\n".format(self.sbMin.value()))
+            f_out.write("max_object_size = {}\n".format(self.sbMax.value()))
+            f_out.write("number_of_objects_to_detect = {}\n".format(self.sb_largest_number.value()))
+            f_out.write("object_max_extension = {}\n".format(self.sb_max_extension.value()))
+            f_out.write('threshold_method = "{}"\n'.format(THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]))
+            f_out.write("block_size = {}\n".format(self.sb_block_size.value()))
+            f_out.write("offset = {}\n".format(self.sb_offset.value()))
+            f_out.write("cut_off = {}\n".format(self.sb_threshold.value()))
+        '''
+        with open(project_file_path, "w") as f_out:
+            f_out.write(json.dumps(config))
 
 
     def frame_viewer_scale(self, fw_idx, scale):
         """
         change scale of frame viewer
         """
-        logging.debug("function: frame_viewer_scale")
-
-        self.fw[fw_idx].show()
-        try:
-            self.fw[fw_idx].lb_frame.clear()
-            self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-            if fw_idx == 0:
-                self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                   Qt.KeepAspectRatio))
-                self.frame_width = self.fw[fw_idx].lb_frame.width()
-                self.frame_scale = scale
-
-            if fw_idx == 1:
-                processed_frame = self.frame_processing(self.frame)
-                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
-                                                                                                  Qt.KeepAspectRatio))
-                self.processed_frame_scale = scale
-
-            self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
-            self.process_and_show()
-        except Exception:
-            logging.critical("error")
+        self.fw[fw_idx].lb_frame.clear()
+        self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
+        if fw_idx == 0:
+            self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                               Qt.KeepAspectRatio))
+        if fw_idx == 1:
+            processed_frame = self.frame_processing(self.frame)
+            self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                                                                                         Qt.KeepAspectRatio))
+        self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
 
 
     def for_back_ward(self, direction="forward"):
 
-        logging.debug("function: for_back_ward")
-
-        if direction == "forward":
-            step = self.sb_frame_offset.value()
-
-        if direction == "backward":
-            step = - self.sb_frame_offset.value()
-
-        #step = (self.sb_frame_offset.value() - 1) if direction == "forward" else (-self.sb_frame_offset.value() - 1)
-        logging.info(f"step: {step}")
+        step = self.sb_frame_offset.value() - 1 if direction == "forward" else -self.sb_frame_offset.value() - 1
 
         if self.dir_images:
-            logging.info(f"self.dir_images_index + step: {self.dir_images_index + step}")
-            self.dir_images_index += step
-            if self.dir_images_index >= len(self.dir_images):
-                self.dir_images_index = len(self.dir_images) - 1
-            if self.dir_images_index < 0:
-                self.dir_images_index = 0
-            self.previous_frame = self.frame
+            if 0 < self.dir_images_index + step < len(self.dir_images):
+                self.dir_images_index += step
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
-
         elif self.capture is not None:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step - 1)
-            self.previous_frame = self.frame
-            ret, self.frame = self.capture.read()
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step)
 
-        if self.dir_images or self.capture is not None:
-            self.update_frame_index()
-            self.process_and_show()
+        self.pb()
 
 
-    def go_to_frame(self, frame_nb: int):
-        """
-        load frame and visualize it
-        """
-        if self.dir_images:
-            self.dir_images_index = frame_nb
-            if self.dir_images_index >= len(self.dir_images):
-                self.dir_images_index = len(self.dir_images) - 1
-            if self.dir_images_index < 0:
-                self.dir_images_index = 0
-
-            self.previous_frame = cv2.imread(str(self.dir_images[self.dir_images_index - 1]), -1)
-            self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
-
-        if self.capture is not None:
-            try:
-                self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_nb)
-                ret, self.frame = self.capture.read()
-
-            except Exception:
-                logging.debug("exception in function go_to_frame")
-                pass
-
-        self.update_frame_index()
-
-        self.process_and_show()
-
-
-    def pb_go_to_frame(self):
-
-        logging.debug("function: pb_go_to_frame")
+    def go_to_frame(self):
 
         if self.le_goto_frame.text():
             try:
                 int(self.le_goto_frame.text())
-            except ValueError:
+            except:
                 return
-            self.go_to_frame(frame_nb=int(self.le_goto_frame.text()) - 1)
+
+            if self.dir_images:
+                self.dir_images_index = int(self.le_goto_frame.text()) - 1
+                self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+            elif self.capture is not None:
+                try:
+                    self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.le_goto_frame.text()) - 1)
+                except Exception:
+                    pass
+            self.pb()
 
 
     def add_area_func(self, shape):
@@ -731,9 +482,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if shape == "circle (center radius)":
                     msg = "New circle area: click on the video to define the center of the circle and then a point belonging to the circle"
                 if shape == "polygon":
-                    msg = "New polygon area: click on the video to define the vertices of the polygon. Right click to finish"
+                    msg = "New polygon area: click on the video to define the edges of the polygon. Right click to finish"
                 if shape == "rectangle":
-                    msg = "New rectangle area: click on the video to define 2 opposite vertices."
+                    msg = "New rectangle area: click on the video to define the top-lef and bottom-right edges of the rectangle."
 
                 self.statusBar.showMessage(msg)
 
@@ -752,12 +503,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         switch to define arena mode
         """
-
-        logging.debug("function: define_arena")
-
-        if not self.dir_images and self.capture is None:
-            return
-
         if self.flag_define_arena:
             self.flag_define_arena = ""
         else:
@@ -777,12 +522,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def reload_frame(self):
-        """
-        reload frame and show
-        """
-
-        logging.debug("function: reload_frame")
-
         if self.dir_images:
             self.dir_images_index -= 1
         elif self.capture is not None:
@@ -804,64 +543,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-    def ratio_thickness(self, video_width: int, frame_width: int) -> (float, int):
+    def ratio_thickness(self, video_width, frame_width):
         """
         return ratio and pen thickness for contours according to video resolution
         """
-
-        #logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
 
         ratio = video_width / frame_width
         if ratio <= 1:
             drawing_thickness = 1
         else:
             drawing_thickness = round(ratio)
-
-        #logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
-
         return ratio, drawing_thickness
-
-
-    def draw_point_origin(self, frame, position, color, drawing_thickness):
-        """
-        draw a point (circle and cross) on frame
-        """
-
-        position = tuple(position)
-        cv2.circle(frame, position, 8,
-                   color=color, lineType=8, thickness=drawing_thickness)
-
-        cv2.line(frame, (position[0], position[1] - 0),
-                        (position[0], position[1] + 30),
-                 color=color, lineType=8, thickness=drawing_thickness)
-
-        cv2.line(frame, (position[0], position[1]),
-                        (position[0] + 30, position[1]),
-                 color=color, lineType=8, thickness=drawing_thickness)
-
-        return frame
-
-
-    def draw_circle_cross(self, frame, position, color, drawing_thickness):
-        """
-        draw a cross with circle on frame
-        """
-
-        cross_length = 20
-        position = tuple(position)
-        cv2.circle(frame, position, cross_length // 4,
-                   color=color, lineType=8, thickness=drawing_thickness)
-
-        cv2.line(frame, (position[0], position[1] - cross_length),
-                        (position[0], position[1] + cross_length),
-                 color=color, lineType=8, thickness=drawing_thickness)
-
-        cv2.line(frame, (position[0] - cross_length, position[1]),
-                        (position[0] + cross_length, position[1]),
-                 color=color, lineType=8, thickness=drawing_thickness)
-
-        return frame
-
 
 
     def frame_mousepressed(self, event):
@@ -869,117 +561,41 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         record clicked coordinates if arena or area mode activated
         """
 
-        logging.debug("function: frame_mousepressed")
+        print("mouse pressed on frame")
         conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
 
-        ''' pick object
-        if self.pick_point:
-            print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-            self.pick_point = False
-        '''
-        if self.repicked_objects is not None:
-
-            # cancel
-            if event.button() in [Qt.RightButton, Qt.MidButton]:
-                self.repicked_objects = None
-                return
-
-            for o in self.objects_to_track:
-                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]),
-                                            (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                            False) >= 0):
-                    self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                    self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the frame")
-
-
-        # set coordinates of center with 1 point
-        if self.flag_define_coordinate_center_1point:
-            self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
-            self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
-
-            #self.display_frame(self.frame)
-            self.flag_define_coordinate_center_1point = False
-            self.actionOrigin_from_point.setText("from point")
-            self.le_coordinates_center.setText(f"{self.coordinate_center}")
-            self.reload_frame()
-            self.statusBar.showMessage(f"Referential origin defined")
-
-        # set coordinates of center with the center of a 3 points defined circle
-        if self.flag_define_coordinate_center_3points:
-            self.coordinate_center_def.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
-            cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                           color=BLUE, lineType=8, thickness=drawing_thickness)
+        # set coordinate center
+        if self.flag_define_coordinate_center:
+            self.coordinate_center = (int(event.pos().x() * conversion), int(event.pos().y() * conversion))
+            cv2.circle(self.frame, self.coordinate_center, 8,
+                       color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
+                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0], self.coordinate_center[1] - 20),
+                                 (self.coordinate_center[0], self.coordinate_center[1] + 20),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
+            cv2.line(self.frame, (self.coordinate_center[0] - 20, self.coordinate_center[1]),
+                                 (self.coordinate_center[0] + 20, self.coordinate_center[1]),
+                                  color=BLUE, lineType=8, thickness=drawing_thickness)
 
             self.display_frame(self.frame)
+            self.flag_define_coordinate_center = False
+            self.actionDefine_coordinate_center.setChecked(False)
+            self.statusBar.showMessage("Center of coordinates defined: {}".format(self.coordinate_center))
 
-            if len(self.coordinate_center_def) == 3:
 
-                x, y, _ = doris_functions.find_circle(self.coordinate_center_def)
-                self.coordinate_center = [int(x), int(y)]
-                self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
-
-                self.coordinate_center_def = []
-                self.flag_define_coordinate_center_3point3 = False
-                self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle")
-                self.le_coordinates_center.setText(f"{self.coordinate_center}")
-                self.reload_frame()
-                self.statusBar.showMessage(f"Referential origin defined")
-
-        # set scale
-        if self.flag_define_scale:
-            if len(self.scale_points) < 2:
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                self.display_frame(self.frame)
-
-                self.scale_points.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
-
-                if len(self.scale_points) == 2:
-                    cv2.line(self.frame, self.scale_points[0], self.scale_points[1],
-                             color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    self.display_frame(self.frame)
-                    self.flag_define_scale = False
-                    self.actionDefine_scale.setText("Define scale")
-                    while True:
-                        real_length_str, ok_pressed = QInputDialog.getText(self, "Real length", "Value (w/o unit):")
-                        if not ok_pressed:
-                            return
-                        try:
-                            float(real_length_str)
-                            break
-                        except:
-                            QMessageBox.warning(self, "DORIS", f"{real_length_str} was not recognized as length")
-                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0], self.scale_points[1])
-                    self.le_scale.setText(f"{self.scale:0.5f}")
-                    self.scale_points = []
-                    self.reload_frame()
-                    self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
-
-        # add area
         if self.add_area:
 
-            if event.button() == Qt.MidButton:
+            if event.button() == 4:
                 self.add_area = {}
                 self.statusBar.showMessage("New area canceled")
                 self.reload_frame()
                 return
 
-            if event.button() == Qt.LeftButton:
-                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-
-                # arena
-                self.frame = self.draw_arena(self.frame, drawing_thickness)
-
-                # draw areas
-                self.frame = self.draw_areas(self.frame, drawing_thickness)
-
-                # origin
-                if self.coordinate_center != [0, 0]:
-                    self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
-
+            if event.button() == 1:
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
-
 
             if self.add_area["type"] == "circle (center radius)":
                 if "center" not in self.add_area:
@@ -999,17 +615,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.add_area["points"] = []
                 if len(self.add_area["points"]) < 3:
                     self.add_area["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                    print(len(self.add_area["points"]))
+
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4, color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
                     self.add_area["type"] = "circle"
                     self.add_area["center"] = [int(cx), int(cy)]
                     self.add_area["radius"] = int(radius)
+                    print(self.add_area)
                     del self.add_area["points"]
+                    print(self.add_area)
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
-                    self.reload_frame()
                     self.statusBar.showMessage("New circle area created")
                     return
 
@@ -1018,32 +638,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.add_area["pt1"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
                 else:
                     self.add_area["pt2"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
-                    # reorder vortex
-                    logging.debug(self.add_area)
-                    self.add_area["pt1"], self.add_area["pt2"] = ([min(self.add_area["pt1"][0], self.add_area["pt2"][0]), min(self.add_area["pt1"][1],self.add_area["pt2"][1])],
-                                                                 [max(self.add_area["pt1"][0], self.add_area["pt2"][0]), max(self.add_area["pt1"][1], self.add_area["pt2"][1])])
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
-                    self.reload_frame()
                     self.statusBar.showMessage("New rectangle area created")
                     return
 
             if self.add_area["type"] == "polygon":
 
-                if event.button() == Qt.RightButton:  # right click to finish
+                if event.button() == 2:  # right click to finish
                     self.lw_area_definition.addItem(str(self.add_area))
                     self.activate_areas()
                     self.add_area = {}
-                    self.reload_frame()
                     self.statusBar.showMessage("The new polygon area is defined")
                     return
 
-                if event.button() == Qt.LeftButton:
-                    '''
+                if event.button() == 1:  # left button
                     cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                                color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    '''
                     if "points" not in self.add_area:
                         self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
                     else:
@@ -1059,7 +671,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.flag_define_arena:
 
             # cancel arena creation (mid button)
-            if event.button() == Qt.MidButton:
+            if event.button() == 4:
                 self.flag_define_arena = ""
                 self.pb_define_arena.setEnabled(True)
                 self.statusBar.showMessage("Arena creation canceled")
@@ -1073,48 +685,37 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-
                 self.display_frame(self.frame)
                 self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len(self.arena["points"])))
 
-                if len(self.arena["points"]) == 2:  # rectangle area finished
+
+                if len(self.arena["points"]) == 2:
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
-                    # check top-left and right-bottom
-                    min_x = min(self.arena["points"][0][0], self.arena["points"][1][0])
-                    max_x = max(self.arena["points"][0][0], self.arena["points"][1][0])
-                    min_y = min(self.arena["points"][0][1], self.arena["points"][1][1])
-                    max_y = max(self.arena["points"][0][1], self.arena["points"][1][1])
-                    self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
-
                     self.arena = {**self.arena, **{"type": "rectangle", "name": "arena"}}
                     self.le_arena.setText("{}".format(self.arena))
 
-                    '''
                     cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
                                   color=ARENA_COLOR, thickness=drawing_thickness)
-                    '''
-                    cv2.rectangle(self.frame, self.arena["points"][0], self.arena["points"][1],
-                                  color=ARENA_COLOR, thickness=drawing_thickness)
+                    self.display_frame(self.frame)
 
-                    self.process_and_show()
                     self.statusBar.showMessage("The rectangle arena is defined")
 
             if self.flag_define_arena == "polygon":
 
-                if event.button() == Qt.RightButton:  # right click to finish
+                if event.button() == 2:  # right click to finish
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
                     self.pb_clear_arena.setEnabled(True)
                     self.pb_define_arena.setText("Define arena")
 
+                    '''self.arena = {'type': 'polygon', 'points': self.arena, 'name': 'arena'}'''
                     self.arena = {**self.arena, **{"type": "polygon", "name": "arena"}}
 
                     self.le_arena.setText("{}".format(self.arena))
-                    self.process_and_show()
                     self.statusBar.showMessage("The new polygon arena is defined")
 
                 else:
@@ -1127,8 +728,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
-                    self.statusBar.showMessage(("Polygon arena: {} point(s) selected. "
-                                                "Right click to finish").format(len(self.arena["points"])))
+                    self.statusBar.showMessage("Polygon arena: {} point(s) selected. Right click to finish".format(len(self.arena["points"])))
 
                     if len(self.arena["points"]) >= 2:
                         cv2.line(self.frame, tuple(self.arena["points"][-2]), tuple(self.arena["points"][-1]),
@@ -1150,7 +750,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.arena["points"]) == 3:
                     cx, cy, r = doris_functions.find_circle(self.arena["points"])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(r), color=ARENA_COLOR, thickness=drawing_thickness)
-                    # self.display_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
@@ -1160,7 +760,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.le_arena.setText("{}".format(self.arena))
 
-                    self.process_and_show()
                     self.statusBar.showMessage("The new circle arena is defined")
 
             if self.flag_define_arena == "circle (center radius)":
@@ -1178,7 +777,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     radius = doris_functions.euclidean_distance(self.arena["points"][0], self.arena["points"][1])
                     cv2.circle(self.frame, (int(abs(cx)), int(abs(cy))), int(radius), color=ARENA_COLOR, thickness=drawing_thickness)
 
-                    # self.display_frame(self.frame)
+                    self.display_frame(self.frame)
 
                     self.flag_define_arena = ""
                     self.pb_define_arena.setEnabled(False)
@@ -1186,341 +785,207 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.arena = {"type": "circle", "center": [round(cx), round(cy)], "radius": round(radius), "name": "arena"}
                     self.le_arena.setText("{}".format(self.arena))
-                    self.process_and_show()
+
                     self.statusBar.showMessage("The new circle arena is defined")
 
 
     def background(self):
         if self.cb_background.isChecked():
             self.fgbg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
+            print("backgound substraction activated")
         else:
             self.fgbg = None
         for w in [self.lb_threshold, self.sb_threshold]:
             w.setEnabled(not self.cb_background.isChecked())
 
 
-    def reset_origin(self):
-        """
-        reset referential origin to (0, 0)
-        """
-        self.coordinate_center = [0, 0]
-        self.le_coordinates_center.setText(f"{self.coordinate_center}")
-        self.reload_frame()
-        self.statusBar.showMessage(f"Referential origin reset")
-
-
-    def reset_scale(self):
-        """
-        reset scale to 1
-        """
-        logging.debug("function: reset scale")
-        self.flag_define_scale = False
-        self.scale_points = []
-        self.reload_frame()
-        self.scale = 1
-        self.le_scale.setText("1")
-        self.statusBar.showMessage(f"Scale reset")
-
-
     def reset(self):
-        """
-        reset analysis and go to 1st frame
-        """
-
-        logging.debug("function: reset")
-
-        if not self.dir_images and self.capture is None:
-            return
-
-        if self.running_tracking:
-            return
-
-        if dialog.MessageDialog("DORIS", "Confirm reset?", ["Yes", "Cancel"]) == "Cancel":
-            return
+        "go to 1st frame"
 
         if self.dir_images:
-            self.dir_images_index = -1
-        if self.capture is not None:
+            self.dir_images_index = 0
+        else:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
-        self.objects_to_track = {}
-        self.te_tracked_objects.clear()
-        self.mem_position_objects = {}
-        self.coord_df = None
-        self.areas_df = None
-
-        self.te_xy.clear()
-        self.te_number_objects.clear()
-
-        self.always_skip_frame = False
-
         self.pb()
 
 
-    def view_coordinates(self):
+    def next_frame(self):
         """
-        view dataframe of recorded coordinates
+        go to next frame
         """
-        if self.coord_df is not None and self.objects_to_track:
+        if not self.pb(1):
+            return
 
-            w = dialog.Results_dialog()
-            w.setWindowFlags(Qt.WindowStaysOnTopHint)
-
-            w.setWindowTitle("DORIS - Object's coordinates")
-            w.ptText.setReadOnly(True)
-            font = QFont("Monospace")
-            w.ptText.setFont(font)
-            '''
-            with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
-                print(df)
-            '''
-            w.ptText.appendPlainText(self.coord_df.to_string())
-            w.exec_()
+        # self.analysis(results)
 
 
-
-    def delete_coordinates(self):
+    def reset_xy_analysis(self):
         """
-        reset recorded coordinates
+        reset coordinates analysis
         """
-        if self.coord_df is not None and self.objects_to_track:
-
-            if dialog.MessageDialog("DORIS", "Confirm deletion of coordinates?", ["Yes", "Cancel"]) == "Cancel":
-                return
-            # init dataframe for recording objects coordinates
-            self.initialize_positions_dataframe()
-            self.te_xy.clear()
+        self.positions = []
+        self.te_xy.clear()
 
 
-    def save_objects_positions(self):
+    def save_xy(self):
         """
-        save results of recorded coordinates in TSV file
+        save results of recorded positions in TSV file
         """
-        if self.coord_df is not None:
-            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
+        if self.positions:
+            file_name, _ = QFileDialog(self).getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
+            out = ""
             if file_name:
-                self.coord_df.to_csv(file_name, sep="\t", decimal=".")
+                for row in self.positions:
+                    for obj in row:
+                        out += "{},{}\t".format(obj[0], obj[1])
+                    out = out.strip() + "\n"
+                with open(file_name, "w") as f_in:
+                    f_in.write(out)
         else:
-            QMessageBox.warning(self, "DORIS", "No coordinates to save")
+            print("no positions to be saved")
 
 
-    def delete_areas_analysis(self):
+    def open_areas(self, file_name):
+        """
+        load areas from disk
+        format required:
+        area_name; circle; x_center,y_center; radius; red_level, green_level, blue_level
+        area_name; rectangle; x_min,y_min; x_max,y_max; red_level, green_level, blue_level
+        """
+        if not file_name:
+            file_name, _ = QFileDialog(self).getOpenFileName(self, "Load areas from file", "", "All files (*)")
+        if file_name:
+            self.lw_area_definition.clear()
+            with open(file_name, "r") as f_in:
+                for line in f_in.readlines():
+                    self.lw_area_definition.addItem(line.strip())
+            self.activate_areas()
+
+
+    def reset_areas_analysis(self):
         """
         reset areas analysis
         """
-        if self.areas_df is not None and self.objects_to_track:
-            if dialog.MessageDialog("DORIS", "Confirm deletion of area analysis?", ["Yes", "Cancel"]) == "Cancel":
-                return
-            self.initialize_areas_dataframe()
-
-            self.te_number_objects.clear()
+        self.objects_number = []
+        self.te_number_objects.clear()
 
 
-    def time_in_areas(self):
+    def save_areas(self):
         """
-        time of objects in each area
+        save defined areas to file
         """
-        if self.areas_df is None:
-            return
-
-        time_objects_in_areas = pd.DataFrame(index=sorted(list(self.objects_to_track)), columns = sorted(list(self.areas.keys())))
-
-        areas_non_nan_df = self.areas_df.dropna(thresh=1)
-        for area in self.areas:
-            for idx in self.objects_to_track:
-                time_objects_in_areas.ix[idx, area] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
-
-        logging.debug(f"{time_objects_in_areas}")
-
-        file_name, _ = QFileDialog().getSaveFileName(self, "Save time in areas", "", "All files (*)")
+        file_name, _ = QFileDialog().getSaveFileName(self, "Save areas to file", "", "All files (*)")
         if file_name:
-            time_objects_in_areas.to_csv(file_name, sep="\t", decimal=".")
+            with open(file_name, "w") as f_out:
+                for idx in range(self.lw_area_definition.count()):
+                    f_out.write(self.lw_area_definition.item(idx).text() + "\n")
 
 
-    def save_objects_areas(self):
+    def save_objects_number(self):
         """
-        save presence of objects in areas
+        save results of objects number by area
         """
-        if self.areas_df is None:
-            QMessageBox.warning(self, "DORIS", "no objects to be saved")
-            return
-        file_name, _ = QFileDialog().getSaveFileName(self, "Save objects in areas", "", "All files (*)")
-        if file_name:
-            self.areas_df.to_csv(file_name, sep="\t", decimal=".")
+        if self.objects_number:
+            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects number", "", "All files (*)")
+            out = "\t".join(list(sorted(self.areas.keys()))) + "\n"
+            if file_name:
+                for row in self.objects_number:
+                    out += "\t".join([str(x) for x in row]) + "\n"
+                with open(file_name, "w") as f_in:
+                    f_in.write(out)
+        else:
+            self.statusBar.showMessage("no results to be saved")
 
 
     def plot_xy_density(self):
 
-        if self.coord_df is None:
-            QMessageBox.warning(self, "DORIS", "no positions recorded")
-            return
-
-        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
-        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
-
-        if self.cb_normalize_coordinates.isChecked():
-            x_lim = x_lim / self.video_width
-            y_lim = y_lim / self.video_width
-
-        x_lim = x_lim * self.scale
-        y_lim = y_lim * self.scale
-
-        doris_functions.plot_density(self.coord_df,
-                                     x_lim=x_lim,
-                                     y_lim=y_lim)
+        if self.positions:
+            for n_object in range(len(self.positions[0])):
+                x, y = [], []
+                for row in self.positions:
+                    x.append(row[n_object][0])
+                    y.append(row[n_object][1])
+                plot_density(x, y, x_lim=(0, self.video_width), y_lim=(0, self.video_height))
+        else:
+            self.statusBar.showMessage("no positions to be plotted")
 
 
-    def distances(self):
+    def plot_path_clicked(self):
         """
-        save distances
-        """
-        if self.coord_df is None:
-            QMessageBox.warning(self, "DORIS", "no positions recorded")
-            return
-
-        results = pd.DataFrame(index=sorted(list(self.objects_to_track)), columns = ["distance"])
-
-        for idx in sorted(list(self.objects_to_track.keys())):
-            dx = self.coord_df[f"x{idx}"] - self.coord_df[f"x{idx}"].shift(1)
-            dy = self.coord_df[f"y{idx}"] - self.coord_df[f"y{idx}"].shift(1)
-            dist = (dx*dx + dy*dy) ** 0.5
-            results.ix[idx, "distance"] = dist.sum()
-
-        file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
-        if file_name:
-            results.to_csv(file_name, sep="\t", decimal=".")
-
-
-
-
-    def plot_path_clicked(self, plot_type="path"):
-        """
-        plot the path or positions based on recorded coordinates
+        plot the path based on recorded coordinates
         """
 
-        if self.coord_df is None:
-            QMessageBox.warning(self, "DORIS", "no positions recorded")
-            return
-
-        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
-        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
-
-        if self.cb_normalize_coordinates.isChecked():
-            x_lim = x_lim / self.video_width
-            y_lim = y_lim / self.video_width
-
-        x_lim = x_lim * self.scale
-        y_lim = y_lim * self.scale
-
-        if plot_type == "path":
-            doris_functions.plot_path(self.coord_df,
-                                      x_lim=x_lim,
-                                      y_lim=y_lim)
-        if plot_type == "positions":
-            doris_functions.plot_positions(self.coord_df,
-                                           x_lim=x_lim,
-                                           y_lim=y_lim)
+        if self.positions:
+            for n_object in range(len(self.positions[0])):
+                verts = []
+                for row in self.positions:
+                    verts.append(row[n_object])
+                doris_functions.plot_path(verts, x_lim=(0, self.video_width), y_lim=(0, self.video_height), color=COLORS_LIST[n_object % len(COLORS_LIST) + 1])
+        else:
+            self.statusBar.showMessage("no positions to be plotted")
 
 
     def open_video(self, file_name):
         """
-        open a video
-        if file_name not provided ask user to select a file
+        let user select a video
         """
 
-        logging.debug("function: open_video")
-
         if not file_name:
-            file_name, _ = QFileDialog().getOpenFileName(self, "Open video", "", "All files (*)")
-
+            file_name, _ = QFileDialog(self).getOpenFileName(self, "Open video", "", "All files (*)")
         if file_name:
-            if not os.path.isfile(file_name):
-                QMessageBox.critical(self, "DORIS", f"{file_name} not found")
-                return
-
-            if self.capture:
-                self.capture.release()
-
             self.capture = cv2.VideoCapture(file_name)
 
             if not self.capture.isOpened():
-                QMessageBox.critical(self, "DORIS", f"Could not open {pathlib.Path(file_name).name}")
-                self.capture.release()
+                QMessageBox.critical(self, "DORIS", "Could not open {}".format(file_name))
                 return
 
             self.total_frame_nb = int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))
-            if self.total_frame_nb < 0:
-                QMessageBox.critical(self, "DORIS", f"{pathlib.Path(file_name).name} has an unknown format")
-                self.capture.release()
-                return
-
-            self.hs_frame.setMinimum(1)
-            self.hs_frame.setMaximum(self.total_frame_nb)
-            self.hs_frame.setTickInterval(10)
 
             # self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
 
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
-            logging.debug(f"FPS: {self.fps}")
 
             self.frame_idx = 0
-
-            self.pb()
+            self.update_frame_index()
+            self.pb(1)
             self.video_height, self.video_width, _ = self.frame.shape
             self.videoFileName = file_name
-
-            # default scale
-            for idx in range(2):
-                self.fw[idx].zoom.setCurrentIndex(ZOOM_LEVELS.index(str(DEFAULT_FRAME_SCALE)))
-                self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
-                self.fw[idx].show()
-
-            self.initialize_positions_dataframe()
-
-            self.initialize_areas_dataframe()
-
-            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
-            self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
-
-
-    def load_dir_images(self, dir_images):
-        """
-        Load directory of images
-        """
-        logging.debug("function: load_dir_images")
-
-        if not dir_images:
-            dir_images = QFileDialog().getExistingDirectory(self, "Select Directory")
-        if dir_images:
-            p = pathlib.Path(dir_images)
-            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + list(p.glob("*.PNG")))
-
-            self.total_frame_nb = len(self.dir_images)
-            logging.info(f"images number: {self.total_frame_nb}")
-            self.hs_frame.setMinimum(1)
-            self.hs_frame.setMaximum(self.total_frame_nb)
-            self.hs_frame.setTickInterval(10)
-
-            self.lb_frames.setText(f"<b>{self.total_frame_nb}</b> images")
-
-            self.dir_images_index = -1
-            self.pb()
-
-            logging.debug(f"self.frame.shape: {self.frame.shape}")
-
-            self.video_height, self.video_width, _ = self.frame.shape
-
-            self.initialize_positions_dataframe()
-
-            self.initialize_areas_dataframe()
 
             # default scale
             for idx in range(2):
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
-            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(dir_images).name}")
-            self.statusBar.showMessage(f"{self.total_frame_nb} image(s) found")
+            self.statusBar.showMessage("video loaded ({}x{})".format(self.video_width, self.video_height))
+
+
+    def load_dir_images(self, dir_images):
+        """
+        Load directory of images
+        """
+        print("loading dir images")
+        if not dir_images:
+            dir_images = QFileDialog(self).getExistingDirectory(self, "Select Directory")
+        if dir_images:
+            p = pathlib.Path(dir_images)
+            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")))
+
+            self.total_frame_nb = len(self.dir_images)
+            self.lb_frames.setText("<b>{}</b> images".format(self.total_frame_nb))
+
+            self.dir_images_index = 0
+            self.pb(1)
+
+            print("self.frame.shape", self.frame.shape)
+
+            self.video_height, self.video_width, _ = self.frame.shape
+
+            # default scale
+            for idx in range(2):
+                self.frame_viewer_scale(idx, 0.5)
+                self.fw[idx].show()
+
+            self.statusBar.showMessage("{} image(s) found".format(len(self.dir_images)))
 
 
     def update_frame_index(self):
@@ -1529,14 +994,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         if self.dir_images:
             self.frame_idx = self.dir_images_index
-            self.lb_frames.setText(f"Frame: <b>{self.frame_idx + 1}</b> / {self.total_frame_nb}")
-
         else:
             self.frame_idx = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
-
-            self.lb_frames.setText((f"Frame: <b>{self.frame_idx}</b> / {self.total_frame_nb}&nbsp;&nbsp;&nbsp;&nbsp;"
-                                    f"Time: <b>{dt.timedelta(seconds=round(self.frame_idx/self.fps, 3))}</b>&nbsp;&nbsp;&nbsp;&nbsp;"
-                                    f"({self.frame_idx/self.fps:.3f} seconds)"))
+        self.lb_frames.setText("Frame: <b>{}</b> / {}".format(self.frame_idx, self.total_frame_nb))
 
 
     def frame_processing(self, frame):
@@ -1552,414 +1012,79 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             }
 
         return doris_functions.image_processing(frame,
-                                                blur=self.sb_blur.value(),
-                                                threshold_method=threshold_method,
-                                                invert=self.cb_invert.isChecked(),
-                                                arena=self.arena
-                                                )
+                                               blur=self.sb_blur.value(),
+                                               threshold_method=threshold_method,
+                                               invert=self.cb_invert.isChecked())
 
 
-    def define_coordinate_center_1point(self):
+    def define_coordinate_center(self):
         """
-        define origin of coordinates with a point
+        define coordinate system
         """
         if self.frame is not None:
-            self.flag_define_coordinate_center_1point = not self.flag_define_coordinate_center_1point
-            self.actionOrigin_from_point.setText("from point" if not self.flag_define_coordinate_center_1point
-                                                        else "Cancel origin definition")
-            self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center_1point)
+            self.flag_define_coordinate_center = self.actionDefine_coordinate_center.isChecked()
+            self.statusBar.showMessage("You have to select the center of coordinates" * self.flag_define_coordinate_center)
 
 
-    def define_coordinate_center_3points_circle(self):
+    def draw_reference(self):
         """
-        define origin of coordinates with a 3 points circle
+        draw reference (squareof 100px) on frame
+
         """
+
         if self.frame is not None:
-            self.flag_define_coordinate_center_3points = not self.flag_define_coordinate_center_3points
-            self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle" if not self.flag_define_coordinate_center_3points
-                                                        else "Cancel origin definition")
-            self.statusBar.showMessage("You have to select the origin of the referential system with a 3 points circle" * self.flag_define_coordinate_center_3points)
-
-
-    def define_scale(self):
-        """
-        define scale. from pixels to real unit
-        """
-        if self.frame is not None:
-            self.flag_define_scale = not self.flag_define_scale
-            self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
-            self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_define_scale)
-
-
-    def initialize_positions_dataframe(self):
-        """
-        initialize dataframe for recording objects coordinates
-        """
-        columns = ["tag", "frame"]
-        for idx in self.objects_to_track:
-            columns.extend([f"x{idx}", f"y{idx}"])
-        self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
-
-        logging.debug(f"self.coord_df: {self.coord_df}" )
-
-
-    def initialize_areas_dataframe(self):
-        """
-        initialize dataframe for recording presence of objects in areas
-        """
-        columns = ["tag", "frame"]
-        for area in sorted(self.areas.keys()):
-            for idx in self.objects_to_track:
-                columns.append(f"area {area} object #{idx}")
-        self.areas_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
-
-
-
-    def select_objects_to_track(self, all_=False):
-        """
-        select objects to track and create the dataframes for recording objects positions and presence in area
-        """
-        logging.debug(f"function select_objects_to_track")
-
-        if not self.dir_images and self.capture is None:
-            return
-
-        self.show_all_filtered_objects()
-
-        if all_:
-            self.objects_to_track = {}
-            for idx in self.filtered_objects:
-                self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[idx])
-
-        else:
-            elements = []
-            for idx in self.filtered_objects:
-                elements.append(f"Object # {idx}")
-            w = dialog.CheckListWidget(elements)
-            w.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-            if w.exec_():
-                logging.debug(f"objects checked: {w.checked}")
-                self.objects_to_track = {}
-                for el in w.checked:
-                    self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(el.replace("Object # ", ""))])
-
-            else:
-                return
-
-            '''
-            ib = Input_dialog("Select the objects to track", elements)
-
-            if not ib.exec_():
-                return
-
-
-            self.objects_to_track = {}
-            for idx in ib.elements:
-                if ib.elements[idx].isChecked():
-                    self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
-            '''
-
-        # self.initialize_positions_dataframe()
-
-        # self.initialize_areas_dataframe()
-
-        # delete positions on last frame
-        if self.frame_idx - 1 in self.mem_position_objects:
-            del self.mem_position_objects[self.frame_idx - 1]
-        self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
-
-        logging.debug(f"coord_df: {self.coord_df.head()}")
-
-        logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
-
-        self.process_and_show()
-
-
-    def repick_objects(self):
-        """
-        allow user to manually repick objects from image by clicking
-        """
-
-        if not self.objects_to_track:
-            return
-
-        if self.previous_frame is not None:
-            self.fw[2].show()
-            frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
-                                                             self.mem_position_objects[self.frame_idx - 1],
-                                                             # self.objects_to_track,
-                                                             marker_type=MARKER_TYPE)
-
-            # self.frame_viewer_scale(2, self.frame_scale)
-            self.display_frame(frame_with_objects, 2)
-
-
-        self.statusBar.showMessage(f"Click object #1 on the frame")
-        self.repicked_objects = []
-        while True:
-            app.processEvents()
-            if self.repicked_objects is None:
-                break
-            if len(self.repicked_objects) == len(self.objects_to_track):  # all objects clicked
-                break
-
-        self.statusBar.showMessage(f"Done")
-
-        # hide previous frame
-        self.fw[2].hide()
-
-        if self.repicked_objects is None:
-            return
-
-        #new_order2 = {o: [] for o in self.objects_to_track}
-        new_order2 = {}
-        new_order = {}
-
-        for idx, (x, y) in enumerate(self.repicked_objects):
-            for o in self.objects_to_track:
-                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
-                    if o not in new_order2:
-                        new_order2[o] = [idx + 1]
-                    else:
-                        new_order2[o].append(idx + 1)
-                    new_order[o] = idx + 1
-
-        '''
-        print(f"new order of objects: {new_order}")
-        print(f"new order2  of objects: {new_order2}")
-        '''
-
-        if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
-        #if True:
-
-            '''
-            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
-            '''
-
-            #print(new_order.keys() == new_order2.keys())
-
-            new_objects_to_track = {}
-            new_objects_to_track2 = {}
-            for o in new_order2:
-                new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
-                new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
-
-            '''
-            print()
-            print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
-            print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
-            '''
-
-
-            self.objects_to_track = copy.deepcopy(new_objects_to_track2)
-
-            #print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
-
-            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                             self.objects_to_track,
-                                                             marker_type=MARKER_TYPE)
-            self.display_frame(frame_with_objects)
-
-            self.repicked_objects = None
-
-        else:  # more new positions than old objects
-
-            contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
-            points1 = np.vstack(contours_list1)
-            points1 = points1.reshape(points1.shape[0], points1.shape[2])
-
-            # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
-            # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
-            centroids_list0 = self.repicked_objects
-
-            logging.debug(f"Known centroids: {centroids_list0}")
-
-            new_contours = doris_functions.group_of(points1, centroids_list0)
-            #print(len(new_contours))
-            #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
-
-            new_filtered_objects = {}
-            # add info to objects: centroid, area ...
-            for idx, cnt in enumerate(new_contours):
-
-                logging.debug(f"idx: {idx} len cnt {len(cnt)}")
-
-                #cnt = cv2.convexHull(cnt)
-
-                n = np.vstack(cnt).squeeze()
-                try:
-                    x, y = n[:, 0], n[:, 1]
-                except Exception:
-                    x = n[0]
-                    y = n[1]
-
-                # centroid
-                cx = int(np.mean(x))
-                cy = int(np.mean(y))
-
-                new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                                 "contour": cnt,
-                                                 "area": cv2.contourArea(cnt),
-                                                 "min": (int(np.min(x)), int(np.min(y))),
-                                                 "max": (int(np.max(x)), int(np.max(y)))
-                                                }
-
-            # print("new_filtered_objects", [(x, new_filtered_objects[x]["centroid"]) for x in new_filtered_objects])
-
-            self.objects_to_track = copy.deepcopy(new_filtered_objects)
-
-            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                             self.objects_to_track,
-                                                             marker_type=MARKER_TYPE)
-
-
-            self.display_frame(frame_with_objects)
-
-
-    def draw_reference_clicked(self):
-        """
-        click on draw reference menu option
-        """
-        self.process_and_show()
-
-
-    def draw_reference(self, frame):
-        """
-        draw reference (100px square) on frame
-        """
-
-        if frame is not None:
             ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
-            text_height = cv2.getTextSize(text=str("1"), fontFace=FONT, fontScale=FONT_SIZE, thickness=drawing_thickness)[0][1]
-            cv2.rectangle(frame, (10, 10), (110, 110), RED, 1)
-            cv2.putText(frame, "100x100 px", (10, 10 + text_height), font, FONT_SIZE, RED, drawing_thickness, cv2.LINE_AA)
+            print(ratio)
 
-        return frame
+            cv2.rectangle(self.frame, (10, 10), (110, 110), RED, 1)
+            cv2.putText(self.frame, "100x100 px", (120, 120), font, ratio, RED, drawing_thickness, cv2.LINE_AA)
+
+            self.display_frame(self.frame)
+
+
 
 
     def draw_marker_on_objects(self, frame, objects, marker_type=MARKER_TYPE):
         """
         draw marker (rectangle or contour) around objects
         marker color from index of object in COLORS_LIST
-
-        Args:
-            frame np.array(): image where to draw markers
-            objects (dict): objects to draw
-            marker_type (str): select the marker type to draw: rectangle or contour
-        Returns:
-            np.array: frame with objects drawn
         """
 
-        logging.debug("function: draw_maker_on_objects")
-
-        # print([(x, objects[x]["centroid"]) for x in objects])
-
+        # print("draw marker nb of objects:", len(objects))
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
-
+            # print("draw marker idx", idx)
             marker_color = COLORS_LIST[(idx - 1) % len(COLORS_LIST)]
+            if marker_type == "rectangle":
+                cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
+            if marker_type == "contour":
+                cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
 
-            if self.actionShow_contour_of_object.isChecked():
-
-                if marker_type == RECTANGLE:
-                    cv2.rectangle(frame, objects[idx]["min"], objects[idx]["max"], marker_color, drawing_thickness)
-
-                if marker_type == CONTOUR:
-                    cv2.drawContours(frame, [objects[idx]["contour"]], 0, marker_color, drawing_thickness)
-
-                cv2.putText(frame, str(idx), objects[idx]["max"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
-
-            if self.actionShow_centroid_of_object.isChecked():
-
-                self.draw_circle_cross(frame, objects[idx]["centroid"], marker_color, drawing_thickness)
-                if not self.actionShow_contour_of_object.isChecked():
-                    cv2.putText(frame, str(idx), objects[idx]["centroid"], font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
-
-            if self.actionShow_object_path.isChecked():
-                try:
-                    for i in range(-OBJECT_PATH_LENGTH, -1):
-                        cv2.line(frame,
-                                 self.mem_position_objects[self.frame_idx + i][idx]["centroid"],
-                                 self.mem_position_objects[self.frame_idx + i + 1][idx]["centroid"],
-                                 marker_color, drawing_thickness + 1)
-                except:
-                    # positions history not long enough
-                    pass
+            cv2.putText(frame, str(idx), objects[idx]["max"], font, ratio, marker_color, drawing_thickness, cv2.LINE_AA)
 
         return frame
 
 
-    def display_frame(self, frame, viewer_idx=0):
+    def display_frame(self, frame):
         """
-        display the current frame in viewer of index viewer_idx
-        """
-
-        self.fw[viewer_idx].lb_frame.setPixmap((frame2pixmap(frame) if viewer_idx in [0, 2] else QPixmap.fromImage(toQImage(frame))).scaled(self.fw[viewer_idx].lb_frame.size(),
-                                               Qt.KeepAspectRatio))
-
-
-    def draw_areas(self, frame, drawing_thickness):
-        """
-        draw the user defined areas
+        display the current frame in viewer
         """
 
-        text_height = cv2.getTextSize(text=str("1"), fontFace=FONT, fontScale=FONT_SIZE, thickness=drawing_thickness)[0][1]
-
-        for area in self.areas:
-            if "type" in self.areas[area]:
-                if self.areas[area]["type"] == "circle":
-                    cv2.circle(frame, tuple(self.areas[area]["center"]), self.areas[area]["radius"],
-                               color=AREA_COLOR, thickness=drawing_thickness)
-                    cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["center"][0] + self.areas[area]["radius"], self.areas[area]["center"][1])),
-                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-
-                if self.areas[area]["type"] == "rectangle":
-                    cv2.rectangle(frame, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
-                                  color=AREA_COLOR, thickness=drawing_thickness)
-                    cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["pt1"][0], self.areas[area]["pt1"][1] + text_height)),
-                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-
-                if self.areas[area]["type"] == "polygon":
-                    for idx, point in enumerate(self.areas[area]["points"][:-1]):
-                        cv2.line(frame, tuple(point), tuple(self.areas[area]["points"][idx + 1]),
-                                 color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    cv2.line(frame, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]),
-                             color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    cv2.putText(frame, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
-                                font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
-        return frame
+        self.fw[0].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[0].lb_frame.size(), Qt.KeepAspectRatio))
 
 
-
-    def draw_arena(self, frame, drawing_thickness):
+    def display_processed_frame(self, frame):
         """
-        draw arena
+        show treated frame in viewer
         """
-        if self.arena:
-            if self.arena["type"] == "polygon":
-                for idx, point in enumerate(self.arena["points"][:-1]):
-                    cv2.line(frame, tuple(point), tuple(self.arena["points"][idx + 1]),
-                             color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
-                cv2.line(frame, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
-                         color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
 
-            if self.arena["type"] == "circle":
-                cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
-                           color=ARENA_COLOR, thickness=drawing_thickness)
-
-            if self.arena["type"] == "rectangle":
-                cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
-                              color=ARENA_COLOR, thickness=drawing_thickness)
-
-        return frame
+        self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[1].lb_frame.size(), Qt.KeepAspectRatio))
 
 
     def process_and_show(self):
         """
         process frame and show results
         """
-
-        logging.debug(f"function: process_and_show    self.frame is None: {self.frame is None}")
 
         if self.frame is None:
             return
@@ -1969,339 +1094,156 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         (all_objects, filtered_objects) = doris_functions.detect_and_filter_objects(frame=processed_frame,
                                                                   min_size=self.sbMin.value(),
                                                                   max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA,
+                                                                  previous_objects=self.mem_filtered_objects
                                                                  )
 
-        logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
-
-        contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-        #logging.debug(f"contours_list before: {contours_list}")
-        logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
-
         # check filtered objects number
-        # no filtered object
-        if len(filtered_objects) == 0 and len(self.objects_to_track):
-            logging.debug("No filtered objects")
-            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                             {},
-                                                             marker_type=MARKER_TYPE)
-            self.display_frame(frame_with_objects, 0)
-            self.display_frame(processed_frame, 1)
-            #self.display_processed_frame(processed_frame)
-            QMessageBox.critical(self, "DORIS", "No object detected")
-            if self.running_tracking:
-                self.flag_stop_tracking = True
-            return
+        # apply clustering when number of objects detected are different then required
+        if filtered_objects and len(filtered_objects) != self.sb_largest_number.value():
+            contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
+            new_contours = doris_functions.apply_k_means(contours_list, self.sb_largest_number.value())
+            # print("new_contours nb", len(new_contours))
 
-        # test match shapes
-        '''
-        if self.frame_idx - 1 in self.mem_position_objects:
-            for o in filtered_objects:
-                for o2 in self.mem_position_objects[self.frame_idx - 1]:
-                    print(f"match shapes: {o} - {o2}", cv2.matchShapes(filtered_objects[o]["contour"],
-                                         self.mem_position_objects[self.frame_idx - 1][o2]["contour"],
-                                         1, 0.0)
-                    )
-        '''
+            new_filtered_objects = {}
+            # add info to objects: centroid, area ...
+            for idx, cnt in enumerate(new_contours):
+                # print("cnt", type(cnt))
+                M = cv2.moments(cnt)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                else:
+                    cx, cy = 0, 0
+                n = np.vstack(cnt).squeeze()
+                try:
+                    x, y = n[:, 0], n[:, 1]
+                except Exception:
+                    x = n[0]
+                    y = n[1]
 
+                new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
+                                                 "contour": cnt,
+                                                 "area": cv2.contourArea(cnt),
+                                                 "min": (int(np.min(x)), int(np.min(y))),
+                                                 "max": (int(np.max(x)), int(np.max(y)))
+                                                }
+            filtered_objects = dict(new_filtered_objects)
 
-        # filtered object are less than objects to track
-        # apply clustering
-        if len(filtered_objects) < len(self.objects_to_track):
-
-            if self.frame_idx - 1 not in self.mem_position_objects:  # k-means
-            #if True:  # disabled aggregation of points to previous centroid due to a bug
-                logging.debug("Filtered object(s) are less than objects to track: applying k-means clustering")
-
-                contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-                new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
-
-                logging.debug(f"new contours after kmeans: {new_contours}")
-
-                new_filtered_objects = {}
-                # add info to objects: centroid, area ...
-                for idx, cnt in enumerate(new_contours):
-                    # print("cnt", type(cnt))
-
-                    #cnt = cv2.convexHull(cnt)
-
-                    M = cv2.moments(cnt)
-
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                    else:
-                        cx, cy = 0, 0
-                    n = np.vstack(cnt).squeeze()
-                    try:
-                        x, y = n[:, 0], n[:, 1]
-                    except Exception:
-                        x = n[0]
-                        y = n[1]
-
-                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                                     "contour": cnt,
-                                                     "area": cv2.contourArea(cnt),
-                                                     "min": (int(np.min(x)), int(np.min(y))),
-                                                     "max": (int(np.max(x)), int(np.max(y)))
-                                                    }
-                filtered_objects = dict(new_filtered_objects)
-
-            else: # previous centroids known
-                logging.debug("filtered object are less than objects to track: group by distances to centroids")
-
-                # test if object does not moved and shape unmodified
-                '''
-                for o in filtered_objects:
-                    #for o2 in self.mem_position_objects[self.frame_idx - 1]:
-                    match_shape = cv2.matchShapes(filtered_objects[o]["contour"],
-                                         self.mem_position_objects[self.frame_idx - 1][o]["contour"],
-                                         1, 0.0)
-                    print(f"match shapes {o} ", match_shape)
-                    print(filtered_objects[o]["centroid"],
-                          self.mem_position_objects[self.frame_idx - 1][o]["centroid"])
-                    #dist_centroid = ()
-                    #if match_shape
-                '''
-
-
-                contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
-                centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
-                points1 = np.vstack(contours_list1)
-                points1 = points1.reshape(points1.shape[0], points1.shape[2])
-
-                centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in self.mem_position_objects[self.frame_idx - 1]]
-
-                logging.debug(f"Known centroids: {centroids_list0}")
-                logging.debug(f"Detected centroids: {centroids_list1}")
-
-                #new_contours = doris_functions.group_sc(points1, centroids_list0, centroids_list1)
-
-                new_contours = doris_functions.group_of(points1, centroids_list0)
-
-                if [True for x in new_contours if len(x) == 0]:
-                    logging.debug("one contour is null. Applying k-means")
-                    contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-                    new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
-
-
-                logging.debug(f"number of new contours after group: {len(new_contours)}")
-
-                new_filtered_objects = {}
-                # add info to objects: centroid, area ...
-                for idx, cnt in enumerate(new_contours):
-
-                    '''
-                    print(f"idx: {idx} len cnt {len(cnt)}")
-                    '''
-
-                    #cnt = cv2.convexHull(cnt)
-
-                    n = np.vstack(cnt).squeeze()
-                    try:
-                        x, y = n[:, 0], n[:, 1]
-                    except Exception:
-                        x = n[0]
-                        y = n[1]
-
-                    # centroid
-                    cx = int(np.mean(x))
-                    cy = int(np.mean(y))
-
-                    new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                                     "contour": cnt,
-                                                     "area": cv2.contourArea(cnt),
-                                                     "min": (int(np.min(x)), int(np.min(y))),
-                                                     "max": (int(np.max(x)), int(np.max(y)))
-                                                    }
-                    # print(idx, "centroid", (cx, cy))
-                filtered_objects = dict(new_filtered_objects)
-
-        # assign filtered objects to objects to track
-        if self.objects_to_track:
-            mem_costs = {}
-            obj_indexes = list(filtered_objects.keys())
-            # iterate all combinations of detected objects of length( self.objects_to_track)
-
-            # logging.debug(f"combinations of filtered objects: {obj_indexes}")
-
-            if self.frame_idx -1 in self.mem_position_objects:
-
-                for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
-                    cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1],
-                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
-
-                    # logging.debug(f"index: {indexes} cost: {cost}")
-
-                    mem_costs[cost] = indexes
-
-            else:
-                for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
-                    cost = doris_functions.cost_sum_assignment(self.objects_to_track,
-                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
-                    # logging.debug(f"index: {indexes} cost: {cost}")
-                    mem_costs[cost] = indexes
-
-            min_cost = min(list(mem_costs.keys()))
-            # logging.debug(f"minimal cost: {min_cost}")
-
-            # select new objects to track
-
-            new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-
-            # logging.debug(f"new objects to track : {list(new_objects_to_track.keys())}")
-
-            self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
-
-            self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+        # reorder filtered objects
+        if filtered_objects:
+            filtered_objects = doris_functions.reorder_objects(self.mem_filtered_objects, filtered_objects)
 
 
         # check max distance from previous detected objects
-        if self.sb_max_distance.value():
+        if self.mem_filtered_objects and len(self.mem_filtered_objects) == len(filtered_objects):
+            positions = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
+            mem_positions = [self.mem_filtered_objects[obj_idx]["centroid"] for obj_idx in self.mem_filtered_objects]
+            for idx, p in enumerate(positions):
+                dist = int(round(doris_functions.euclidean_distance(p, mem_positions[idx])))
+                print("distance", dist)
+                if dist > 250:
+                    self.display_frame(self.frame)
+                    self.display_processed_frame(processed_frame)
 
-            if self.frame_idx - 1 in self.mem_position_objects:
+                    QMessageBox.critical(self, "DORIS", "The object #{} moved to far ({} pixels)".format(idx + 1, dist))
+                    self.flag_stop_analysis = True
+                    return
 
-                p1 = np.array([self.mem_position_objects[self.frame_idx - 1][k]["centroid"]
-                               for k in self.mem_position_objects[self.frame_idx - 1]])
-
-                p2 = np.array([self.objects_to_track[k]["centroid"] for k in self.objects_to_track])
-
-                distances = doris_functions.distances(p1, p2)
-                logging.debug(f"distances: {distances}")
-
-                distant_objects = [idx_object for idx_object, distance in enumerate(distances) if distance > self.sb_max_distance.value()]
-
-                dist_max = int(round(np.max(doris_functions.distances(p1, p2))))
-
-                logging.debug(f"dist max: {dist_max}")
-
-                #if dist_max > self.sb_max_distance.value():
-                if distant_objects:
-
-                    logging.debug(f"distance is greater than allowed by user: {distant_objects}")
-
-                    self.update_info(all_objects, filtered_objects, self.objects_to_track)
-                    frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                                     self.objects_to_track,
-                                                                     marker_type=MARKER_TYPE)
-
-                    # show previous positions
-                    ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
-                    for distant_object in distant_objects:
-                        marker_color = COLORS_LIST[(distant_object) % len(COLORS_LIST)]
-                        self.draw_circle_cross(frame_with_objects,
-                                               self.mem_position_objects[self.frame_idx - 1][distant_object + 1]["centroid"],
-                                               marker_color, drawing_thickness)
-
-                        cv2.putText(frame_with_objects,
-                                    str(f" ({distant_object + 1})"),
-                                    self.mem_position_objects[self.frame_idx - 1][distant_object + 1]["centroid"],
-                                    font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
-
-
-                    self.display_frame(frame_with_objects, 0)
-                    self.display_frame(processed_frame, 1)
-                    #self.display_processed_frame(processed_frame)
-
-                    if not self.always_skip_frame:
-                        buttons = ["Pick positions", "Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Go to previous frame"]
-                        if self.running_tracking:
-                            buttons.append("Stop tracking")
-
-                        response = dialog.MessageDialog("DORIS",
-                                                        (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> moved more than allowed.<br>"
-                                                         f"The maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
-                                                         "What do you want to do?"),
-                                                        buttons)
-                    else:
-                        response = SKIP_FRAME
-
-                    if response in [SKIP_FRAME, ALWAYS_SKIP_FRAME]:
-                        # frame skipped and positions are taken from previous frame
-                        if self.cb_record_xy.isChecked():
-                            for idx in sorted(list(self.objects_to_track.keys())):
-                                self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
-                                self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
-
-                        self.objects_to_track = self.mem_position_objects[self.frame_idx - 1]
-                        self.mem_position_objects[self.frame_idx] = dict(self.mem_position_objects[self.frame_idx - 1])
-                        if response == ALWAYS_SKIP_FRAME:
-                            self.always_skip_frame = True
-                        return
-
-                    if response == "Pick positions":
-                        self.repick_objects()
-
-                    if response == "Go to previous frame":
-                        self.for_back_ward(direction="backward")
-                        return
-
-                    if response == "Stop tracking":
-                        self.flag_stop_tracking = True
-                        return
-
-        self.filtered_objects = filtered_objects
+        self.mem_filtered_objects = dict(filtered_objects)
 
         if self.cb_display_analysis.isChecked():
 
-            self.update_info(all_objects, filtered_objects, self.objects_to_track)
+            self.update_info(all_objects, filtered_objects)
+
+            # draw contour of objects
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                             filtered_objects,
+                                                             marker_type=MARKER_TYPE)
 
             _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
 
-            # draw arena
-            frame_with_objects = self.draw_arena(self.frame.copy(), drawing_thickness)
-
-            # draw reference (100 px square)
-            if self.actionDraw_reference.isChecked():
-                frame_with_objects = self.draw_reference(frame_with_objects)
-
-            # draw coordinate center if defined
-            if self.coordinate_center != [0, 0]:
-                frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
-
             # draw areas
-            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
+            for area in self.areas:
+                if "type" in self.areas[area]:
+                    if self.areas[area]["type"] == "circle":
+                        cv2.circle(frame_with_objects, tuple(self.areas[area]["center"]), self.areas[area]["radius"],
+                                   color=AREA_COLOR, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["center"]),
+                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
-            # draw contour of objects
-            if self.objects_to_track:
-                # draw contours of tracked objects
-                frame_with_objects = self.draw_marker_on_objects(frame_with_objects,
-                                                                 self.objects_to_track,
-                                                                 marker_type=MARKER_TYPE)
-            else:
-                # draw contours of filtered objects
-                frame_with_objects = self.draw_marker_on_objects(frame_with_objects,
-                                                                 filtered_objects,
-                                                                 marker_type=MARKER_TYPE)
+                    if self.areas[area]["type"] == "rectangle":
+                        cv2.rectangle(frame_with_objects, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
+                                      color=AREA_COLOR, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["pt1"]),
+                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
+                    if self.areas[area]["type"] == "polygon":
+                        for idx, point in enumerate(self.areas[area]["points"][:-1]):
+                            cv2.line(frame_with_objects, tuple(point), tuple(self.areas[area]["points"][idx + 1]),
+                                     color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                        cv2.line(frame_with_objects, tuple(self.areas[area]["points"][-1]), tuple(self.areas[area]["points"][0]),
+                                 color=RED, lineType=8, thickness=drawing_thickness)
+                        cv2.putText(frame_with_objects, self.areas[area]["name"], tuple(self.areas[area]["points"][0]),
+                                    font, 1, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
+
+            # draw arena
+            if self.arena:
+
+                if self.arena["type"] == "polygon":
+                    for idx, point in enumerate(self.arena["points"][:-1]):
+                        cv2.line(frame_with_objects, tuple(point), tuple(self.arena["points"][idx + 1]),
+                                 color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                    cv2.line(frame_with_objects, tuple(self.arena["points"][-1]), tuple(self.arena["points"][0]),
+                             color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
+                    # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["points"][0]),
+                    # font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+
+                if self.arena["type"] == "circle":
+                    cv2.circle(frame_with_objects, tuple(self.arena["center"]), self.arena["radius"],
+                               color=ARENA_COLOR, thickness=drawing_thickness)
+                    # cv2.putText(modified_frame, self.arena["name"], tuple(self.arena["center"]), font, 0.5, ARENA_COLOR, 1, cv2.LINE_AA)
+
+                if self.arena["type"] == "rectangle":
+                    cv2.rectangle(frame_with_objects, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
+                                  color=ARENA_COLOR, thickness=drawing_thickness)
 
             # display frames
-            self.display_frame(frame_with_objects, 0)
-            self.display_frame(processed_frame, 1)
-
-            #self.display_processed_frame(processed_frame)
+            self.display_frame(frame_with_objects)
+            self.display_processed_frame(processed_frame)
 
         #  record objects data
-        self.record_objects_data(self.frame_idx, self.objects_to_track)
+        self.record_objects_data(self.frame_idx, filtered_objects)
 
+        '''
+        self.update_info(all_objects, filtered_objects)
 
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                        filtered_objects,
+                                        marker_type="contour")
+
+        self.display_frame(frame_with_objects)
+        sel.display_treated_frame(processed_frame)
+        '''
 
     def show_all_objects(self):
         """
-        display all objects on frame
+
         """
         if self.frame is None:
             return
 
         all_objects, _ = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
-                                                                   min_size=self.sbMin.value(),
-                                                                   max_size=self.sbMax.value(),
-                                                                   arena=self.arena,
-                                                                   max_extension=self.sb_max_extension.value(),
-                                                                   #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
-                                                                   )
+                                                                  min_size=self.sbMin.value(),
+                                                                  max_size=self.sbMax.value(),
+                                                                  largest_number=self.sb_largest_number.value(),
+                                                                  arena=self.arena,
+                                                                  max_extension=self.sb_max_extension.value(),
+                                                                  tolerance_outside_arena=TOLERANCE_OUTSIDE_ARENA
+                                                                 )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                          all_objects,
@@ -2309,102 +1251,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.display_frame(frame_with_objects)
 
 
-
-    def show_all_filtered_objects(self):
-        """
-        display all filtered objects on frame
-        """
-        if self.frame is None:
-            return
-
-        _, filtered_objects = doris_functions.detect_and_filter_objects(frame=self.frame_processing(self.frame),
-                                                                        min_size=self.sbMin.value(),
-                                                                        max_size=self.sbMax.value(),
-                                                                        arena=self.arena,
-                                                                        max_extension=self.sb_max_extension.value(),
-                                                                        #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
-                                                                        )
-
-        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                         filtered_objects,
-                                                         marker_type="contour")
-        self.display_frame(frame_with_objects)
-
-
-    def force_objects_number(self):
-        """
-        separate initial aggregated objects using k-means clustering to arbitrary number of objects
-        """
-
-
-        logging.debug("function: force_objects_number")
-        if not self.filtered_objects:
-            return
-        logging.debug(f"filtered objects: {list(self.filtered_objects.keys())}")
-
-        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects to filter", "Number of objects:", 1, 1, 1000, 1)
-        if (not ok_pressed) or (not nb_obj):
-            return
-
-        contours_list = [self.filtered_objects[x]["contour"] for x in self.filtered_objects]
-        new_contours = doris_functions.apply_k_means(contours_list, nb_obj)
-
-        logging.debug(f"Number of new contours: {len(new_contours)}")
-
-        new_filtered_objects = {}
-        # add info to objects: centroid, area ...
-        for idx, cnt in enumerate(new_contours):
-            M = cv2.moments(cnt)
-            if M["m00"] != 0:
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
-            else:
-                cx, cy = 0, 0
-            n = np.vstack(cnt).squeeze()
-            try:
-                x, y = n[:, 0], n[:, 1]
-            except Exception:
-                x, y = n[0], n[1]
-
-            new_filtered_objects[idx + 1] = {"centroid": (cx, cy),
-                                             "contour": cnt,
-                                             "area": cv2.contourArea(cnt),
-                                             "min": (int(np.min(x)), int(np.min(y))),
-                                             "max": (int(np.max(x)), int(np.max(y)))
-                                            }
-        self.filtered_objects = dict(new_filtered_objects)
-
-        logging.debug(f"number filtered objects after k-means: {len(self.filtered_objects)}")
-        logging.debug(f"filtered objects after k-means: {list(self.filtered_objects.keys())}")
-
-        self.update_info(all_objects=None,
-                         filtered_objects=self.filtered_objects,
-                         tracked_objects=self.objects_to_track)
-
-        # draw contour of objects
-        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                         self.filtered_objects,
-                                                         marker_type=MARKER_TYPE)
-
-        self.display_frame(frame_with_objects)
-
-
     def closeEvent(self, event):
-
-
-        if self.coord_df is not None:
-            if dialog.MessageDialog("DORIS",
-                                    (f"Check if your data are saved and confirm close."),
-                                    ["Cancel", "Close program"]) == "Cancel":
-                event.ignore()
-                return
-
-        if self.capture:
+        try:
             self.capture.release()
+            cv2.destroyAllWindows()
+        except:
+            pass
 
         try:
-            for i in range(3):
-               self.fw[i].close()
+            self.fw[0].close()
+            self.fw[1].close()
         except Exception:
             pass
 
@@ -2413,82 +1269,59 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         create areas for object in areas function from te_area_definition
         """
-
-        logging.debug("function: activate_areas")
-
         areas = {}
         for idx in range(self.lw_area_definition.count()):
+            print(self.lw_area_definition.item(idx).text())
             d = eval(self.lw_area_definition.item(idx).text())
             if "name" in d:
                 areas[d["name"]] = eval(self.lw_area_definition.item(idx).text())
         self.areas = areas
 
-        self.process_and_show()
+        self.pb()
 
 
-    def update_info(self, all_objects, filtered_objects, tracked_objects=None):
-        """
-        update info about objects in text edit boxes
-        """
+    def update_info(self, all_objects, filtered_objects):
 
         # update information on GUI
-        if all_objects is not None:
-            self.lb_all.setText(f"All detected objects ({len(all_objects)})")
-            out = ""
-            for idx in sorted(all_objects.keys()):
-                out += f"Object #{idx}: {all_objects[idx]['area']} px\n"
-            self.te_all_objects.setText(out)
+        self.lb_all.setText("All objects detected ({})".format(len(all_objects)))
+        out = ""
+        for idx in sorted(all_objects.keys()):
+            out += "Object #{}: {} pixels\n".format(idx, all_objects[idx]["area"])
+        self.te_all_objects.setText(out)
 
-        self.lb_filtered.setText(f"Filtered objects ({len(filtered_objects)})")
+        self.lb_filtered.setText("Filtered objects ({})".format(len(filtered_objects)))
+        if self.sb_largest_number.value() and len(filtered_objects) < self.sb_largest_number.value():
+            self.lb_filtered.setStyleSheet('color: red')
+        else:
+            self.lb_filtered.setStyleSheet("")
 
         out = ""
         for idx in filtered_objects:
-            out += f"Object #{idx}: {filtered_objects[idx]['area']} px\n"
-        self.te_filtered_objects.setText(out)
-
-        if tracked_objects:
-            self.lb_tracked_objects.setStyleSheet("")
-            out = ""
-            for idx in tracked_objects:
-                out += f"Object #{idx}: {tracked_objects[idx]['area']} px\n"
-            self.te_tracked_objects.setText(out)
-        else:
-            self.lb_tracked_objects.setStyleSheet("color: red")
+            out += "Object #{}: {} pixels\n".format(idx, filtered_objects[idx]["area"])
+        self.te_objects.setText(out)
 
 
-
-    def pb(self) -> bool:
+    def pb(self, nf=1):
         """
-        read next frame and do some analysis
-
-        Returns:
-            bool: True if frame else False
+        read 'nf' frames and do some analysis
         """
-
-        logging.debug("function: pb")
-
         if self.dir_images:
-
             if self.dir_images_index < len(self.dir_images) - 1:
                 self.dir_images_index += 1
             else:
-                self.flag_stop_tracking = False
+                self.flag_stop_analysis = False
                 self.statusBar.showMessage("Last image of dir")
-                return False
-            self.previous_frame = self.frame
+                return False, {}
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
         else:
 
             if self.capture is not None:
-                self.previous_frame = self.frame
                 ret, self.frame = self.capture.read()
                 if not ret:
-                    self.flag_stop_tracking = False
-                    return False
+                    return False, {}
             else:
-                self.flag_stop_tracking = False
-                return False
+                return False, {}
 
         self.update_frame_index()
 
@@ -2496,65 +1329,33 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         app.processEvents()
 
-        return True
+        return True  # , {"frame": self.frame_idx, "objects": filtered_objects}
 
 
     def record_objects_data(self, frame_idx, objects):
         """
-        record objects coordinates and presence in areas defined by user
+        write objects data in widgets
         """
 
-        if not self.objects_to_track:
-            return
-
-        # objects positions
         if self.cb_record_xy.isChecked():
-
-            if self.coord_df is None:
-                QMessageBox.warning(self, "DORIS", "No objects to track")
-                return
-
-            logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
-
-            # frame idx
-            self.coord_df.ix[frame_idx, "frame"] = frame_idx
-            # tag
-            self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
-
-            '''logging.debug(f"coord_df 1: {self.coord_df}")'''
+            pos = []
 
             for idx in sorted(list(objects.keys())):
-                if self.cb_normalize_coordinates.isChecked():
-                    self.coord_df.ix[frame_idx, f"x{idx}"] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
-                    self.coord_df.ix[frame_idx, f"y{idx}"] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
-                else:
-                    self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
-                    self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
+                pos.append(objects[idx]["centroid"])
 
-            # set NaN to next frames
-            self.coord_df.loc[frame_idx + 1:] = np.nan
+            self.positions.append(pos)
 
-            '''logging.debug(f"coord_df 2: {self.coord_df}")'''
+            out = ""
+            for p in pos:
+                out += "{},{}\t".format(p[0] - self.coordinate_center[0], p[1] - self.coordinate_center[1])
+            self.te_xy.append(out.strip())
 
-            if self.cb_display_analysis.isChecked():
-                self.te_xy.clear()
-                self.te_xy.append(str(self.coord_df[frame_idx - 3: frame_idx + 3 + 1]))
 
-        # presence in areas
         if self.cb_record_number_objects.isChecked():
 
             nb = {}
-            if self.areas_df is None:
-                QMessageBox.warning(self, "DORIS", "No objects to track")
-                return
 
-            # frame idx
-            self.areas_df.ix[frame_idx, "frame"] = frame_idx
-            # tag
-            self.areas_df.ix[frame_idx, "tag"] = self.le_tag.text()
-
-
-            for area in sorted(list(self.areas.keys())):
+            for area in sorted(self.areas.keys()):
 
                 nb[area] = 0
 
@@ -2562,13 +1363,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cx, cy = self.areas[area]["center"]
                     radius = self.areas[area]["radius"]
 
-                    for idx in objects:
+                    for idx in sorted(list(objects.keys())):
                         x, y = objects[idx]["centroid"]
+
                         if ((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius:
                             nb[area] += 1
-
-                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
-
 
                 if self.areas[area]["type"] == "rectangle":
                     minx, miny = self.areas[area]["pt1"]
@@ -2576,324 +1375,164 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(minx <= x <= maxx and miny <= y <= maxy)
 
                         if minx <= x <= maxx and miny <= y <= maxy:
+                            # print("object #{} in area {}".format(idx, area))
                             nb[area] += 1
 
                 if self.areas[area]["type"] == "polygon":
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0)
-
                         if cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0:
                             nb[area] += 1
 
-            if self.cb_display_analysis.isChecked():
-                self.te_number_objects.clear()
-                self.te_number_objects.append(str(self.areas_df[frame_idx - 3: frame_idx + 3 + 1]))
-
             self.objects_number.append(nb)
 
+            out = "{}\t".format(self.frame_idx)
+            '''for area in sorted(self.areas.keys()):
+                out += "{area}: {nb}\t".format(area=area, nb=nb[area])
+            '''
+            out += "\t".join([str(nb[area]) for area in sorted(self.areas.keys())])
+            # header
+            if not self.te_number_objects.toPlainText():
+                self.te_number_objects.append("frame\t" + "\t".join(list(sorted(self.areas.keys()))))
 
-    def stop_tracking(self):
+            self.te_number_objects.append(out)
+
+
+    def run_analysis(self):
         """
-        stop running tracking
-        """
-        self.running_tracking = False
-        self.flag_stop_tracking = False
-        self.pb_run_tracking.setChecked(False)
-        self.pb_run_tracking_frame_interval.setChecked(False)
-        self.always_skip_frame = False
-        logging.info("tracking stopped")
-
-
-    def run_tracking(self):
-        """
-        run tracking from current frame to end
+        run analysis from current frame to end
         """
 
-        # check if objects to track are defined
-        if not self.objects_to_track :
-            QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
-            self.pb_run_tracking.setChecked(False)
-            return
-
-        '''
-        if self.flag_stop_tracking:
-            return
-        '''
-
-        if self.running_tracking:
-            self.flag_stop_tracking = True
+        if self.flag_stop_analysis:
             return
 
         if not self.dir_images:
             try:
                 self.capture
             except:
-                self.stop_tracking()
                 QMessageBox.warning(self, "DORIS", "No video")
                 return
 
-        self.running_tracking = True
-        self.pb_run_tracking.setChecked(True)
         while True:
             if not self.pb():
-                self.stop_tracking()
                 break
 
             app.processEvents()
-            if self.flag_stop_tracking:
-                self.stop_tracking()
+            if self.flag_stop_analysis:
                 break
 
-        self.flag_stop_tracking = False
+        self.flag_stop_analysis = False
 
 
-    def run_tracking_frames_interval(self):
-        """
-        run tracking in a frames interval
-        """
-        # check if objects to track are defined
-        if not self.objects_to_track :
-            QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
-            self.pb_run_tracking_frame_interval.setChecked(False)
-            return
-
-        if self.running_tracking:
-            self.flag_stop_tracking = True
-            '''QMessageBox.warning(self, "DORIS", "A tracking task is already running")'''
-            return
-
-        try:
-            text, ok = QInputDialog.getText(self, "Run tracking", "Frames interval: (ex. 123-456)")
-            if not ok:
-                return
-            start_frame, stop_frame = [int(x) for x in text.split("-")]
-            if start_frame >= stop_frame:
-                raise
-        except:
-            QMessageBox.warning(self, "DORIS", f"{text} is not a valid interval")
-            return
-
-        logging.info(f"start_frame: {start_frame} stop frame: {stop_frame}")
-        self.go_to_frame(start_frame - 1)
-
-        self.running_tracking = True
-        while True:
-            if not self.pb():
-                self.stop_tracking()
-                break
-
-            app.processEvents()
-
-            if self.frame_idx >= stop_frame:
-                self.stop_tracking()
-                break
-
-            if self.flag_stop_tracking:
-                self.stop_tracking()
-                break
-
-        self.flag_stop_tracking = False
-
-
-    '''
-    def stop_button(self):
+    def stop(self):
         """
         stop analysis
         """
-        if self.running_tracking:
-            self.flag_stop_tracking = True
-    '''
-
-    def new_project(self):
-        """
-        initialize program fro new project
-        """
-
-        self.objects_to_track = {}
-        self.te_tracked_objects.clear()
-        self.mem_position_objects = {}
-        self.coord_df = None
-        self.areas_df = None
-
-        self.te_xy.clear()
-        self.te_number_objects.clear()
-
-        self.always_skip_frame = False
-        self.sb_start_from.setValue(0)
-        self.sb_stop_to.setValue(0)
-        self.sb_frame_offset.setValue(1)
-
-        self.coordinate_center = [0, 0]
-        self.le_coordinates_center.setText(f"{self.coordinate_center}")
-
-        self.flag_define_scale = False
-        self.scale_points = []
-        self.reload_frame()
-        self.scale = 1
-        self.le_scale.setText("1")
-
-        self.sbMin.setValue(0)
-        self.sbMax.setValue(0)
-        self.sb_max_extension.setValue(0)
-        self.sb_max_distance.setValue(DIST_MAX)
-        self.sb_blur.setValue(BLUR_DEFAULT_VALUE)
-        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
-        self.cb_threshold_method.setCurrentIndex(0)
-        self.le_tag.clear()
-
-        self.cb_record_xy.setChecked(False)
-        self.cb_normalize_coordinates.setChecked(False)
-        self.cb_display_analysis.setChecked(True)
-
-        self.clear_arena()
-
-        if self.capture:
-            self.capture.release()
-
-        self.te_all_objects.clear()
-        self.te_filtered_objects.clear()
-
-        self.project_path = ""
-        self.dir_images = ""
-        self.setWindowTitle(f"DORIS v. {version.__version__}")
-
-        self.frame_idx = 0
-
-        self.video_height, self.video_width = 0, 0
-        self.videoFileName = ""
-
-        self.lw_area_definition.clear()
-        self.areas = {}
-
-        self.__init__()
-
-        try:
-            for i in range(3):
-               self.fw[i].close()
-        except Exception:
-            pass
+        self.flag_stop_analysis = True
 
 
     def open_project(self, file_name=""):
         """
         open a project file and load parameters
         """
-
-        logging.debug("open_project")
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
-
-        if not file_name:
-            return
-
-        if not os.path.isfile(file_name):
-            QMessageBox.critical(self, "DORIS", f"{file_name} not found")
-            return
-
-        try:
-            with open(file_name) as f_in:
-                config = json.loads(f_in.read())
-
-            self.sb_start_from.setValue(config.get("start_from", 0))
-            self.sb_stop_to.setValue(config.get("stop_to", 0))
-            self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
-            self.cb_invert.setChecked(config.get("invert", False))
-            self.cb_normalize_coordinates.setChecked(config.get("normalize_coordinates", False))
-
+        if file_name:
             try:
-                self.arena = config["arena"]
-                if self.arena:
-                    self.pb_define_arena.setEnabled(False)
-                    self.pb_clear_arena.setEnabled(True)
-                    self.le_arena.setText(str(config["arena"]))
-            except KeyError:
-                logging.info("arena not found")
-
-            self.sbMin.setValue(config.get("min_object_size", 0))
-            self.sbMax.setValue(config.get("max_object_size", 0))
-            if "object_max_extension" in config:
-                self.sb_max_extension.setValue(config["object_max_extension"])
-            '''
-            if "percent_out_of_arena" in config:
-                self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
-            '''
-            if "threshold_method" in config:
-                self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
-            if "block_size" in config:
-                self.sb_block_size.setValue(config["block_size"])
-            if "offset" in config:
-                self.sb_offset.setValue(config["offset"])
-            if "cut_off" in config:
-                self.sb_threshold.setValue(config["cut_off"])
-
-            if "scale" in config:
-                self.le_scale.setText(f"{config['scale']:0.5f}")
-                self.scale = config["scale"]
-
-            try:
-                self.areas = config["areas"]
-                if self.areas:
-                    self.lw_area_definition.clear()
-                    for area in self.areas:
-                        self.lw_area_definition.addItem(str(self.areas[area]))
-            except KeyError:
-                self.areas = {}
-
-            if "video_file_path" in config:
+                with open(file_name) as f_in:
+                    config = json.loads(f_in.read())
                 try:
-                    if os.path.isfile(config["video_file_path"]):
-                        self.open_video(config["video_file_path"])
-                    else:
-                        QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
-                        return None
-                except Exception:
+                    self.sb_blur.setValue(config["blur"])
+                except:
+                    pass
+                try:
+                    self.cb_invert.setChecked(config["invert"])
+                except:
+                    pass
+                try:
+                    self.arena = config["arena"]
+                    if self.arena:
+                        self.pb_define_arena.setEnabled(False)
+                        self.pb_clear_arena.setEnabled(True)
+                        self.le_arena.setText(str(config["arena"]))
+                except:
+                    print("arena not found")
+
+                try:
+                    self.sbMin.setValue(config["min_object_size"])
+                except:
+                    pass
+                try:
+                    self.sbMax.setValue(config["max_object_size"])
+                except:
+                    pass
+                try:
+                    self.sb_largest_number.setValue(config["number_of_objects_to_detect"])
+                except:
+                    pass
+                try:
+                    self.sb_max_extension.setValue(config["object_max_extension"])
+                except:
                     pass
 
-            if "dir_images" in config:
                 try:
-                    if os.path.isdir(config["dir_images"]):
-                        self.load_dir_images(config["dir_images"])
-                    else:
-                        QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
-                        return None
-                except Exception:
+                    self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
+                except:
                     pass
 
-            self.coordinate_center = config.get("referential_system_origin", [0,0])
-            self.le_coordinates_center.setText(f"{self.coordinate_center}")
+                try:
+                    self.sb_block_size.setValue(config["block_size"])
+                except:
+                    pass
 
-            self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
-            self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
-            self.actionDraw_reference.setChecked(config.get("show_reference", False))
-            self.sb_max_distance.setValue(config.get("max_distance", 0))
+                try:
+                    self.sb_offset.setValue(config["offset"])
+                except:
+                    pass
 
-            original_frame_viewer_position = config.get("original_frame_viewer_position", [20, 20])
-            self.fw[0].move(*original_frame_viewer_position)
+                try:
+                    self.sb_threshold.setValue(config["cut_off"])
+                except:
+                    pass
 
-            self.frame_scale = config.get("frame_scale", DEFAULT_FRAME_SCALE)
-            self.fw[0].zoom.setCurrentText(str(self.frame_scale))
-            self.frame_viewer_scale(0, self.frame_scale)
+                try:
+                    self.areas = config["areas"]
+                    if self.areas:
+                        self.lw_area_definition.clear()
+                        for area in self.areas:
+                            self.lw_area_definition.addItem(str(self.areas[area]))
+                except:
+                    self.areas = {}
 
-            self.fw[1].move(*config.get("processed_frame_viewer_position", [40, 40]))
+                try:
+                    self.cb_record_number_objects.setChecked(config["record_number_of_objects_by_area"])
+                except:
+                    pass
 
-            self.processed_frame_scale = config.get("processed_frame_scale", DEFAULT_FRAME_SCALE)
-            self.frame_viewer_scale(1, self.processed_frame_scale)
+                try:
+                    self.cb_record_xy.setChecked(config["record_objects_coordinates"])
+                except:
+                    pass
 
-            if self.sb_start_from.value():
-                self.go_to_frame(self.sb_start_from.value())
-            else:
-                self.process_and_show()
+                if "video_file_path" in config:
+                    try:
+                        if os.path.isfile(config["video_file_path"]):
+                            self.open_video(config["video_file_path"])
+                    except Exception:
+                        pass
 
-        except Exception:
-            logging.warning("Error in project file")
-            raise
+                if "dir_images" in config:
+                    try:
+                        if os.path.isdir(config["dir_images"]):
+                            self.load_dir_images(config["dir_images"])
+                    except Exception:
+                        pass
 
-        self.project_path = file_name
-        self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
+            except Exception:
+                print("Error in project file")
+                raise
 
 
 if __name__ == "__main__":
@@ -2901,19 +1540,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DORIS (Detection of Objects Research Interactive Software)")
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
-    parser.add_argument("-p", action="store", dest="project_file", help="path of project file")
-    parser.add_argument("-i", action="store", dest="video_file", help="path of video file")
-    parser.add_argument("-d", action="store", dest="directory", help="path of images directory")
-    '''parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")'''
-    '''parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")'''
-    parser.add_argument("--threshold", action="store", default=THRESHOLD_DEFAULT, dest="threshold", help="Threshold value")
-    parser.add_argument("--blur", action="store", default=BLUR_DEFAULT_VALUE, dest="blur", help="Blur value")
+    parser.add_argument("-p", action="store",  dest="project_file", help="path of project file")
+    parser.add_argument("-i", action="store",  dest="video_file", help="path of video file")
+    parser.add_argument("-d", action="store",  dest="directory", help="path of images directory")
+    parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")
+    parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")
+    parser.add_argument("--threshold", action="store", default=50, dest="threshold", help="Threshold value")
+    parser.add_argument("--blur", action="store", dest="blur", help="Blur value")
     parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
 
 
     options = parser.parse_args()
     if options.version:
-        print(f"version {version.__version__} release date: {version.__version_date__}")
+        print("version {} release date: {}".format(version.__version__, version.__version_date__))
         sys.exit()
 
     app = QApplication(sys.argv)
@@ -2921,11 +1560,8 @@ if __name__ == "__main__":
 
     if options.project_file:
         if os.path.isfile(options.project_file):
-            if w.open_project(options.project_file) is None:
-                sys.exit()
-        else:
-            print(f"{options.project_file} not found!")
-            sys.exit()
+            w.open_project(options.project_file)
+
     else:
 
         if options.blur:
@@ -2940,16 +1576,38 @@ if __name__ == "__main__":
             if os.path.isfile(options.video_file):
                 w.open_video(options.video_file)
             else:
-                print(f"{options.video_file} not found")
+                print("{} not found".format(options.video_file))
                 sys.exit()
 
         if options.directory:
             if os.path.isdir(options.directory):
                 w.load_dir_images(options.directory)
             else:
-                print(f"{options.directory} directory not found")
+                print("{} directory not found".format(options.directory))
+                sys.exit()
+
+        if options.areas_file:
+            if os.path.isfile(options.areas_file):
+                w.open_areas(options.areas_file)
+            else:
+                print("{} not found".format(options.areas_file))
+                sys.exit()
+
+        if options.arena_file:
+            if os.path.isfile(options.arena_file):
+                with open(options.arena_file) as f:
+                    content = f.read()
+                w.le_arena.setText(content)
+
+                w.arena = eval(content)
+
+                w.pb_define_arena.setEnabled(False)
+                w.pb_clear_arena.setEnabled(True)
+            else:
+                print("{} not found".format(options.arena_file))
                 sys.exit()
 
     w.show()
     w.raise_()
+    w.pb()
     sys.exit(app.exec_())
