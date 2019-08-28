@@ -1284,6 +1284,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         view dataframe of recorded coordinates
         """
+
         if self.coord_df is not None and self.objects_to_track:
 
             w = dialog.Results_dialog()
@@ -1297,7 +1298,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
                 print(df)
             '''
-            w.ptText.appendPlainText(self.coord_df.to_string())
+            w.ptText.appendPlainText(self.coord_df.iloc[:, 1:].to_string(index=False))
+
             w.exec_()
 
 
@@ -2564,7 +2566,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 
             # frame idx
-            self.coord_df.ix[frame_idx, "frame"] = frame_idx
+            self.coord_df.ix[frame_idx, "frame"] = frame_idx + 1
             # tag
             self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
 
@@ -2585,7 +2587,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()
-                self.te_xy.append(str(self.coord_df[frame_idx - 3: frame_idx + 3 + 1]))
+                if frame_idx > 2:
+                    start = frame_idx - 3
+                else:
+                    start = 0
+                # self.te_xy.append(str(self.coord_df[start: frame_idx + 3 + 1]))
+
+                self.te_xy.append(self.coord_df.iloc[start: frame_idx + 3 + 1,1:].to_string(index=False))
 
         # presence in areas
         if self.cb_record_number_objects.isChecked():
