@@ -37,7 +37,7 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 """
 
 
-from PyQt5.QtCore import Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent
+from PyQt5.QtCore import (Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent, QSettings)
 from PyQt5.QtGui import (QPixmap, QImage, qRgb, QFont)
 from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QMenu, QFileDialog, QMessageBox, QInputDialog,
@@ -53,6 +53,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import copy
+import pathlib
 
 import sys
 import time
@@ -442,6 +443,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.repicked_objects = None
 
+        self.read_config()
 
     def about(self):
         """
@@ -778,7 +780,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def reload_frame(self):
         """
-        reload frame and show
+        Reload frame and show.
         """
 
         logging.debug("function: reload_frame")
@@ -885,16 +887,37 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.repicked_objects is not None:
 
             # cancel
-            if event.button() in [Qt.RightButton, Qt.MidButton]:
+            if event.button() in [Qt.RightButton]:
                 self.repicked_objects = None
                 return
 
+            '''
+            min_dist = 1_000_000
+            mem_closer_object = -1
+            '''
             for o in self.objects_to_track:
+                # check if clicked point is inside an object
                 if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]),
                                             (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
                                             False) >= 0):
                     self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                    self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the frame")
+                    self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+
+
+                # check if clicked point is near to an object
+                '''
+                dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                                           self.objects_to_track[o]["centroid"])
+                if dist < min_dist:
+                    mem_closer_object = o
+                    min_dist = dist
+                
+
+            if mem_closer_object != -1:
+                self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+            '''
+
 
         # set coordinates of center with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -1055,8 +1078,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         cv2.line(self.frame, tuple(self.add_area["points"][-2]), tuple(self.add_area["points"][-1]),
                                  color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
 
-                    self.statusBar.showMessage(("Polygon area: {} point(s) selected."
-                                                " Right click to finish").format(len(self.add_area["points"])))
+                    self.statusBar.showMessage((f"Polygon area: {len(self.add_area['points'])} point(s) selected."
+                                                " Right click to finish"))
                     self.display_frame(self.frame)
 
         # arena
@@ -1079,7 +1102,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
 
                 self.display_frame(self.frame)
-                self.statusBar.showMessage("Rectangle arena: {} point(s) selected.".format(len(self.arena["points"])))
+                self.statusBar.showMessage(f"Rectangle arena: {len(self.arena['points'])} point(s) selected.")
 
                 if len(self.arena["points"]) == 2:  # rectangle area finished
                     self.flag_define_arena = ""
@@ -1094,12 +1117,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
 
                     self.arena = {**self.arena, **{"type": "rectangle", "name": "arena"}}
-                    self.le_arena.setText("{}".format(self.arena))
+                    self.le_arena.setText(f"{self.arena}")
 
-                    '''
-                    cv2.rectangle(self.frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
-                                  color=ARENA_COLOR, thickness=drawing_thickness)
-                    '''
                     cv2.rectangle(self.frame, self.arena["points"][0], self.arena["points"][1],
                                   color=ARENA_COLOR, thickness=drawing_thickness)
 
@@ -1117,7 +1136,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.arena = {**self.arena, **{"type": "polygon", "name": "arena"}}
 
-                    self.le_arena.setText("{}".format(self.arena))
+                    self.le_arena.setText(f"{self.arena}")
                     self.process_and_show()
                     self.statusBar.showMessage("The new polygon arena is defined")
 
@@ -1131,8 +1150,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                     self.display_frame(self.frame)
 
-                    self.statusBar.showMessage(("Polygon arena: {} point(s) selected. "
-                                                "Right click to finish").format(len(self.arena["points"])))
+                    self.statusBar.showMessage((f"Polygon arena: {len(self.arena['points'])} point(s) selected. "
+                                                "Right click to finish"))
 
                     if len(self.arena["points"]) >= 2:
                         cv2.line(self.frame, tuple(self.arena["points"][-2]), tuple(self.arena["points"][-1]),
@@ -1149,7 +1168,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                            color=ARENA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
 
-                self.statusBar.showMessage("Circle arena: {} point(s) selected.".format(len(self.arena["points"])))
+                self.statusBar.showMessage(f"Circle arena: {len(self.arena['points'])} point(s) selected.")
 
                 if len(self.arena["points"]) == 3:
                     cx, cy, r = doris_functions.find_circle(self.arena["points"])
@@ -1162,7 +1181,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.arena = {'type': 'circle', 'center': [round(cx), round(cy)], 'radius': round(r), 'name': 'arena'}
 
-                    self.le_arena.setText("{}".format(self.arena))
+                    self.le_arena.setText(f"{self.arena}")
 
                     self.process_and_show()
                     self.statusBar.showMessage("The new circle arena is defined")
@@ -1189,7 +1208,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.pb_clear_arena.setEnabled(True)
 
                     self.arena = {"type": "circle", "center": [round(cx), round(cy)], "radius": round(radius), "name": "arena"}
-                    self.le_arena.setText("{}".format(self.arena))
+                    self.le_arena.setText(f"{self.arena}")
                     self.process_and_show()
                     self.statusBar.showMessage("The new circle arena is defined")
 
@@ -1462,8 +1481,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.hs_frame.setMaximum(self.total_frame_nb)
             self.hs_frame.setTickInterval(10)
 
-            # self.lb_total_frames_nb.setText("Total number of frames: <b>{}</b>".format(self.total_frame_nb))
-
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
             logging.debug(f"FPS: {self.fps}")
 
@@ -1675,6 +1692,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             QMessageBox.critical(self, "DORIS", "No object(s) to track")
             return
 
+        # display objects on previous frame
         if self.previous_frame is not None:
             self.fw[2].show()
             frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
@@ -1686,7 +1704,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_frame(frame_with_objects, 2)
 
 
-        self.statusBar.showMessage(f"Click object #1 on the frame (right-click to cancel)")
+        self.statusBar.showMessage(f"Click object #1 on the video (right-click to cancel)")
         self.repicked_objects = []
         while True:
             app.processEvents()
@@ -1697,15 +1715,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.statusBar.showMessage(f"Done")
 
-        # hide previous frame
-        self.fw[2].hide()
+        # close previous frame
+        self.fw[2].close()
 
         if self.repicked_objects is None:
             return
 
-        #new_order2 = {o: [] for o in self.objects_to_track}
         new_order2 = {}
-        new_order = {}
+        '''new_order = {}'''
 
         for idx, (x, y) in enumerate(self.repicked_objects):
             for o in self.objects_to_track:
@@ -1714,7 +1731,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         new_order2[o] = [idx + 1]
                     else:
                         new_order2[o].append(idx + 1)
-                    new_order[o] = idx + 1
+                    '''new_order[o] = idx + 1'''
 
         '''
         print(f"new order of objects: {new_order}")
@@ -1722,7 +1739,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         '''
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
-        #if True:
 
             '''
             print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
@@ -1752,13 +1768,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects)
 
-            self.repicked_objects = None
+        else:  # more new positions than old objects (grouped object clicked twice)
 
-        else:  # more new positions than old objects
+            '''
+            contours_list = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
+            '''
 
-            contours_list1 = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
-            points1 = np.vstack(contours_list1)
-            points1 = points1.reshape(points1.shape[0], points1.shape[2])
+            # limit contours to contours of clicked objects
+            contours_list = [self.objects_to_track[x]["contour"] for x in list(new_order2.keys())]
+
+            all_points = np.vstack(contours_list)
+            all_points = all_points.reshape(all_points.shape[0], all_points.shape[2])
 
             # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
             # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
@@ -1766,7 +1786,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             logging.debug(f"Known centroids: {centroids_list0}")
 
-            new_contours = doris_functions.group_of(points1, centroids_list0)
+            new_contours = doris_functions.group_of(all_points, centroids_list0)
             #print(len(new_contours))
             #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
 
@@ -1804,8 +1824,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              self.objects_to_track,
                                                              marker_type=MARKER_TYPE)
 
-
             self.display_frame(frame_with_objects)
+
+
+        self.repicked_objects = None
+
+        self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+        self.record_objects_data(self.frame_idx, self.objects_to_track)
 
 
     def draw_reference_clicked(self):
@@ -1817,7 +1842,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def draw_reference(self, frame):
         """
-        draw reference (100px square) on frame
+        draw reference (a 100 px square) on frame
         """
 
         if frame is not None:
@@ -1838,6 +1863,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             frame np.array(): image where to draw markers
             objects (dict): objects to draw
             marker_type (str): select the marker type to draw: rectangle or contour
+
         Returns:
             np.array: frame with objects drawn
         """
@@ -1966,13 +1992,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                   max_size=self.sbMax.value(),
                                                                   arena=self.arena,
                                                                   max_extension=self.sb_max_extension.value(),
-                                                                  #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                  )
 
         logging.debug(f"number of all filtered objects: {len(filtered_objects)}")
 
         contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
-        #logging.debug(f"contours_list before: {contours_list}")
+
+        # logging.debug(f"contours_list before: {contours_list}")
+
         logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
@@ -1984,7 +2011,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects, 0)
             self.display_frame(processed_frame, 1)
-            #self.display_processed_frame(processed_frame)
+
             QMessageBox.critical(self, "DORIS", "No object detected")
             if self.running_tracking:
                 self.flag_stop_tracking = True
@@ -2276,8 +2303,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_frame(frame_with_objects, 0)
             self.display_frame(processed_frame, 1)
 
-            #self.display_processed_frame(processed_frame)
-
         #  record objects data
         self.record_objects_data(self.frame_idx, self.objects_to_track)
 
@@ -2384,6 +2409,31 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.display_frame(frame_with_objects)
 
 
+    def save_config(self):
+        """
+        save configuration file
+        """
+
+        config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris")
+        settings = QSettings(config_file_path, QSettings.IniFormat)
+        settings.setValue("geometry", self.saveGeometry())
+
+
+    def read_config(self):
+        """
+        Read configuration file 
+        """
+
+        config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris")
+        if os.path.isfile(config_file_path):
+            settings = QSettings(config_file_path, QSettings.IniFormat)
+            try:
+                self.restoreGeometry(settings.value("geometry"))
+            except Exception:
+                logging.warning("Error trying to restore geometry")
+                pass
+
+
     def closeEvent(self, event):
 
         if self.coord_df is not None:
@@ -2402,6 +2452,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                self.fw[i].close()
         except Exception:
             pass
+
+        self.save_config()
 
 
     def activate_areas(self):
@@ -2496,7 +2548,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def record_objects_data(self, frame_idx, objects):
         """
-        record objects coordinates and presence in areas defined by user
+        Record objects coordinates and presence in areas defined by user
         """
 
         if not self.objects_to_track:
@@ -2779,6 +2831,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         logging.debug("open_project")
+
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
 
@@ -2880,10 +2933,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         except Exception:
             logging.warning("Error in project file")
-            raise
+            QMessageBox.critical(self, "DORIS", f"Error in project file: {file_name}")
+            return
 
         self.project_path = file_name
         self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
+        return True
 
 
 if __name__ == "__main__":
