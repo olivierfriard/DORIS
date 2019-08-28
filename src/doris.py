@@ -2438,7 +2438,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.coord_df is not None:
             if dialog.MessageDialog("DORIS",
-                                    (f"Check if your data are saved and confirm close."),
+                                    ("Check if your data are saved and confirm close."),
                                     ["Cancel", "Close program"]) == "Cancel":
                 event.ignore()
                 return
@@ -2746,15 +2746,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_stop_tracking = False
 
 
-    '''
-    def stop_button(self):
-        """
-        stop analysis
-        """
-        if self.running_tracking:
-            self.flag_stop_tracking = True
-    '''
-
     def new_project(self):
         """
         initialize program fro new project
@@ -2876,7 +2867,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if "scale" in config:
                 self.le_scale.setText(f"{config['scale']:0.5f}")
                 self.scale = config["scale"]
-
             try:
                 self.areas = config["areas"]
                 if self.areas:
@@ -2947,10 +2937,6 @@ if __name__ == "__main__":
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
     parser.add_argument("-p", action="store", dest="project_file", help="path of project file")
-    parser.add_argument("-i", action="store", dest="video_file", help="path of video file")
-    parser.add_argument("-d", action="store", dest="directory", help="path of images directory")
-    '''parser.add_argument("--areas", action="store", dest="areas_file", help="path of file containing the areas definition")'''
-    '''parser.add_argument("--arena", action="store", dest="arena_file", help="path of file containing the arena definition")'''
     parser.add_argument("--threshold", action="store", default=THRESHOLD_DEFAULT, dest="threshold", help="Threshold value")
     parser.add_argument("--blur", action="store", default=BLUR_DEFAULT_VALUE, dest="blur", help="Blur value")
     parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
@@ -2980,20 +2966,6 @@ if __name__ == "__main__":
             w.sb_threshold.setValue(int(options.threshold))
 
         w.cb_invert.setChecked(options.invert)
-
-        if options.video_file:
-            if os.path.isfile(options.video_file):
-                w.open_video(options.video_file)
-            else:
-                print(f"{options.video_file} not found")
-                sys.exit()
-
-        if options.directory:
-            if os.path.isdir(options.directory):
-                w.load_dir_images(options.directory)
-            else:
-                print(f"{options.directory} directory not found")
-                sys.exit()
 
     w.show()
     w.raise_()
