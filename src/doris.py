@@ -863,10 +863,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-
     def frame_mousepressed(self, event):
         """
-        record clicked coordinates if arena or area mode activated
+        record clicked coordinates for:
+            * arena definition
+            * area definition
+            * origin definition
+            * setting scale
+            * re-picking objects
+
         """
 
         logging.debug("function: frame_mousepressed")
@@ -890,7 +895,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                             False) >= 0):
                     self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
                     self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the frame")
-
 
         # set coordinates of center with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -1630,7 +1634,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.objects_to_track = {}
             for idx in self.filtered_objects:
                 self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[idx])
-
         else:
             elements = []
             for idx in self.filtered_objects:
@@ -1642,22 +1645,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.objects_to_track = {}
                 for el in w.checked:
                     self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(el.replace("Object # ", ""))])
-
             else:
                 return
-
-            '''
-            ib = Input_dialog("Select the objects to track", elements)
-
-            if not ib.exec_():
-                return
-
-
-            self.objects_to_track = {}
-            for idx in ib.elements:
-                if ib.elements[idx].isChecked():
-                    self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(idx.replace("Object # ", ""))])
-            '''
 
         # self.initialize_positions_dataframe()
 
@@ -1668,7 +1657,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             del self.mem_position_objects[self.frame_idx - 1]
         self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
 
+        ''' to be deleted
         logging.debug(f"coord_df: {self.coord_df.head()}")
+        '''
 
         logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
 
@@ -1681,6 +1672,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         if not self.objects_to_track:
+            QMessageBox.critical(self, "DORIS", "No object(s) to track")
             return
 
         if self.previous_frame is not None:
@@ -1694,7 +1686,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_frame(frame_with_objects, 2)
 
 
-        self.statusBar.showMessage(f"Click object #1 on the frame")
+        self.statusBar.showMessage(f"Click object #1 on the frame (right-click to cancel)")
         self.repicked_objects = []
         while True:
             app.processEvents()
@@ -1893,9 +1885,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         display the current frame in viewer of index viewer_idx
         """
-
-        self.fw[viewer_idx].lb_frame.setPixmap((frame2pixmap(frame) if viewer_idx in [0, 2] else QPixmap.fromImage(toQImage(frame))).scaled(self.fw[viewer_idx].lb_frame.size(),
-                                               Qt.KeepAspectRatio))
+        if viewer_idx in [0, 2]:
+            self.fw[viewer_idx].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[viewer_idx].lb_frame.size(),
+                                                                              Qt.KeepAspectRatio))
+        if viewer_idx in [1]:
+            self.fw[viewer_idx].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[viewer_idx].lb_frame.size(),
+                                                                                              Qt.KeepAspectRatio))
 
 
     def draw_areas(self, frame, drawing_thickness):
@@ -2391,7 +2386,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def closeEvent(self, event):
 
-
         if self.coord_df is not None:
             if dialog.MessageDialog("DORIS",
                                     (f"Check if your data are saved and confirm close."),
@@ -2402,6 +2396,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.capture:
             self.capture.release()
 
+        # close the frame viewers
         try:
             for i in range(3):
                self.fw[i].close()
@@ -2817,10 +2812,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.sbMax.setValue(config.get("max_object_size", 0))
             if "object_max_extension" in config:
                 self.sb_max_extension.setValue(config["object_max_extension"])
-            '''
-            if "percent_out_of_arena" in config:
-                self.sb_percent_out_of_arena.setValue(config["percent_out_of_arena"])
-            '''
             if "threshold_method" in config:
                 self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
             if "block_size" in config:
@@ -2829,7 +2820,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.sb_offset.setValue(config["offset"])
             if "cut_off" in config:
                 self.sb_threshold.setValue(config["cut_off"])
-
             if "scale" in config:
                 self.le_scale.setText(f"{config['scale']:0.5f}")
                 self.scale = config["scale"]
@@ -2871,16 +2861,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.actionDraw_reference.setChecked(config.get("show_reference", False))
             self.sb_max_distance.setValue(config.get("max_distance", 0))
 
-            original_frame_viewer_position = config.get("original_frame_viewer_position", [20, 20])
-            self.fw[0].move(*original_frame_viewer_position)
-
+            # original frame viewer
+            self.fw[0].move(*config.get("original_frame_viewer_position", [20, 20]))
             self.frame_scale = config.get("frame_scale", DEFAULT_FRAME_SCALE)
             self.fw[0].zoom.setCurrentText(str(self.frame_scale))
             self.frame_viewer_scale(0, self.frame_scale)
 
+            # processed frame viewer
             self.fw[1].move(*config.get("processed_frame_viewer_position", [40, 40]))
-
             self.processed_frame_scale = config.get("processed_frame_scale", DEFAULT_FRAME_SCALE)
+            self.fw[1].zoom.setCurrentText(str(self.processed_frame_scale))
             self.frame_viewer_scale(1, self.processed_frame_scale)
 
             if self.sb_start_from.value():
