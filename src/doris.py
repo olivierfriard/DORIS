@@ -1640,8 +1640,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def select_objects_to_track(self, all_=False):
         """
-        select objects to track and create the dataframes for recording objects positions and presence in area
+        select objects to track and create the dataframes
+        for recording objects positions and presence in area
+        
+        Args:
+            all_ (boolean): True -> track all filtered objects
+                            False (default) ->  let user choose the objstes to track from filtered objects
         """
+
         logging.debug(f"function select_objects_to_track")
 
         if not self.dir_images and self.capture is None:
@@ -1660,25 +1666,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w = dialog.CheckListWidget(elements)
             w.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
             if w.exec_():
+
                 logging.debug(f"objects checked: {w.checked}")
+
                 self.objects_to_track = {}
                 for el in w.checked:
                     self.objects_to_track[len(self.objects_to_track) + 1] = dict(self.filtered_objects[int(el.replace("Object # ", ""))])
+                if not self.objects_to_track:
+                    self.te_tracked_objects.clear()
             else:
                 return
-
-        # self.initialize_positions_dataframe()
-
-        # self.initialize_areas_dataframe()
 
         # delete positions on last frame
         if self.frame_idx - 1 in self.mem_position_objects:
             del self.mem_position_objects[self.frame_idx - 1]
         self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
-
-        ''' to be deleted
-        logging.debug(f"coord_df: {self.coord_df.head()}")
-        '''
 
         logging.debug(f"objects to track: {list(self.objects_to_track.keys())}")
 
