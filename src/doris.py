@@ -886,14 +886,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         '''
         if self.repicked_objects is not None:
 
-            # cancel
+            # cancel repick
             if event.button() in [Qt.RightButton]:
                 self.repicked_objects = None
                 return
-
-            '''
-            min_dist = 1_000_000
-            mem_closer_object = -1
             '''
             for o in self.objects_to_track:
                 # check if clicked point is inside an object
@@ -902,20 +898,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                             False) >= 0):
                     self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
                     self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+            '''
+            self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+            self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
 
 
-                # check if clicked point is near to an object
-                '''
-                dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                                           self.objects_to_track[o]["centroid"])
-                if dist < min_dist:
-                    mem_closer_object = o
-                    min_dist = dist
-                
-
-            if mem_closer_object != -1:
-                self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+            # check if clicked point is near to an object
+            '''
+            dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                                       self.objects_to_track[o]["centroid"])
             '''
 
 
@@ -1701,12 +1692,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fw[2].show()
             frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
                                                              self.mem_position_objects[self.frame_idx - 1],
-                                                             # self.objects_to_track,
                                                              marker_type=MARKER_TYPE)
 
-            # self.frame_viewer_scale(2, self.frame_scale)
             self.display_frame(frame_with_objects, 2)
 
+
+        self.show_all_filtered_objects()
+        print(list(self.filtered_objects.keys()))
 
         self.statusBar.showMessage(f"Click object #1 on the video (right-click to cancel)")
         self.repicked_objects = []
@@ -1725,9 +1717,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.repicked_objects is None:
             return
 
-        new_order2 = {}
-        '''new_order = {}'''
+        new_order = {}
+        for idx, (x, y) in enumerate(self.repicked_objects):
+            distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.filtered_objects]
+            print(distances)
+            print(min(distances))
+            print(distances.index(min(distances)))
+            new_order[idx + 1] = distances.index(min(distances)) + 1
 
+        print(new_order)
+        new_objects_to_track = {}
+        for idx in new_order:
+            new_objects_to_track[idx] = copy.deepcopy(self.filtered_objects[new_order[idx]])
+        self.objects_to_track = copy.deepcopy(new_objects_to_track)
+        
+        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                         self.objects_to_track,
+                                                         marker_type=MARKER_TYPE)
+        self.display_frame(frame_with_objects)
+
+        
+        self.repicked_objects = None
+
+        self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+        self.record_objects_data(self.frame_idx, self.objects_to_track)
+
+        return
+        '''
+        new_order2 = {}
         for idx, (x, y) in enumerate(self.repicked_objects):
             for o in self.objects_to_track:
                 if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
@@ -1735,10 +1752,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         new_order2[o] = [idx + 1]
                     else:
                         new_order2[o].append(idx + 1)
-                    '''new_order[o] = idx + 1'''
+        '''
+
 
         '''
-        print(f"new order of objects: {new_order}")
+        dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                                       self.objects_to_track[o]["centroid"])
+        '''
+
+
+        '''
         print(f"new order2  of objects: {new_order2}")
         '''
 
@@ -1754,14 +1777,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             new_objects_to_track2 = {}
             for o in new_order2:
                 new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
-                new_objects_to_track[new_order[o]] = dict(self.objects_to_track[o])
 
             '''
             print()
             print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
             print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
             '''
-
 
             self.objects_to_track = copy.deepcopy(new_objects_to_track2)
 
@@ -1771,6 +1792,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              self.objects_to_track,
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects)
+
 
         else:  # more new positions than old objects (grouped object clicked twice)
 
@@ -2229,7 +2251,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.display_frame(frame_with_objects, 0)
                     self.display_frame(processed_frame, 1)
-                    #self.display_processed_frame(processed_frame)
 
                     if not self.always_skip_frame:
                         buttons = ["Pick positions", "Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Go to previous frame"]
@@ -2346,7 +2367,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                         max_size=self.sbMax.value(),
                                                                         arena=self.arena,
                                                                         max_extension=self.sb_max_extension.value(),
-                                                                        #tolerance_outside_arena=self.sb_percent_out_of_arena.value()/100
                                                                         )
 
         frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -2446,6 +2466,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                     ["Cancel", "Close program"]) == "Cancel":
                 event.ignore()
                 return
+
+        self.repicked_objects = None
 
         if self.capture:
             self.capture.release()
