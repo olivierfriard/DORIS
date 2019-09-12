@@ -579,6 +579,13 @@
           </property>
          </widget>
         </item>
+        <item>
+         <widget class="QPushButton" name="pb_repick_objects_from_all">
+          <property name="text">
+           <string>Repick objects from all objects</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>

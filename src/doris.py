@@ -337,7 +337,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
         self.pb_select_objects_to_track.clicked.connect(self.select_objects_to_track)
         self.pb_track_all_filtered.clicked.connect(lambda: self.select_objects_to_track(all_=True))
-        self.pb_repick_objects.clicked.connect(self.repick_objects)
+        self.pb_repick_objects.clicked.connect(lambda: self.repick_objects(mode="tracked"))
+        self.pb_repick_objects_from_all.clicked.connect(lambda: self.repick_objects(mode="all"))
 
         # coordinates analysis
         self.pb_view_coordinates.clicked.connect(self.view_coordinates)
@@ -901,28 +902,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             '''
             self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
             self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
-
-
-<<<<<<< HEAD
-                # check if clicked point is near to an object
-                '''
-                dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                                           self.objects_to_track[o]["centroid"])
-                if dist < min_dist:
-                    mem_closer_object = o
-                    min_dist = dist
-
-
-            if mem_closer_object != -1:
-                self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
-=======
-            # check if clicked point is near to an object
-            '''
-            dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                                       self.objects_to_track[o]["centroid"])
->>>>>>> f34c8dd93adccdf3ea68e281d2734437f9fea13f
-            '''
 
 
         # set coordinates of center with 1 point
@@ -1649,7 +1628,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         select objects to track and create the dataframes
         for recording objects positions and presence in area
-        
+
         Args:
             all_ (boolean): True -> track all filtered objects
                             False (default) ->  let user choose the objstes to track from filtered objects
@@ -1694,7 +1673,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.process_and_show()
 
 
-    def repick_objects(self):
+    def repick_objects(self, mode="tracked"):
         """
         allow user to manually repick objects from image by clicking
         """
@@ -1712,9 +1691,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.display_frame(frame_with_objects, 2)
 
-
-        self.show_all_filtered_objects()
-        print(list(self.filtered_objects.keys()))
+        if mode == "all":
+            self.show_all_filtered_objects()
+            print(list(self.filtered_objects.keys()))
 
         self.statusBar.showMessage(f"Click object #1 on the video (right-click to cancel)")
         self.repicked_objects = []
@@ -1735,40 +1714,102 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         new_order = {}
         for idx, (x, y) in enumerate(self.repicked_objects):
-            distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.filtered_objects]
+            if mode == "all":
+                distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.filtered_objects]
+            elif mode == "tracked":
+                distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.objects_to_track]
+
             print(distances)
             print(min(distances))
             print(distances.index(min(distances)))
+
             new_order[idx + 1] = distances.index(min(distances)) + 1
 
-        print(new_order)
-        new_objects_to_track = {}
-        for idx in new_order:
-            new_objects_to_track[idx] = copy.deepcopy(self.filtered_objects[new_order[idx]])
-        self.objects_to_track = copy.deepcopy(new_objects_to_track)
-        
-        frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
-                                                         self.objects_to_track,
-                                                         marker_type=MARKER_TYPE)
-        self.display_frame(frame_with_objects)
+        print(f"new order: {new_order}")
 
-        
-        self.repicked_objects = None
+        # test if objects clicked more than one time
+        print(list(new_order.values()))
 
-        self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
-        self.record_objects_data(self.frame_idx, self.objects_to_track)
+        if sorted(list(set(new_order.values()))) == sorted(list(new_order.values())):
+            new_objects_to_track = {}
+            for idx in new_order:
+                if mode == "all":
+                    new_objects_to_track[idx] = copy.deepcopy(self.filtered_objects[new_order[idx]])
+                elif mode == "tracked":
+                    new_objects_to_track[idx] = copy.deepcopy(self.objects_to_track[new_order[idx]])
 
-        return
-        '''
-        new_order2 = {}
-        for idx, (x, y) in enumerate(self.repicked_objects):
-            for o in self.objects_to_track:
-                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]), (x, y), False) >= 0):
-                    if o not in new_order2:
-                        new_order2[o] = [idx + 1]
-                    else:
-                        new_order2[o].append(idx + 1)
-        '''
+            self.objects_to_track = copy.deepcopy(new_objects_to_track)
+
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                             self.objects_to_track,
+                                                             marker_type=MARKER_TYPE)
+            self.display_frame(frame_with_objects)
+
+            self.repicked_objects = None
+
+            self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+            self.record_objects_data(self.frame_idx, self.objects_to_track)
+
+            return
+
+        else:
+
+            clicked_objects = list(set(new_order.values()))
+            if mode == "all":
+                contours_list = [self.filtered_objects[x]["contour"] for x in clicked_objects]
+            elif mode == "tracked":
+                contours_list = [self.objects_to_track[x]["contour"] for x in clicked_objects]
+
+            all_points = np.vstack(contours_list)
+            all_points = all_points.reshape(all_points.shape[0], all_points.shape[2])
+
+            centroids_list0 = self.repicked_objects
+            new_contours = doris_functions.group_of(all_points, centroids_list0)
+
+            new_objects = {}
+            # add info to objects: centroid, area ...
+            for idx, cnt in enumerate(new_contours):
+
+                logging.debug(f"idx: {idx} len cnt {len(cnt)}")
+
+                #cnt = cv2.convexHull(cnt)
+
+                n = np.vstack(cnt).squeeze()
+                try:
+                    x, y = n[:, 0], n[:, 1]
+                except Exception:
+                    x = n[0]
+                    y = n[1]
+
+                # centroid
+                cx = int(np.mean(x))
+                cy = int(np.mean(y))
+
+                new_objects[idx + 1] = {"centroid": (cx, cy),
+                                                 "contour": cnt,
+                                                 "area": cv2.contourArea(cnt),
+                                                 "min": (int(np.min(x)), int(np.min(y))),
+                                                 "max": (int(np.max(x)), int(np.max(y)))
+                                                }
+
+            # print("new_filtered_objects", [(x, new_filtered_objects[x]["centroid"]) for x in new_filtered_objects])
+
+            self.objects_to_track = copy.deepcopy(new_objects)
+
+            frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
+                                                             self.objects_to_track,
+                                                             marker_type=MARKER_TYPE)
+
+            self.display_frame(frame_with_objects)
+
+
+            self.repicked_objects = None
+
+            self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+            self.record_objects_data(self.frame_idx, self.objects_to_track)
+
+            return
+
 
 
         '''
@@ -1777,9 +1818,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         '''
 
 
-        '''
-        print(f"new order2  of objects: {new_order2}")
-        '''
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
 
@@ -2269,7 +2307,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.display_frame(processed_frame, 1)
 
                     if not self.always_skip_frame:
-                        buttons = ["Pick positions", "Accept movement", SKIP_FRAME, ALWAYS_SKIP_FRAME, "Go to previous frame"]
+                        buttons = ["Repick objects",
+                                   "Accept movement",
+                                   SKIP_FRAME,
+                                   ALWAYS_SKIP_FRAME,
+                                   "Go to previous frame"]
+
                         if self.running_tracking:
                             buttons.append("Stop tracking")
 
@@ -2294,8 +2337,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             self.always_skip_frame = True
                         return
 
-                    if response == "Pick positions":
-                        self.repick_objects()
+                    if response == "Repick objects":
+                        self.repick_objects("tracked")
 
                     if response == "Go to previous frame":
                         self.for_back_ward(direction="backward")
@@ -2479,7 +2522,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.coord_df is not None:
             if dialog.MessageDialog("DORIS",
                                     ("Check if your data are saved and confirm close."),
-                                    ["Cancel", "Close program"]) == "Cancel":
+                                    ["Cancel", "Close DORIS"]) == "Cancel":
                 event.ignore()
                 return
 
