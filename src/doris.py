@@ -911,7 +911,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if dist < min_dist:
                     mem_closer_object = o
                     min_dist = dist
-                
+
 
             if mem_closer_object != -1:
                 self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
@@ -1601,7 +1601,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_define_coordinate_center_3points = not self.flag_define_coordinate_center_3points
             self.actionOrigin_from_center_of_3_points_circle.setText("from center of 3 points circle" if not self.flag_define_coordinate_center_3points
                                                         else "Cancel origin definition")
-            self.statusBar.showMessage("You have to select the origin of the referential system with a 3 points circle" * self.flag_define_coordinate_center_3points)
+            self.statusBar.showMessage(("You have to select the origin "
+                                        "of the referential system with a 3 points circle") * self.flag_define_coordinate_center_3points)
 
 
     def define_scale(self):
@@ -2423,7 +2424,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def read_config(self):
         """
-        Read configuration file 
+        Read configuration file
         """
 
         config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris")
@@ -2639,7 +2640,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.areas[area]["type"] == "polygon":
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0)
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]),
+                                                                                                             (x, y), False) >= 0)
 
                         if cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0:
                             nb[area] += 1
