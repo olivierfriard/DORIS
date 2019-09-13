@@ -13,7 +13,7 @@ This project is at an early stage of development. Please report any bugs and sug
 
 DORIS web page: `http://www.boris.unito.it/pages/doris <http://www.boris.unito.it/pages/doris>`_
 
-This project was inspired by **Tracktor project**: https://github.com/vivekhsridhar/tracktor https://besjournals.onlinelibrary.wiley.com/doi/abs/10.1111/2041-210X.13166
+This project was inspired by the **Tracktor project**: https://github.com/vivekhsridhar/tracktor https://besjournals.onlinelibrary.wiley.com/doi/abs/10.1111/2041-210X.13166
 
 Requirements
 ========================================================================================

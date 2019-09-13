@@ -408,24 +408,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
 
         self.fw = []
-        self.fw.append(FrameViewer(0))
-        self.fw[0].setWindowTitle("Original frame")
-        self.fw[0].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
-        self.fw[0].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(0))
-        self.fw[0].show_contour_changed_signal.connect(self.cb_show_contour_changed)
-        self.fw[0].change_frame_signal.connect(self.for_back_ward)
-        self.fw[0].setGeometry(10, 10, 512, 512)
+        self.fw.append(FrameViewer(ORIGINAL_FRAME_VIEWER_IDX))
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle("Original frame")
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(ORIGINAL_FRAME_VIEWER_IDX))
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].show_contour_changed_signal.connect(self.cb_show_contour_changed)
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].change_frame_signal.connect(self.for_back_ward)
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].setGeometry(10, 10, 512, 512)
         # self.fw[0].show()
 
-        self.fw.append(FrameViewer(1))
-        self.fw[1].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(1))
-        self.fw[1].setGeometry(560, 10, 512, 512)
-        self.fw[1].setWindowTitle("Processed frame")
+        self.fw.append(FrameViewer(PROCESSED_FRAME_VIEWER_IDX))
+        self.fw[PROCESSED_FRAME_VIEWER_IDX].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(PROCESSED_FRAME_VIEWER_IDX))
+        self.fw[PROCESSED_FRAME_VIEWER_IDX].setGeometry(560, 10, 512, 512)
+        self.fw[PROCESSED_FRAME_VIEWER_IDX].setWindowTitle("Processed frame")
 
-        self.fw.append(FrameViewer(2))
-        self.fw[2].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(2))
-        self.fw[2].setGeometry(800, 10, 512, 512)
-        self.fw[2].setWindowTitle("Previous frame")
+        self.fw.append(FrameViewer(PREVIOUS_FRAME_VIEWER_IDX))
+        self.fw[PREVIOUS_FRAME_VIEWER_IDX].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(PREVIOUS_FRAME_VIEWER_IDX))
+        self.fw[PREVIOUS_FRAME_VIEWER_IDX].setGeometry(800, 10, 512, 512)
+        self.fw[PREVIOUS_FRAME_VIEWER_IDX].setWindowTitle("Previous frame")
 
         self.running_tracking = False
 
@@ -604,15 +604,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fw[fw_idx].lb_frame.clear()
             scale = eval(self.fw[fw_idx].zoom.currentText())
             self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-            if fw_idx == 0:
+            if fw_idx in [ORIGINAL_FRAME_VIEWER_IDX, PREVIOUS_FRAME_VIEWER_IDX]:
                 self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
                                                                                    Qt.KeepAspectRatio))
                 self.frame_width = self.fw[fw_idx].lb_frame.width()
                 self.frame_scale = scale
 
-            if fw_idx == 1:
+            if fw_idx == PROCESSED_FRAME_VIEWER_IDX:
                 processed_frame = self.frame_processing(self.frame)
-                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                self.fw[fw_idx].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
                                                                                                   Qt.KeepAspectRatio))
                 self.processed_frame_scale = scale
 
@@ -632,15 +632,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         try:
             self.fw[fw_idx].lb_frame.clear()
             self.fw[fw_idx].lb_frame.resize(int(self.frame.shape[1] * scale), int(self.frame.shape[0] * scale))
-            if fw_idx == 0:
+            if fw_idx in [ORIGINAL_FRAME_VIEWER_IDX, PREVIOUS_FRAME_VIEWER_IDX]:
                 self.fw[fw_idx].lb_frame.setPixmap(frame2pixmap(self.frame).scaled(self.fw[fw_idx].lb_frame.size(),
                                                                                    Qt.KeepAspectRatio))
                 self.frame_width = self.fw[fw_idx].lb_frame.width()
                 self.frame_scale = scale
 
-            if fw_idx == 1:
+            if fw_idx == PROCESSED_FRAME_VIEWER_IDX:
                 processed_frame = self.frame_processing(self.frame)
-                self.fw[1].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
+                self.fw[fw_idx].lb_frame.setPixmap(QPixmap.fromImage(toQImage(processed_frame)).scaled(self.fw[fw_idx].lb_frame.size(),
                                                                                                   Qt.KeepAspectRatio))
                 self.processed_frame_scale = scale
 
@@ -1684,11 +1684,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # display objects on previous frame
         if self.previous_frame is not None:
-            self.fw[2].show()
             frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
                                                              self.mem_position_objects[self.frame_idx - 1],
                                                              marker_type=MARKER_TYPE)
 
+            print(self.frame_scale)
+            self.frame_viewer_scale(2, self.frame_scale)
             self.display_frame(frame_with_objects, 2)
 
         if mode == "all":
@@ -1813,34 +1814,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
         '''
-        dist = doris_functions.euclidean_distance((int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                                       self.objects_to_track[o]["centroid"])
-        '''
-
-
 
         if max([len(new_order2[x]) for x in new_order2]) == 1:  # 1 new object by old object
-
-            '''
-            print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
-            '''
-
-            #print(new_order.keys() == new_order2.keys())
 
             new_objects_to_track = {}
             new_objects_to_track2 = {}
             for o in new_order2:
                 new_objects_to_track2[new_order2[o][0]] = copy.deepcopy(self.objects_to_track[o])
 
-            '''
-            print()
-            print("new_objects_to_track", [new_objects_to_track[x]["centroid"] for x in new_objects_to_track])
-            print("new_objects_to_track2", [new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2])
-            '''
-
             self.objects_to_track = copy.deepcopy(new_objects_to_track2)
-
-            #print([self.objects_to_track[x]["centroid"] for x in self.objects_to_track])
 
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              self.objects_to_track,
@@ -1850,9 +1832,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         else:  # more new positions than old objects (grouped object clicked twice)
 
-            '''
-            contours_list = [self.objects_to_track[x]["contour"] for x in self.objects_to_track]
-            '''
 
             # limit contours to contours of clicked objects
             contours_list = [self.objects_to_track[x]["contour"] for x in list(new_order2.keys())]
@@ -1860,23 +1839,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             all_points = np.vstack(contours_list)
             all_points = all_points.reshape(all_points.shape[0], all_points.shape[2])
 
-            # centroids_list1 = [self.objects_to_track[x]["centroid"] for x in self.objects_to_track]
-            # centroids_list0 = [self.mem_position_objects[self.frame_idx - 1][k]["centroid"] for k in  self.mem_position_objects[self.frame_idx - 1]]
             centroids_list0 = self.repicked_objects
 
             logging.debug(f"Known centroids: {centroids_list0}")
 
             new_contours = doris_functions.group_of(all_points, centroids_list0)
-            #print(len(new_contours))
-            #print([new_objects_to_track2[x]["centroid"] for x in new_objects_to_track2]
 
             new_filtered_objects = {}
             # add info to objects: centroid, area ...
             for idx, cnt in enumerate(new_contours):
 
                 logging.debug(f"idx: {idx} len cnt {len(cnt)}")
-
-                #cnt = cv2.convexHull(cnt)
 
                 n = np.vstack(cnt).squeeze()
                 try:
@@ -1911,7 +1884,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
         self.record_objects_data(self.frame_idx, self.objects_to_track)
-
+        '''
 
     def draw_reference_clicked(self):
         """
@@ -2997,16 +2970,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.sb_max_distance.setValue(config.get("max_distance", 0))
 
             # original frame viewer
-            self.fw[0].move(*config.get("original_frame_viewer_position", [20, 20]))
+            self.fw[ORIGINAL_FRAME_VIEWER_IDX].move(*config.get("original_frame_viewer_position", [20, 20]))
             self.frame_scale = config.get("frame_scale", DEFAULT_FRAME_SCALE)
-            self.fw[0].zoom.setCurrentText(str(self.frame_scale))
-            self.frame_viewer_scale(0, self.frame_scale)
+            self.fw[ORIGINAL_FRAME_VIEWER_IDX].zoom.setCurrentText(str(self.frame_scale))
+            self.frame_viewer_scale(ORIGINAL_FRAME_VIEWER_IDX, self.frame_scale)
 
             # processed frame viewer
-            self.fw[1].move(*config.get("processed_frame_viewer_position", [40, 40]))
+            self.fw[PROCESSED_FRAME_VIEWER_IDX].move(*config.get("processed_frame_viewer_position", [40, 40]))
             self.processed_frame_scale = config.get("processed_frame_scale", DEFAULT_FRAME_SCALE)
-            self.fw[1].zoom.setCurrentText(str(self.processed_frame_scale))
-            self.frame_viewer_scale(1, self.processed_frame_scale)
+            self.fw[PROCESSED_FRAME_VIEWER_IDX].zoom.setCurrentText(str(self.processed_frame_scale))
+            self.frame_viewer_scale(PROCESSED_FRAME_VIEWER_IDX, self.processed_frame_scale)
 
             if self.sb_start_from.value():
                 self.go_to_frame(self.sb_start_from.value())
