@@ -22,6 +22,14 @@ This file is part of DORIS.
 
 """
 
+import matplotlib
+matplotlib.use("Qt5Agg")
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
+
+
+
 import config
 import cv2
 import numpy as np
@@ -32,12 +40,6 @@ from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 from scipy.spatial import distance
-
-import matplotlib
-matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-import matplotlib.patches as patches
 
 
 def rgbstr_to_bgr_tuple(rgb_str):
