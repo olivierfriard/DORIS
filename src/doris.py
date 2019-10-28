@@ -45,6 +45,13 @@ from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
                              QSizePolicy, QCheckBox, QHBoxLayout, QPushButton,
                              QMessageBox, QComboBox)
 
+import matplotlib
+matplotlib.use("Qt5Agg")
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+import matplotlib.patches as patches
+from matplotlib.figure import Figure
+
 import logging
 import os
 import platform
@@ -60,12 +67,6 @@ import time
 import pathlib
 import datetime as dt
 import math
-import matplotlib
-matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-import matplotlib.patches as patches
-from matplotlib.figure import Figure
 
 import argparse
 import itertools
