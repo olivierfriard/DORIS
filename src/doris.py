@@ -398,6 +398,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.scale = 1
 
         self.dir_images = []
+        self.dir_images_path = ""
         self.dir_images_index = 0
 
         self.objects_number = []
@@ -518,26 +519,48 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.process_and_show()
 
+    def hide_viewers(self):
+        mem_visible = {}
+        for w in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
+            mem_visible[w] = self.fw[w].isVisible()
+            if self.fw[w].isVisible():
+                self.fw[w].hide()
+        return mem_visible
+
+    def show_viewers(self, mem_visible):
+        for w in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
+            if mem_visible[w]:
+                self.fw[w].show()
+
 
     def save_project_as(self):
-        """
-        save project as
-        """
+        """Save project as."""
+
+        mem_visible = self.hide_viewers()
+
         project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
-                                                             "DORIS projects (*.doris);All files (*)")
+                                                             "DORIS projects (*.doris);;All files (*)")
+        self.show_viewers(mem_visible)
+
         if not project_file_path:
             return
         self.project_path = project_file_path
         self.save_project()
 
 
+
+
     def save_project(self):
         """
-        save parameters of current project in a text file
+        save parameters of current project in a JSON file
         """
         if not self.project_path:
+
+            mem_visible = self.hide_viewers()
+
             project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
-                                                                 "DORIS projects (*.doris);All files (*)")
+                                                                 "DORIS projects (*.doris);;All files (*)")
+            self.show_viewers(mem_visible)
             if not project_file_path:
                 return
         else:
@@ -546,8 +569,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config = {}
         if self.videoFileName:
             config["video_file_path"] = self.videoFileName
+        if self.dir_images_path:
+            config["dir_images_path"] = str(self.dir_images_path)
+        '''
         if self.dir_images:
             config["dir_images"] = str(self.dir_images[0].parent)
+        '''
 
         config["start_from"] = self.sb_start_from.value()
         config["stop_to"] = self.sb_stop_to.value()
@@ -556,9 +583,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["arena"] = self.arena
         config["min_object_size"] = self.sbMin.value()
         config["max_object_size"] = self.sbMax.value()
-        '''
-        config["percent_out_of_arena"] = self.sb_percent_out_of_arena.value()
-        '''
         config["object_max_extension"] = self.sb_max_extension.value()
         config["threshold_method"] = THRESHOLD_METHODS[self.cb_threshold_method.currentIndex()]
         config["block_size"] = self.sb_block_size.value()
@@ -577,7 +601,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
         config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
-
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -619,7 +642,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.processed_frame_scale = scale
 
             self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
-            self.process_and_show()
+            if fw_idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
+                self.process_and_show()
         except Exception:
             logging.critical("error")
 
@@ -647,7 +671,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.processed_frame_scale = scale
 
             self.fw[fw_idx].setFixedSize(self.fw[fw_idx].vbox.sizeHint())
-            self.process_and_show()
+            if fw_idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
+                self.process_and_show()
         except Exception:
             logging.critical("error")
 
@@ -1309,7 +1334,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         save results of recorded coordinates in TSV file
         """
         if self.coord_df is not None:
+            mem_visible = self.hide_viewers()
             file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
+            self.show_viewers(mem_visible)
             if file_name:
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
         else:
@@ -1344,7 +1371,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug(f"{time_objects_in_areas}")
 
+        mem_visible = self.hide_viewers()
         file_name, _ = QFileDialog().getSaveFileName(self, "Save time in areas", "", "All files (*)")
+        self.show_viewers(mem_visible)
+
         if file_name:
             time_objects_in_areas.to_csv(file_name, sep="\t", decimal=".")
 
@@ -1356,7 +1386,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.areas_df is None:
             QMessageBox.warning(self, "DORIS", "no objects to be saved")
             return
+
+        mem_visible = self.hide_viewers()
         file_name, _ = QFileDialog().getSaveFileName(self, "Save objects in areas", "", "All files (*)")
+        self.show_viewers(mem_visible)
+
         if file_name:
             self.areas_df.to_csv(file_name, sep="\t", decimal=".")
 
@@ -1493,30 +1527,51 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
 
 
-    def load_dir_images(self, dir_images):
+    def load_dir_images(self):
         """
         Load directory of images
         """
         logging.debug("function: load_dir_images")
 
-        if not dir_images:
-            dir_images = QFileDialog().getExistingDirectory(self, "Select Directory")
-        if dir_images:
-            p = pathlib.Path(dir_images)
-            self.dir_images = sorted(list(p.glob('*.jpg')) + list(p.glob('*.JPG')) + list(p.glob("*.png")) + list(p.glob("*.PNG")))
+        if self.dir_images_path == "":
+            self.dir_images_path = QFileDialog().getExistingDirectory(self, "Select Directory")
 
+        if self.dir_images_path:
+            p = pathlib.Path(self.dir_images_path)
+            self.dir_images = sorted(list(p.glob('*')))
+            print(self.dir_images)
+
+            '''
+                                     + list(p.glob('*.jpg'))
+                                     + list(p.glob('*.JPG'))
+                                     + list(p.glob("*.png"))
+                                     + list(p.glob("*.PNG")))
+            '''
             self.total_frame_nb = len(self.dir_images)
+
             logging.info(f"images number: {self.total_frame_nb}")
+
+            
+            if not self.total_frame_nb:
+                QMessageBox.critical(self, "DORIS", f"No images were found in {self.dir_images_path}")
+                self.dir_images_path = ""
+                return
+            
+            self.dir_images_index = -1
+            r = self.pb()
+            if r == False:
+                QMessageBox.critical(self, "DORIS", f"The file <br>{self.dir_images[self.dir_images_index]}<br> can not be loaded")
+                self.dir_images_path = ""
+                self.dir_images = []
+                return
+
+            logging.debug(f"self.frame.shape: {self.frame.shape}")
+
             self.hs_frame.setMinimum(1)
             self.hs_frame.setMaximum(self.total_frame_nb)
             self.hs_frame.setTickInterval(10)
 
             self.lb_frames.setText(f"<b>{self.total_frame_nb}</b> images")
-
-            self.dir_images_index = -1
-            self.pb()
-
-            logging.debug(f"self.frame.shape: {self.frame.shape}")
 
             self.video_height, self.video_width, _ = self.frame.shape
 
@@ -1529,7 +1584,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
-            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(dir_images).name}")
+            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(self.dir_images_path).name}")
             self.statusBar.showMessage(f"{self.total_frame_nb} image(s) found")
 
 
@@ -1678,6 +1733,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def repick_objects(self, mode="tracked"):
         """
         allow user to manually repick objects from image by clicking
+
+        Args:
+            mode (str): mode for showing objects: "all" -> all objects, "tracked" -> tracked objects
         """
 
         if not self.objects_to_track:
@@ -1690,15 +1748,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                              self.mem_position_objects[self.frame_idx - 1],
                                                              marker_type=MARKER_TYPE)
 
-            print(self.frame_scale)
-            self.frame_viewer_scale(2, self.frame_scale)
+            # print(self.frame_scale)
+            #self.frame_viewer_scale(2, 0.5)
+            self.frame_viewer_scale2(2)
             self.display_frame(frame_with_objects, 2)
 
         if mode == "all":
             self.show_all_filtered_objects()
             print(list(self.filtered_objects.keys()))
 
-        self.statusBar.showMessage(f"Click object #1 on the video (right-click to cancel)")
+        self.statusBar.showMessage(f"Click object #1 on the original frame viewer (right-click to cancel)")
         self.repicked_objects = []
         while True:
             app.processEvents()
@@ -1720,7 +1779,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if mode == "all":
                 distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.filtered_objects]
             elif mode == "tracked":
-                distances = [doris_functions.euclidean_distance(self.filtered_objects[o]["centroid"], (x, y)) for o in self.objects_to_track]
+                distances = [doris_functions.euclidean_distance(self.objects_to_track[o]["centroid"], (x, y)) for o in self.objects_to_track]
 
             print(distances)
             print(min(distances))
@@ -2102,7 +2161,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for idx, cnt in enumerate(new_contours):
                     # print("cnt", type(cnt))
 
-                    #cnt = cv2.convexHull(cnt)
+                    # cnt = cv2.convexHull(cnt)
 
                     M = cv2.moments(cnt)
 
@@ -2276,7 +2335,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                     str(f" ({distant_object + 1})"),
                                     self.mem_position_objects[self.frame_idx - 1][distant_object + 1]["centroid"],
                                     font, FONT_SIZE, marker_color, drawing_thickness, cv2.LINE_AA)
-
 
                     self.display_frame(frame_with_objects, 0)
                     self.display_frame(processed_frame, 1)
@@ -2584,10 +2642,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return False
             self.previous_frame = self.frame
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
-
+            print(self.frame)
+            if self.frame is None:
+                return False
         else:
-
             if self.capture is not None:
+
                 self.previous_frame = self.frame
                 ret, self.frame = self.capture.read()
                 if not ret:
@@ -2888,10 +2948,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         open a project file and load parameters
         """
 
-        logging.debug("open_project")
+        logging.debug("function: open_project")
 
         if not file_name:
-            file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "All files (*)")
+            file_name, _ = QFileDialog().getOpenFileName(self, "Open project", "", "DORIS projects (*.doris);;All files (*)")
 
         if not file_name:
             return
@@ -2921,8 +2981,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.sbMin.setValue(config.get("min_object_size", 0))
             self.sbMax.setValue(config.get("max_object_size", 0))
-            if "object_max_extension" in config:
-                self.sb_max_extension.setValue(config["object_max_extension"])
+            self.sb_max_extension.setValue(config.get("object_max_extension", 0))
             if "threshold_method" in config:
                 self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
             if "block_size" in config:
@@ -2953,14 +3012,29 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except Exception:
                     pass
 
-            if "dir_images" in config:
+            self.dir_images_path = config.get("dir_images_path", "")
+            if self.dir_images_path:
                 try:
-                    if os.path.isdir(config["dir_images"]):
-                        self.load_dir_images(config["dir_images"])
+                    if os.path.isdir(self.dir_images_path):
+                        self.load_dir_images()
                     else:
-                        QMessageBox.critical(self, "DORIS", f"Directory {config['dir_images']} not found")
+                        QMessageBox.critical(self, "DORIS", f"Directory {self.dir_images_path} not found")
+                        self.dir_images_path = ""
                         return None
                 except Exception:
+                    pass
+
+            if "dir_images" in config:
+                self.dir_images_path = config["dir_images"]
+                try:
+                    if os.path.isdir(self.dir_images_path):
+                        self.load_dir_images()
+                    else:
+                        QMessageBox.critical(self, "DORIS", f"Directory {self.dir_images_path} not found")
+                        self.dir_images_path = ""
+                        return None
+                except Exception:
+                    raise
                     pass
 
             self.coordinate_center = config.get("referential_system_origin", [0,0])
@@ -2989,6 +3063,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.process_and_show()
 
         except Exception:
+            raise
             logging.warning("Error in project file")
             QMessageBox.critical(self, "DORIS", f"Error in project file: {file_name}")
             return
