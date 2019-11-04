@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 DORIS
 Detection of Objects Research Interactive Software
@@ -377,6 +376,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas_df = None
         self.fgbg = None
         self.flag_stop_tracking = False
+        self.continue_when_no_objects = False
         self.video_height = 0
         self.video_width = 0
         self.frame_width = VIEWER_WIDTH
@@ -1267,11 +1267,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not self.dir_images and self.capture is None:
             return
 
+        '''
         if self.running_tracking:
             return
+        '''
 
         if dialog.MessageDialog("DORIS", "Confirm reset?", ["Yes", "Cancel"]) == "Cancel":
             return
+
+        self.flag_stop_tracking
 
         if self.dir_images:
             self.dir_images_index = -1
@@ -1288,6 +1292,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.te_number_objects.clear()
 
         self.always_skip_frame = False
+        self.continue_when_no_objects = False
 
         self.pb()
 
@@ -2088,6 +2093,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         return frame
 
+    def display_coordinates(self, frame_idx):
+        """
+        display coordnates
+        """
+        if self.cb_display_analysis.isChecked():
+            self.te_xy.clear()
+            if frame_idx >= NB_ROWS_COORDINATES_VIEWER // 2:
+                start = frame_idx - NB_ROWS_COORDINATES_VIEWER // 2
+            else:
+                start = 0
+
+            self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1,1:].to_string(index=False))
+
 
     def process_and_show(self):
         """
@@ -2119,16 +2137,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check filtered objects number
         # no filtered object
         if len(filtered_objects) == 0 and len(self.objects_to_track):
-            logging.debug("No filtered objects")
+            logging.debug("No object detected")
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
                                                              marker_type=MARKER_TYPE)
             self.display_frame(frame_with_objects, 0)
             self.display_frame(processed_frame, 1)
 
-            QMessageBox.critical(self, "DORIS", "No object detected")
-            if self.running_tracking:
-                self.flag_stop_tracking = True
+            if not self.continue_when_no_objects:
+                choices = ["OK", "Continue without asking"]
+                if self.running_tracking:
+                    choices.append("Stop tracking")
+                response = dialog.MessageDialog("DORIS",
+                                                f"No objects detected.",
+                                                choices)
+
+                if response == "Stop tracking":
+                    self.flag_stop_tracking = True
+                if response == "Continue without asking":
+                    self.continue_when_no_objects = True
+
+            # set NaN to next frames
+
+            # frame idx
+            self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
+            # tag
+            self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
+
+            # reset next frames to nan
+            self.coord_df.loc[self.frame_idx + 1:] = np.nan
+
+            self.display_coordinates(self.frame_idx)
+
             return
 
         # test match shapes
@@ -2351,7 +2391,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                         response = dialog.MessageDialog("DORIS",
                                                         (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> moved more than allowed.<br>"
-                                                         f"The maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
+                                                         f"Maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
                                                          "What do you want to do?"),
                                                         buttons)
                     else:
@@ -2678,7 +2718,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.cb_record_xy.isChecked():
 
             if self.coord_df is None:
-                QMessageBox.warning(self, "DORIS", "No objects to track")
+                # QMessageBox.warning(self, "DORIS", "No objects to track")
                 return
 
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
@@ -2687,8 +2727,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.coord_df.ix[frame_idx, "frame"] = frame_idx + 1
             # tag
             self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
-
-            '''logging.debug(f"coord_df 1: {self.coord_df}")'''
 
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
@@ -2701,17 +2739,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # set NaN to next frames
             self.coord_df.loc[frame_idx + 1:] = np.nan
 
-            '''logging.debug(f"coord_df 2: {self.coord_df}")'''
-
             if self.cb_display_analysis.isChecked():
                 self.te_xy.clear()
-                if frame_idx > 2:
-                    start = frame_idx - 3
+                if frame_idx >= NB_ROWS_COORDINATES_VIEWER // 2:
+                    start = frame_idx - NB_ROWS_COORDINATES_VIEWER // 2
                 else:
                     start = 0
-                # self.te_xy.append(str(self.coord_df[start: frame_idx + 3 + 1]))
 
-                self.te_xy.append(self.coord_df.iloc[start: frame_idx + 3 + 1,1:].to_string(index=False))
+                self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1,1:].to_string(index=False))
 
         # presence in areas
         if self.cb_record_number_objects.isChecked():

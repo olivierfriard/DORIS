@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 DORIS
 Detection of Objects Research Interactive Software
@@ -22,9 +21,12 @@ This file is part of DORIS.
 """
 
 import sys
-from PyQt5.QtGui import *
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import *
+from PyQt5.QtWidgets import (QPushButton, QDialog, QMessageBox,
+                             QVBoxLayout, QHBoxLayout,
+                             QLabel, QPlainTextEdit, QListView,
+                             )
 
 
 def MessageDialog(title, text, buttons):
@@ -145,59 +147,5 @@ class Results_dialog(QDialog):
                     f.write(self.ptText.toPlainText())
             except Exception:
                 QMessageBox.critical(self, "DORIS", "The file {} can not be saved".format(file_name))
-
-
-'''
-class Input_dialog(QDialog):
-    """
-    dialog for user input. Elements can be checkbox, lineedit, spinbox
-
-    """
-
-    def __init__(self, label_caption, elements_list):
-        super().__init__()
-
-        hbox = QVBoxLayout()
-        self.label = QLabel()
-        self.label.setText(label_caption)
-        hbox.addWidget(self.label)
-
-        self.elements = {}
-        for element in elements_list:
-            if element[0] == "cb":
-                self.elements[element[1]] = QCheckBox(element[1])
-                self.elements[element[1]].setChecked(element[2])
-                hbox.addWidget(self.elements[element[1]])
-            if element[0] == "le":
-                lb = QLabel(element[1])
-                hbox.addWidget(lb)
-                self.elements[element[1]] = QLineEdit()
-                hbox.addWidget(self.elements[element[1]])
-            if element[0] == "sb":
-                lb = QLabel(element[1])
-                hbox.addWidget(lb)
-                self.elements[element[1]] = QSpinBox()
-                self.elements[element[1]].setRange(element[2], element[3])
-                self.elements[element[1]].setSingleStep(element[4])
-                self.elements[element[1]].setValue(element[5])
-                hbox.addWidget(self.elements[element[1]])
-
-        hbox2 = QHBoxLayout()
-
-        self.pbCancel = QPushButton("Cancel")
-        self.pbCancel.clicked.connect(self.reject)
-        hbox2.addWidget(self.pbCancel)
-
-        self.pbOK = QPushButton("OK")
-        self.pbOK.clicked.connect(self.accept)
-        self.pbOK.setDefault(True)
-        hbox2.addWidget(self.pbOK)
-
-        hbox.addLayout(hbox2)
-
-        self.setLayout(hbox)
-
-        self.setWindowTitle("title")
-'''
 
 
