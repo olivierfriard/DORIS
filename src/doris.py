@@ -1286,7 +1286,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.te_tracked_objects.clear()
         self.mem_position_objects = {}
         self.coord_df = None
+        self.initialize_positions_dataframe()
+
         self.areas_df = None
+        self.initialize_areas_dataframe()
 
         self.te_xy.clear()
         self.te_number_objects.clear()
@@ -2093,6 +2096,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         return frame
 
+
     def display_coordinates(self, frame_idx):
         """
         display coordnates
@@ -2141,6 +2145,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
                                                              marker_type=MARKER_TYPE)
+
+            self.update_info(all_objects,
+                             filtered_objects,
+                             {})
+
+            _, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
+
+            # draw arena
+            frame_with_objects = self.draw_arena(self.frame.copy(), drawing_thickness)
+
+            # draw reference (100 px square)
+            if self.actionDraw_reference.isChecked():
+                frame_with_objects = self.draw_reference(frame_with_objects)
+
+            # draw coordinate center if defined
+            if self.coordinate_center != [0, 0]:
+                frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+
+            # draw areas
+            frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
+
             self.display_frame(frame_with_objects, 0)
             self.display_frame(processed_frame, 1)
 
@@ -2170,6 +2195,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_coordinates(self.frame_idx)
 
             return
+
+        # cancel continue_when_no_objects mode
+        self.continue_when_no_objects = False
 
         # test match shapes
         '''
@@ -2659,6 +2687,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.te_tracked_objects.setText(out)
         else:
             self.lb_tracked_objects.setStyleSheet("color: red")
+            self.te_tracked_objects.clear()
 
 
 

@@ -399,11 +399,11 @@ def image_processing(frame,
     if invert:
         frame = (255 - frame)
 
+    # set out of arena to black
     if arena:
         mask = np.zeros(frame.shape[:2], np.uint8)
 
         if arena["type"] == "polygon":
-
             cv2.fillConvexPoly(mask, np.array(arena["points"]), 255)
 
         if arena["type"] == "circle":
@@ -419,8 +419,7 @@ def image_processing(frame,
 
     return frame
 
-
-
+'''
 def image_processing_old(frame,
                      blur=5,
                      threshold_method={},
@@ -433,12 +432,7 @@ def image_processing_old(frame,
     if frame is None:
         return None
 
-    '''
-    if self.fgbg:
-        frame = self.fgbg.apply(frame)
-    '''
-
-    # blur
+     # blur
     if blur:
         frame = cv2.blur(frame, (blur, blur))
 
@@ -462,7 +456,7 @@ def image_processing_old(frame,
         frame = (255 - frame)
 
     return frame
-
+'''
 
 def euclidean_distance(p1: tuple, p2: tuple) -> float:
     """
@@ -596,6 +590,7 @@ def detect_and_filter_objects(frame,
                 continue
 
         # check if objects in arena
+        """
         if arena:
             if arena["type"] == "rectangle":
                 np_arena = np.array(arena["points"])
@@ -609,13 +604,15 @@ def detect_and_filter_objects(frame,
                     obj_to_del_idx.append(idx)
                     continue
 
-            # check if all contour points are in polygon arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
+            # check if all contour points are in polygon arena 
             if arena["type"] == "polygon":
                 np_arena = np.array(arena["points"])
                 if cv2.pointPolygonTest(np_arena, all_objects[idx]["centroid"], False) < 0:
                     obj_to_del_idx.append(idx)
                     continue
 
+                '''
+                # TOLERANCE_OUTSIDE_ARENA tolerance DISABLED
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
                 nl = len(n)
                 count_out = 0
@@ -627,20 +624,23 @@ def detect_and_filter_objects(frame,
                 if count_out / nl > tolerance_outside_arena:
                     obj_to_del_idx.append(idx)
                     continue
+                '''
 
             # check if all contour points are in circle arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
             if arena["type"] == "circle":
                 if euclidean_distance(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
                     obj_to_del_idx.append(idx)
                     continue
-
+                '''
+                # TOLERANCE_OUTSIDE_ARENA tolerance DISABLED
                 n = np.vstack(all_objects[idx]["contour"]).squeeze()
                 dist_ = ((n[:,0] - arena["center"][0]) ** 2 + (n[:,1] - arena["center"][1]) ** 2) ** 0.5
 
                 if np.count_nonzero(dist_ > arena["radius"]) / len(dist_) > tolerance_outside_arena:
                     obj_to_del_idx.append(idx)
                     continue
-
+                '''
+        """
     filtered_objects = {}
     for obj_idx in all_objects:
         if obj_idx not in obj_to_del_idx:
