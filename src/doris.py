@@ -1752,14 +1752,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # display objects on previous frame
         if self.previous_frame is not None:
-            frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
+            if (self.frame_idx - 1) in  self.mem_position_objects:
+                frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
                                                              self.mem_position_objects[self.frame_idx - 1],
                                                              marker_type=MARKER_TYPE)
 
-            # print(self.frame_scale)
-            #self.frame_viewer_scale(2, 0.5)
-            self.frame_viewer_scale2(2)
-            self.display_frame(frame_with_objects, 2)
+                # print(self.frame_scale)
+                #self.frame_viewer_scale(2, 0.5)
+                self.frame_viewer_scale2(2)
+                self.display_frame(frame_with_objects, 2)
+            else:
+                print(f"{self.frame_idx - 1} not in self.mem_position_objects")
 
         if mode == "all":
             self.show_all_filtered_objects()
