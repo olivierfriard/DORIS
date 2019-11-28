@@ -282,6 +282,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_define_scale.clicked.connect(self.define_scale)
         self.pb_reset_scale.clicked.connect(self.reset_scale)
 
+        # define mask
+        menu0 = QMenu()
+        menu0.addAction("Rectangle arena", lambda: self.add_mask("rectangle"))
+        menu0.addAction("Circle arena (3 points)", lambda: self.add_mask("circle (3 points)"))
+        menu0.addAction("Circle arena (center radius)", lambda: self.add_mask("circle (center radius)"))
+        menu0.addAction("Polygon arena", lambda: self.add_mask("polygon"))
+        self.pb_define_arena.setMenu(menu0)
+
+        #self.pb_add_mask.clicked.connect(self.add_mask)
+
         # menu for Define origin button
         menu = QMenu()
         menu.addAction("Origin from center of 3 points circle", self.define_coordinate_center_3points_circle)
@@ -386,10 +396,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_define_arena = False
         self.flag_define_coordinate_center_1point = False
         self.flag_define_coordinate_center_3points = False
+        self.flag_add_mask = False
         self.flag_define_scale = False
         self.coordinate_center = [0, 0]
         self.coordinate_center_def = []
         self.scale_points = []
+        self.mask_points = []
+        self.masks = []
         self.add_area = {}
         self.arena = {}
         self.filtered_objects = {}
@@ -601,6 +614,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
         config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
+        config["masks"] = self.masks
 
         '''
         config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
@@ -918,18 +932,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if event.button() in [Qt.RightButton]:
                 self.repicked_objects = None
                 return
+
+            # pick object by clicking inside the object contour
             '''
-            for o in self.objects_to_track:
-                # check if clicked point is inside an object
-                if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]),
-                                            (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
-                                            False) >= 0):
-                    self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-                    self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+            if self.repick_mode == "tracked":
+                for o in self.objects_to_track:
+                    # check if clicked point is inside an object
+                    if int(cv2.pointPolygonTest(np.array(self.objects_to_track[o]["contour"]),
+                                                (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                                False) >= 0):
+                        self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                        self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
+
+            if self.repick_mode == "all": 
+                for o in self.filtered_objects:
+                    print("o", o)
+                    # check if clicked point is inside an object
+                    if int(cv2.pointPolygonTest(np.array(self.filtered_objects[o]["contour"]),
+                                                (int(event.pos().x() * conversion), int(event.pos().y() * conversion)),
+                                                False) >= 0):
+                        self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
+                        self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
             '''
+
+            
+            # pick object by clicking nearly (not inside)
             self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
             self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
-
+            
 
         # set coordinates of center with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -993,6 +1023,37 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.scale_points = []
                     self.reload_frame()
                     self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
+
+        # add mask
+        if self.flag_add_mask:
+            if len(self.mask_points) < 2:
+                cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
+                           color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
+                self.display_frame(self.frame)
+
+                self.mask_points.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
+
+                if len(self.mask_points) == 2:
+
+                    min_x = min(self.mask_points[0][0], self.mask_points[1][0])
+                    max_x = max(self.mask_points[0][0], self.mask_points[1][0])
+                    min_y = min(self.mask_points[0][1], self.mask_points[1][1])
+                    max_y = max(self.mask_points[0][1], self.mask_points[1][1])
+
+                    # self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
+
+                    self.masks.append({"type": "rectangle", "coordinates": ((min_x, min_y), (max_x, max_y))})
+                    self.lw_masks.addItem(str(self.masks[-1]))
+
+                    cv2.rectangle(self.frame, (min_x, min_y), (max_x, max_y),
+                                  color=ARENA_COLOR, thickness=drawing_thickness)
+
+
+                    self.display_frame(self.frame)
+                    self.flag_add_mask = False
+                    #self.reload_frame()
+                    self.statusBar.showMessage(f"Mask added")
+
 
         # add area
         if self.add_area:
@@ -1409,19 +1470,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             QMessageBox.warning(self, "DORIS", "no positions recorded")
             return
 
-        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
-        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
+        try:
+            x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
+            y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
 
-        if self.cb_normalize_coordinates.isChecked():
-            x_lim = x_lim / self.video_width
-            y_lim = y_lim / self.video_width
+            if self.cb_normalize_coordinates.isChecked():
+                x_lim = x_lim / self.video_width
+                y_lim = y_lim / self.video_width
 
-        x_lim = x_lim * self.scale
-        y_lim = y_lim * self.scale
+            x_lim = x_lim * self.scale
+            y_lim = y_lim * self.scale
 
-        doris_functions.plot_density(self.coord_df,
-                                     x_lim=x_lim,
-                                     y_lim=y_lim)
+            doris_functions.plot_density(self.coord_df,
+                                        x_lim=x_lim,
+                                        y_lim=y_lim)
+        except Exception:
+            error_type, _, _ = dialog.error_message("plot density", sys.exc_info())
+            logging.debug(error_type)
 
 
     def distances(self):
@@ -1442,8 +1507,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
         if file_name:
-            results.to_csv(file_name, sep="\t", decimal=".")
-
+            try:
+                results.to_csv(file_name, sep="\t", decimal=".")
+            except Exception:
+                error_type, _, _ = dialog.error_message("save distances", sys.exc_info())
+                logging.debug(error_type)
 
 
 
@@ -1628,8 +1696,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                 blur=self.sb_blur.value(),
                                                 threshold_method=threshold_method,
                                                 invert=self.cb_invert.isChecked(),
-                                                arena=self.arena
+                                                arena=self.arena,
+                                                masks=self.masks
                                                 )
+
+    def add_mask(self):
+        """
+        define a mask to apply on image
+        """
+        if self.frame is not None:
+            self.flag_add_mask = not self.flag_add_mask
+            self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_add_mask)
 
 
     def define_coordinate_center_1point(self):
@@ -1640,7 +1717,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_define_coordinate_center_1point = not self.flag_define_coordinate_center_1point
             self.actionOrigin_from_point.setText("from point" if not self.flag_define_coordinate_center_1point
                                                         else "Cancel origin definition")
-            self.statusBar.showMessage("You have to select the origin of the referential system" * self.flag_define_coordinate_center_1point)
+            self.statusBar.showMessage(("You have to select the origin "
+                                        "of the referential system") * self.flag_define_coordinate_center_1point)
 
 
     def define_coordinate_center_3points_circle(self):
@@ -1686,7 +1764,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             for idx in self.objects_to_track:
                 columns.append(f"area {area} object #{idx}")
         self.areas_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
-
 
 
     def select_objects_to_track(self, all_=False):
@@ -1752,21 +1829,26 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # display objects on previous frame
         if self.previous_frame is not None:
-            if (self.frame_idx - 1) in  self.mem_position_objects:
+            try:
                 frame_with_objects = self.draw_marker_on_objects(self.previous_frame.copy(),
                                                              self.mem_position_objects[self.frame_idx - 1],
                                                              marker_type=MARKER_TYPE)
 
-                # print(self.frame_scale)
-                #self.frame_viewer_scale(2, 0.5)
-                self.frame_viewer_scale2(2)
-                self.display_frame(frame_with_objects, 2)
-            else:
-                print(f"{self.frame_idx - 1} not in self.mem_position_objects")
+                # self.frame_viewer_scale2(2)
+                # self.display_frame(frame_with_objects, 2)
+            except Exception:
+                error_type, _, _ = dialog.error_message("display objects on previous frame", sys.exc_info())
+                logging.debug(error_type)
+
+        self.repick_mode = mode
+        logging.debug(f"repick mode: {self.repick_mode}")
 
         if mode == "all":
             self.show_all_filtered_objects()
-            print(list(self.filtered_objects.keys()))
+
+            print(f"filtered objects: {list(self.filtered_objects.keys())}")
+        
+
 
         self.statusBar.showMessage(f"Click object #1 on the original frame viewer (right-click to cancel)")
         self.repicked_objects = []
@@ -1958,6 +2040,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.record_objects_data(self.frame_idx, self.objects_to_track)
         '''
 
+
     def draw_reference_clicked(self):
         """
         click on draw reference menu option
@@ -2076,7 +2159,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
-
     def draw_arena(self, frame, drawing_thickness):
         """
         draw arena
@@ -2100,9 +2182,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return frame
 
 
+    def draw_masks(self, frame, drawing_thickness):
+        """
+        draw masks on frame
+        """
+        for mask in self.masks:
+            print(mask)
+            cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
+                          color=WHITE, thickness=-1)
+        return frame
+
+
     def display_coordinates(self, frame_idx):
         """
-        display coordnates
+        display coordinates
         """
         if self.cb_display_analysis.isChecked():
             self.te_xy.clear()
@@ -2164,7 +2257,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # draw coordinate center if defined
             if self.coordinate_center != [0, 0]:
-                frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+                frame_with_objects = self.draw_point_origin(frame_with_objects,
+                                                            self.coordinate_center,
+                                                            BLUE, drawing_thickness)
 
             # draw areas
             frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
@@ -2173,7 +2268,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_frame(processed_frame, 1)
 
             if not self.continue_when_no_objects:
-                choices = ["OK", "Continue without asking"]
+                choices = ["OK", "Skip frame", "Always skip frame"]
                 if self.running_tracking:
                     choices.append("Stop tracking")
                 response = dialog.MessageDialog("DORIS",
@@ -2182,25 +2277,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 if response == "Stop tracking":
                     self.flag_stop_tracking = True
-                if response == "Continue without asking":
+                if response == "Always skip frame":
                     self.continue_when_no_objects = True
 
-            # set NaN to next frames
+            if self.cb_record_xy.isChecked():
+                # frame idx
+                self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
+                # tag
+                self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
+                for idx in sorted(list(self.objects_to_track.keys())):
+                    self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
+                    self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
 
-            # frame idx
-            self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
-            # tag
-            self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
+                # reset next frames to nan
+                self.coord_df.loc[self.frame_idx + 1:] = np.nan
 
-            # reset next frames to nan
-            self.coord_df.loc[self.frame_idx + 1:] = np.nan
-
-            self.display_coordinates(self.frame_idx)
+                self.display_coordinates(self.frame_idx)
 
             return
 
         # cancel continue_when_no_objects mode
-        self.continue_when_no_objects = False
+
+        # self.continue_when_no_objects = False
 
         # test match shapes
         '''
@@ -2326,6 +2424,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     # print(idx, "centroid", (cx, cy))
                 filtered_objects = dict(new_filtered_objects)
 
+        self.filtered_objects = filtered_objects
+
+
         # assign filtered objects to objects to track
         if self.objects_to_track:
             mem_costs = {}
@@ -2414,31 +2515,45 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         buttons = ["Repick objects",
                                    "Accept movement",
                                    SKIP_FRAME,
-                                   ALWAYS_SKIP_FRAME,
-                                   "Go to previous frame"]
+                                   ALWAYS_SKIP_FRAME
+                                   ]
+                        if not self.running_tracking:
+                            buttons.append("Go to previous frame")
 
                         if self.running_tracking:
                             buttons.append("Stop tracking")
 
                         response = dialog.MessageDialog("DORIS",
-                                                        (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> moved more than allowed.<br>"
-                                                         f"Maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
-                                                         "What do you want to do?"),
-                                                        buttons)
+                                        (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> "
+                                         "moved more than allowed.<br>"
+                                         f"Maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
+                                         "What do you want to do?"),
+                                         buttons)
                     else:
                         response = SKIP_FRAME
 
                     if response in [SKIP_FRAME, ALWAYS_SKIP_FRAME]:
                         # frame skipped and positions are taken from previous frame
+
                         if self.cb_record_xy.isChecked():
+                            # frame idx
+                            self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
+                            # tag
+                            self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
                             for idx in sorted(list(self.objects_to_track.keys())):
                                 self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
                                 self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
+                            # reset next frames to nan
+                            self.coord_df.loc[self.frame_idx + 1:] = np.nan
 
+                            self.display_coordinates(self.frame_idx)
+
+                        # last tracked objects
                         self.objects_to_track = self.mem_position_objects[self.frame_idx - 1]
                         self.mem_position_objects[self.frame_idx] = dict(self.mem_position_objects[self.frame_idx - 1])
                         if response == ALWAYS_SKIP_FRAME:
                             self.always_skip_frame = True
+
                         return
 
                     if response == "Repick objects":
@@ -2452,7 +2567,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.flag_stop_tracking = True
                         return
 
-        self.filtered_objects = filtered_objects
 
         if self.cb_display_analysis.isChecked():
 
@@ -2474,6 +2588,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # draw areas
             frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
 
+            # draw masks
+            frame_with_objects = self.draw_masks(frame_with_objects, drawing_thickness)
+
             # draw contour of objects
             if self.objects_to_track:
                 # draw contours of tracked objects
@@ -2493,6 +2610,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         #  record objects data
         self.record_objects_data(self.frame_idx, self.objects_to_track)
+        self.always_skip_frame = False
 
 
 
@@ -2771,14 +2889,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # set NaN to next frames
             self.coord_df.loc[frame_idx + 1:] = np.nan
 
-            if self.cb_display_analysis.isChecked():
-                self.te_xy.clear()
-                if frame_idx >= NB_ROWS_COORDINATES_VIEWER // 2:
-                    start = frame_idx - NB_ROWS_COORDINATES_VIEWER // 2
-                else:
-                    start = 0
-
-                self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1,1:].to_string(index=False))
+            self.display_coordinates(frame_idx)
 
         # presence in areas
         if self.cb_record_number_objects.isChecked():
@@ -2792,7 +2903,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.areas_df.ix[frame_idx, "frame"] = frame_idx
             # tag
             self.areas_df.ix[frame_idx, "tag"] = self.le_tag.text()
-
 
             for area in sorted(list(self.areas.keys())):
 
@@ -2808,7 +2918,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             nb[area] += 1
 
                         self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
-
 
                 if self.areas[area]["type"] == "rectangle":
                     minx, miny = self.areas[area]["pt1"]
@@ -3106,6 +3215,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.coordinate_center = config.get("referential_system_origin", [0,0])
             self.le_coordinates_center.setText(f"{self.coordinate_center}")
+            self.masks = config.get("masks", [])
+            if self.masks:
+                for mask in self.masks:
+                    self.lw_masks.addItem(str(mask))
 
             self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
             self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))

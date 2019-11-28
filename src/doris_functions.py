@@ -362,7 +362,8 @@ def image_processing(frame,
                      blur=5,
                      threshold_method={},
                      invert=False,
-                     arena={}):
+                     arena={},
+                     masks=[]):
     """
     apply treament to frame
     returns treated frame
@@ -416,6 +417,15 @@ def image_processing(frame,
         inverted_mask = 255 - mask
 
         frame = np.where(inverted_mask==255, 0, frame)
+
+    # apply masks (black for selected mask areas)
+    for mask in masks:
+        print("mask", mask["coordinates"])
+        mask_array = np.zeros(frame.shape[:2], np.uint8)
+        cv2.rectangle(mask_array, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
+                          color=255, thickness=cv2.FILLED)
+
+        frame = np.where(mask_array==255, 0, frame)
 
     return frame
 

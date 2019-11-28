@@ -21,6 +21,7 @@ This file is part of DORIS.
 """
 
 import sys
+import version
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QPushButton, QDialog, QMessageBox,
@@ -41,6 +42,42 @@ def MessageDialog(title, text, buttons):
     message.setWindowFlags(Qt.WindowStaysOnTopHint)
     message.exec_()
     return message.clickedButton().text()
+
+
+def error_info(exc_info: tuple) -> tuple:
+    """
+    return details about error
+    usage: error_info(sys.exc_info())
+
+    Args:
+        sys.exc_info() (tuple):
+
+    Returns:
+        tuple: error type, error file name, error line number
+    """
+
+    exc_type, exc_obj, exc_tb = exc_info
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    return (exc_obj, fname, exc_tb.tb_lineno)
+
+
+def error_message(task: str, exc_info: tuple) -> None:
+    """
+    show details about the error
+
+    """
+    error_type, error_file_name, error_lineno = error_info(exc_info)
+    QMessageBox.critical(None, programName,
+                         (f"An error occured during {task}.<br>"
+                          f"DORIS version: {version.__version__}<br>"
+                          f"Error: {error_type}<br>"
+                          f"in {error_file_name} "
+                          f"at line # {error_lineno}<br><br>"
+                          "Please report this problem to improve the software at:<br>"
+                          '<a href="https://github.com/olivierfriard/DORIS/issues">https://github.com/olivierfriard/DORIS/issues</a>'
+                          ))
+
+    return (error_type, error_file_name, error_lineno)
 
 
 class CheckListWidget(QDialog):

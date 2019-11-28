@@ -216,6 +216,15 @@ class Ui_MainWindow(object):
         spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_18.addItem(spacerItem4)
         self.verticalLayout_3.addLayout(self.horizontalLayout_18)
+        self.pb_add_mask = QtWidgets.QPushButton(self.centralwidget)
+        self.pb_add_mask.setObjectName("pb_add_mask")
+        self.verticalLayout_3.addWidget(self.pb_add_mask)
+        self.label_7 = QtWidgets.QLabel(self.centralwidget)
+        self.label_7.setObjectName("label_7")
+        self.verticalLayout_3.addWidget(self.label_7)
+        self.lw_masks = QtWidgets.QListWidget(self.centralwidget)
+        self.lw_masks.setObjectName("lw_masks")
+        self.verticalLayout_3.addWidget(self.lw_masks)
         spacerItem5 = QtWidgets.QSpacerItem(20, 13, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem5)
         self.horizontalLayout_21.addLayout(self.verticalLayout_3)
@@ -543,7 +552,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -578,6 +587,8 @@ class Ui_MainWindow(object):
         self.label_4.setText(_translate("MainWindow", "max obj size"))
         self.label_13.setText(_translate("MainWindow", "Max object extension"))
         self.label_22.setText(_translate("MainWindow", "Max distance between frames (pixels)"))
+        self.pb_add_mask.setText(_translate("MainWindow", "Add mask"))
+        self.label_7.setText(_translate("MainWindow", "Masks"))
         self.lb_all.setText(_translate("MainWindow", "All detected objects"))
         self.pb_show_all_objects.setText(_translate("MainWindow", "Display all objects"))
         self.lb_filtered.setText(_translate("MainWindow", "Filtered objects"))
