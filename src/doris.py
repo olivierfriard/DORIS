@@ -36,46 +36,49 @@ http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/p
 """
 
 
-from PyQt5.QtCore import (Qt, QT_VERSION_STR, PYQT_VERSION_STR, pyqtSignal, QEvent, QSettings)
-from PyQt5.QtGui import (QPixmap, QImage, qRgb, QFont)
-from PyQt5.QtWidgets import (QMainWindow, QApplication, QStatusBar, QDialog,
-                             QMenu, QFileDialog, QMessageBox, QInputDialog,
-                             QWidget, QVBoxLayout, QLabel, QSpacerItem,
-                             QSizePolicy, QCheckBox, QHBoxLayout, QPushButton,
-                             QMessageBox, QComboBox)
+import argparse
+import collections
+import copy
+import datetime as dt
+import itertools
+import json
+import logging
+import math
+import os
+import pathlib
+import platform
+import sys
+import time
 
 import matplotlib
 matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
 import matplotlib.patches as patches
-from matplotlib.figure import Figure
-
-
-import logging
-import os
-import platform
-import json
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
+from matplotlib.path import Path
+from PyQt5.QtCore import (PYQT_VERSION_STR, QT_VERSION_STR, QEvent, QSettings,
+                          Qt, pyqtSignal)
+from PyQt5.QtGui import QFont, QImage, QPixmap, qRgb
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
+                             QFileDialog, QHBoxLayout, QInputDialog, QLabel,
+                             QMainWindow, QMenu, QMessageBox, QPushButton,
+                             QSizePolicy, QSpacerItem, QStatusBar, QVBoxLayout,
+                             QWidget)
+
 import cv2
-import copy
-import pathlib
-
-import sys
-import time
-import pathlib
-import datetime as dt
-import math
-
-import argparse
-import itertools
-
+import dialog
 import doris_functions
 import version
 from config import *
-import dialog
 from doris_ui import Ui_MainWindow
+
+
+
+
+
+
 
 
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
@@ -234,7 +237,15 @@ def toQImage(frame, copy=False):
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
+    
+
     def __init__(self, parent=None):
+
+        class Flag():
+            def __init__(self, define=False, shape="", color=BLACK):
+                self.define = define
+                self.shape = shape
+                self.color = color
 
         super(Ui_MainWindow, self).__init__(parent)
         self.setupUi(self)
@@ -282,13 +293,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_define_scale.clicked.connect(self.define_scale)
         self.pb_reset_scale.clicked.connect(self.reset_scale)
 
-        # define mask
+        self.lw_masks.doubleClicked.connect(self.lw_masks_doubleclicked)
+
+        # menu for adding a mask
         menu0 = QMenu()
-        menu0.addAction("Rectangle arena", lambda: self.add_mask("rectangle"))
-        menu0.addAction("Circle arena (3 points)", lambda: self.add_mask("circle (3 points)"))
-        menu0.addAction("Circle arena (center radius)", lambda: self.add_mask("circle (center radius)"))
-        menu0.addAction("Polygon arena", lambda: self.add_mask("polygon"))
-        self.pb_define_arena.setMenu(menu0)
+        menu0.addAction("Rectangle", lambda: self.add_mask(RECTANGLE))
+        menu0.addAction("Circle (3 points)", lambda: self.add_mask(CIRCLE_3PTS))
+        menu0.addAction("Circle (center radius)", lambda: self.add_mask(CIRCLE_CENTER_RADIUS))
+        menu0.addAction("Polygon", lambda: self.add_mask(POLYGON))
+        self.pb_add_mask.setMenu(menu0)
 
         #self.pb_add_mask.clicked.connect(self.add_mask)
 
@@ -307,7 +320,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # menu for arena button
         menu1 = QMenu()
-        menu1.addAction("Rectangle arena", lambda: self.define_arena("rectangle"))
+        menu1.addAction("Rectangle arena", lambda: self.define_arena(RECTANGLE))
         menu1.addAction("Circle arena (3 points)", lambda: self.define_arena("circle (3 points)"))
         menu1.addAction("Circle arena (center radius)", lambda: self.define_arena("circle (center radius)"))
         menu1.addAction("Polygon arena", lambda: self.define_arena("polygon"))
@@ -339,10 +352,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
         self.sb_max_distance.setValue(DIST_MAX)
 
-        '''
-        self.sb_percent_out_of_arena.valueChanged.connect(self.process_and_show)
-        '''
-
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
         self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
         self.pb_separate_objects.clicked.connect(self.force_objects_number)
@@ -362,7 +371,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # menu for area button
         menu = QMenu()
-        menu.addAction("Rectangle", lambda: self.add_area_func("rectangle"))
+        menu.addAction("Rectangle", lambda: self.add_area_func(RECTANGLE))
         menu.addAction("Circle (center radius)", lambda: self.add_area_func("circle (center radius)"))
         menu.addAction("Circle (3 points)", lambda: self.add_area_func("circle (3 points)"))
         menu.addAction("Polygon", lambda: self.add_area_func("polygon"))
@@ -396,7 +405,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.flag_define_arena = False
         self.flag_define_coordinate_center_1point = False
         self.flag_define_coordinate_center_3points = False
-        self.flag_add_mask = False
+        
+        self.flag_add_mask = Flag(define=False, shape="", color=BLACK)
         self.flag_define_scale = False
         self.coordinate_center = [0, 0]
         self.coordinate_center_def = []
@@ -499,6 +509,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         _ = about_dialog.exec_()
 
+
+    def lw_masks_doubleclicked(self):
+        """
+        remove the mask form listwidget
+        """
+        if dialog.MessageDialog("DORIS", "Remove the mask?", ["Yes", "Cancel"]) == "Yes":
+            self.masks.pop(self.lw_masks.row(self.lw_masks.selectedItems()[0]))
+            self.lw_masks.takeItem(self.lw_masks.row(self.lw_masks.selectedItems()[0]))
+
+            print(self.masks)
 
     def actionShow_contour_changed(self):
         self.fw[0].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
@@ -776,7 +796,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     msg = "New circle area: click on the video to define the center of the circle and then a point belonging to the circle"
                 if shape == "polygon":
                     msg = "New polygon area: click on the video to define the vertices of the polygon. Right click to finish"
-                if shape == "rectangle":
+                if shape == RECTANGLE:
                     msg = "New rectangle area: click on the video to define 2 opposite vertices."
 
                 self.statusBar.showMessage(msg)
@@ -808,7 +828,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_define_arena = shape
             self.pb_define_arena.setEnabled(False)
             msg = ""
-            if shape == "rectangle":
+            if shape == RECTANGLE:
                 msg = "New arena: click on the video to define the top-lef and bottom-right edges of the rectangle."
             if shape == "circle (3 points)":
                 msg = "New arena: click on the video to define 3 points belonging to the circle"
@@ -1025,16 +1045,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
 
         # add mask
-        if self.flag_add_mask:
-            if len(self.mask_points) < 2:
+        if self.flag_add_mask.define:
+
+            if event.button() == Qt.LeftButton:
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
                 self.display_frame(self.frame)
 
                 self.mask_points.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
 
-                if len(self.mask_points) == 2:
+            if self.flag_add_mask.shape in [RECTANGLE, CIRCLE_CENTER_RADIUS] and len(self.mask_points) == 2:
 
+                if (self.flag_add_mask.shape == RECTANGLE):
                     min_x = min(self.mask_points[0][0], self.mask_points[1][0])
                     max_x = max(self.mask_points[0][0], self.mask_points[1][0])
                     min_y = min(self.mask_points[0][1], self.mask_points[1][1])
@@ -1042,15 +1064,65 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     # self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
 
-                    self.masks.append({"type": "rectangle", "coordinates": ((min_x, min_y), (max_x, max_y))})
+                    self.masks.append({"type": RECTANGLE, "color": self.flag_add_mask.color,
+                                        "coordinates": ((min_x, min_y), (max_x, max_y))})
                     self.lw_masks.addItem(str(self.masks[-1]))
 
                     cv2.rectangle(self.frame, (min_x, min_y), (max_x, max_y),
-                                  color=ARENA_COLOR, thickness=drawing_thickness)
+                                color=self.flag_add_mask.color, thickness=cv2.FILLED)
 
+                if (self.flag_add_mask.shape == CIRCLE_CENTER_RADIUS):
+                    radius = int(doris_functions.euclidean_distance(self.mask_points[0], self.mask_points[1]))
+                    self.masks.append({"type": CIRCLE, "color": self.flag_add_mask.color,
+                                        "center": self.mask_points[0], "radius": int(radius)})
+                    self.lw_masks.addItem(str(self.masks[-1]))
 
+                    cv2.circle(self.frame, self.mask_points[0], int(radius),
+                               color=self.flag_add_mask.color, thickness=cv2.FILLED)
+
+                self.mask_points = []
+                self.display_frame(self.frame)
+                self.flag_add_mask.define = False
+                self.reload_frame()
+                self.statusBar.showMessage(f"Mask added")
+
+            if (self.flag_add_mask.shape in [CIRCLE_3PTS]) and len(self.mask_points) == 3:
+                cx, cy, radius = doris_functions.find_circle(self.mask_points)
+
+                self.masks.append({"type": CIRCLE, "color": self.flag_add_mask.color,
+                                   "center": (round(cx), round(cy)), "radius": int(radius)})
+                self.lw_masks.addItem(str(self.masks[-1]))
+
+                cv2.circle(self.frame, (round(cx), round(cy)), int(radius),
+                           color=self.flag_add_mask.color, thickness=cv2.FILLED)
+
+                self.mask_points = []
+                self.display_frame(self.frame)
+                self.flag_add_mask.define = False
+                self.reload_frame()
+                self.statusBar.showMessage(f"Mask added")
+
+            if self.flag_add_mask.shape == POLYGON:
+
+                if event.button() == Qt.RightButton:  # right click to finish
+
+                    self.masks.append({"type": POLYGON, "color": self.flag_add_mask.color,
+                                        "coordinates": self.mask_points})
+                    self.lw_masks.addItem(str(self.masks[-1]))
+
+                    '''
+                    for idx, point in enumerate(self.mask_points[:-1]):
+                        cv2.line(self.frame, tuple(point), tuple(self.mask_points[idx + 1]),
+                                color=self.flag_add_mask.color, lineType=8, thickness=drawing_thickness)
+                    cv2.line(self.frame, tuple(self.mask_points[-1]), tuple(self.mask_points[0]),
+                            color=self.flag_add_mask.color, lineType=8, thickness=drawing_thickness)
+                    '''
+                    print(np.array([self.mask_points]))
+                    cv2.fillPoly(self.frame, np.array([self.mask_points]), color=self.flag_add_mask.color)
+
+                    self.mask_points = []
                     self.display_frame(self.frame)
-                    self.flag_add_mask = False
+                    self.flag_add_mask.define = False
                     #self.reload_frame()
                     self.statusBar.showMessage(f"Mask added")
 
@@ -1113,7 +1185,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage("New circle area created")
                     return
 
-            if self.add_area["type"] == "rectangle":
+            if self.add_area["type"] == RECTANGLE:
                 if "pt1" not in self.add_area:
                     self.add_area["pt1"] = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
                 else:
@@ -1166,7 +1238,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.reload_frame()
                 return
 
-            if self.flag_define_arena == "rectangle":
+            if self.flag_define_arena == RECTANGLE:
                 if "points" not in self.arena:
                     self.arena["points"] = []
                 self.arena["points"].append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
@@ -1700,13 +1772,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                 masks=self.masks
                                                 )
 
-    def add_mask(self):
+
+    def add_mask(self, shape):
         """
         define a mask to apply on image
         """
         if self.frame is not None:
-            self.flag_add_mask = not self.flag_add_mask
-            self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_add_mask)
+            self.flag_add_mask.define = not self.flag_add_mask.define
+            self.statusBar.showMessage("")
+            if self.flag_add_mask.define:
+                self.flag_add_mask.color = WHITE if dialog.MessageDialog("DORIS", "Mask color", ["White", "black"]) == "White" else BLACK
+                self.flag_add_mask.shape = shape
+                if shape in [RECTANGLE, CIRCLE_CENTER_RADIUS]:
+                    self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_add_mask.define)
+                if shape == CIRCLE_3PTS:
+                    self.statusBar.showMessage("You have to select 3 points on the video" * self.flag_add_mask.define)
+                if shape == POLYGON:
+                    self.statusBar.showMessage("You have to draw a polygon on the video" * self.flag_add_mask.define)
 
 
     def define_coordinate_center_1point(self):
@@ -2142,7 +2224,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["center"][0] + self.areas[area]["radius"], self.areas[area]["center"][1])),
                                 font, FONT_SIZE, AREA_COLOR, drawing_thickness, cv2.LINE_AA)
 
-                if self.areas[area]["type"] == "rectangle":
+                if self.areas[area]["type"] == RECTANGLE:
                     cv2.rectangle(frame, tuple(self.areas[area]["pt1"]), tuple(self.areas[area]["pt2"]),
                                   color=AREA_COLOR, thickness=drawing_thickness)
                     cv2.putText(frame, self.areas[area]["name"], tuple((self.areas[area]["pt1"][0], self.areas[area]["pt1"][1] + text_height)),
@@ -2175,7 +2257,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cv2.circle(frame, tuple(self.arena["center"]), self.arena["radius"],
                            color=ARENA_COLOR, thickness=drawing_thickness)
 
-            if self.arena["type"] == "rectangle":
+            if self.arena["type"] == RECTANGLE:
                 cv2.rectangle(frame, tuple(self.arena["points"][0]), tuple(self.arena["points"][1]),
                               color=ARENA_COLOR, thickness=drawing_thickness)
 
@@ -2188,8 +2270,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         for mask in self.masks:
             print(mask)
-            cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
-                          color=WHITE, thickness=-1)
+            if mask["type"] == RECTANGLE:
+                cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
+                              color=mask["color"], thickness=-1)
+            if mask["type"] == CIRCLE:
+                cv2.circle(frame, tuple(mask["center"]), mask["radius"],
+                           color=mask["color"], thickness=-1)
+
+
+
         return frame
 
 
@@ -2919,7 +3008,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                         self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
 
-                if self.areas[area]["type"] == "rectangle":
+                if self.areas[area]["type"] == RECTANGLE:
                     minx, miny = self.areas[area]["pt1"]
                     maxx, maxy = self.areas[area]["pt2"]
 

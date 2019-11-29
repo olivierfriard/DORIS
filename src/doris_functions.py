@@ -28,8 +28,6 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 
-
-
 import config
 import cv2
 import numpy as np
@@ -377,6 +375,24 @@ def image_processing(frame,
         frame = self.fgbg.apply(frame)
     '''
 
+    # apply masks (black for selected mask areas)
+    for mask in masks:
+        print("mask", mask)
+        # mask_array = np.zeros(frame.shape[:2], np.uint8)
+        #if mask[""]
+        if mask["type"] == config.RECTANGLE:
+            cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
+                          color=mask["color"], thickness=cv2.FILLED)
+        if mask["type"] == config.CIRCLE:
+            cv2.circle(frame, tuple(mask["center"]), mask["radius"],
+                          color=mask["color"], thickness=cv2.FILLED)
+        if mask["type"] == config.POLYGON:
+            cv2.fillPoly(frame, np.array([mask["coordinates"]]),
+                          color=mask["color"])
+
+        # frame = np.where(mask_array==255, 0, frame)
+
+
     # blur
     if blur:
         frame = cv2.blur(frame, (blur, blur))
@@ -417,15 +433,6 @@ def image_processing(frame,
         inverted_mask = 255 - mask
 
         frame = np.where(inverted_mask==255, 0, frame)
-
-    # apply masks (black for selected mask areas)
-    for mask in masks:
-        print("mask", mask["coordinates"])
-        mask_array = np.zeros(frame.shape[:2], np.uint8)
-        cv2.rectangle(mask_array, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
-                          color=255, thickness=cv2.FILLED)
-
-        frame = np.where(mask_array==255, 0, frame)
 
     return frame
 

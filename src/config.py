@@ -53,6 +53,10 @@ WHITE = (255, 255, 255)
 
 CONTOUR = "contour"
 RECTANGLE = "rectangle"
+CIRCLE = "circle"
+CIRCLE_CENTER_RADIUS = "circle (center radius)"
+CIRCLE_3PTS = "circle (3 points)"
+POLYGON = "polygon"
 
 MARKER_TYPE = CONTOUR
 MARKER_COLOR = GREEN
