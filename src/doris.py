@@ -461,7 +461,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
-        self.setGeometry(0, 0, 1100, 750)
+        screen_size = app.primaryScreen().size()
+        if screen_size.width() >= 1200 and screen_size.height() >= 750:
+            self.setGeometry(0, 0, 1200, 750)
+        else:
+            self.setGeometry(0, 0, 1000, 700)
 
         self.pick_point = None
 
