@@ -629,9 +629,9 @@
      </layout>
     </item>
     <item>
-     <widget class="QTabWidget" name="tabWidget">
+     <widget class="QTabWidget" name="tab_tracking_results">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -718,18 +718,35 @@
          </layout>
         </item>
         <item>
-         <widget class="QCheckBox" name="cb_record_xy">
-          <property name="text">
-           <string>Record objects coordinates</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="cb_normalize_coordinates">
-          <property name="text">
-           <string>Normalize coordinates</string>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QCheckBox" name="cb_record_xy">
+            <property name="text">
+             <string>Record objects coordinates</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="cb_normalize_coordinates">
+            <property name="text">
+             <string>Normalize coordinates</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_7">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QTextEdit" name="te_xy">
@@ -912,14 +929,38 @@
      </widget>
     </item>
     <item>
-     <widget class="QCheckBox" name="cb_display_analysis">
-      <property name="text">
-       <string>Display analysis</string>
-      </property>
-      <property name="checked">
-       <bool>true</bool>
-      </property>
-     </widget>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QCheckBox" name="cb_continue_when_no_objects">
+        <property name="text">
+         <string>Continue when no objects found</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="cb_display_analysis">
+        <property name="text">
+         <string>Display analysis</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_5">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_6">

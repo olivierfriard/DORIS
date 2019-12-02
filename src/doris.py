@@ -59,7 +59,7 @@ import pandas as pd
 from matplotlib.figure import Figure
 from matplotlib.path import Path
 from PyQt5.QtCore import (PYQT_VERSION_STR, QT_VERSION_STR, QEvent, QSettings,
-                          Qt, pyqtSignal)
+                          Qt, pyqtSignal, QPoint)
 from PyQt5.QtGui import QFont, QImage, QPixmap, qRgb
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QFileDialog, QHBoxLayout, QInputDialog, QLabel,
@@ -237,8 +237,6 @@ def toQImage(frame, copy=False):
 
 class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
-    
-
     def __init__(self, parent=None):
 
         class Flag():
@@ -251,6 +249,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         self.setWindowTitle(f"DORIS v. {version.__version__} - (c) Olivier Friard")
+        self.tab_tracking_results.setCurrentIndex(0)
         self.statusBar = QStatusBar()
         self.statusBar.setStyleSheet("font-size:24px")
         self.setStatusBar(self.statusBar)
@@ -294,6 +293,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb_reset_scale.clicked.connect(self.reset_scale)
 
         self.lw_masks.doubleClicked.connect(self.lw_masks_doubleclicked)
+        self.lw_masks.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lw_masks.customContextMenuRequested.connect(self.lw_masks_right_clicked)
 
         # menu for adding a mask
         menu0 = QMenu()
@@ -395,7 +396,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.areas_df = None
         self.fgbg = None
         self.flag_stop_tracking = False
-        self.continue_when_no_objects = False
+        #self.continue_when_no_objects = False
         self.video_height = 0
         self.video_width = 0
         self.frame_width = VIEWER_WIDTH
@@ -457,10 +458,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.threshold_method_changed()
 
-        '''
-        self.sb_percent_out_of_arena.setValue(int(TOLERANCE_OUTSIDE_ARENA * 100))
-        '''
-
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
@@ -471,6 +468,28 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.repicked_objects = None
 
         self.read_config()
+
+
+    def lw_masks_right_clicked(self, QPos):
+        """right click menu for masks listwidget"""
+
+        if self.lw_masks.currentItem():
+            self.listMenu= QMenu()
+            menu_item = self.listMenu.addAction("Remove Item")
+            menu_item.triggered.connect(self.mask_menu_item_clicked)
+
+            parentPosition = self.lw_masks.mapToGlobal(QPoint(0, 0))        
+            self.listMenu.move(parentPosition + QPos)
+
+            self.listMenu.show() 
+
+
+    def mask_menu_item_clicked(self):
+        """remove mask from listwidget"""
+        self.masks.pop(self.lw_masks.row(self.lw_masks.currentItem()))
+        self.lw_masks.takeItem(self.lw_masks.row(self.lw_masks.currentItem()))
+        self.reload_frame()
+
 
     def about(self):
         """
@@ -793,9 +812,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if shape == "circle (3 points)":
                     msg = "New circle area: Click on the video to define 3 points belonging to the circle"
                 if shape == "circle (center radius)":
-                    msg = "New circle area: click on the video to define the center of the circle and then a point belonging to the circle"
+                    msg = ("New circle area: click on the video to define the center of the circle "
+                           "and a point belonging to the circle")
                 if shape == "polygon":
-                    msg = "New polygon area: click on the video to define the vertices of the polygon. Right click to finish"
+                    msg = ("New polygon area: click on the video to define the vertices of the polygon. "
+                           "Right click to close the polygon")
                 if shape == RECTANGLE:
                     msg = "New rectangle area: click on the video to define 2 opposite vertices."
 
@@ -1428,7 +1449,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.te_number_objects.clear()
 
         self.always_skip_frame = False
-        self.continue_when_no_objects = False
+        #self.continue_when_no_objects = False
+        self.cb_continue_when_no_objects.setChecked(False)
 
         self.pb()
 
@@ -1781,14 +1803,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.flag_add_mask.define = not self.flag_add_mask.define
             self.statusBar.showMessage("")
             if self.flag_add_mask.define:
-                self.flag_add_mask.color = WHITE if dialog.MessageDialog("DORIS", "Mask color", ["White", "black"]) == "White" else BLACK
+                self.flag_add_mask.color = WHITE if dialog.MessageDialog("DORIS", "Mask color",
+                                                                         ["White", "Black"]) == "White" else BLACK
                 self.flag_add_mask.shape = shape
                 if shape in [RECTANGLE, CIRCLE_CENTER_RADIUS]:
                     self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_add_mask.define)
                 if shape == CIRCLE_3PTS:
-                    self.statusBar.showMessage("You have to select 3 points on the video" * self.flag_add_mask.define)
+                    self.statusBar.showMessage(("New circle mask: Click on the video to define 3 points "
+                                               "belonging to the circle") * self.flag_add_mask.define)
                 if shape == POLYGON:
-                    self.statusBar.showMessage("You have to draw a polygon on the video" * self.flag_add_mask.define)
+                    self.statusBar.showMessage(("New polygon mask: click on the video to define the vertices of the polygon. "
+                                                "Right click to close the polygon") * self.flag_add_mask.define)
+                    
 
 
     def define_coordinate_center_1point(self):
@@ -2356,8 +2382,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_frame(frame_with_objects, 0)
             self.display_frame(processed_frame, 1)
 
-            if not self.continue_when_no_objects:
-                choices = ["OK", "Skip frame", "Always skip frame"]
+            #if not self.continue_when_no_objects:
+            if not self.cb_continue_when_no_objects.isChecked():
+                choices = ["OK", "Skip frame", "Always skip frame when no objects found"]
                 if self.running_tracking:
                     choices.append("Stop tracking")
                 response = dialog.MessageDialog("DORIS",
@@ -2366,8 +2393,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 if response == "Stop tracking":
                     self.flag_stop_tracking = True
-                if response == "Always skip frame":
-                    self.continue_when_no_objects = True
+                if response == "Always skip frame when no objects found":
+                    #self.continue_when_no_objects = True
+                    self.cb_continue_when_no_objects.setChecked(True)
 
             if self.cb_record_xy.isChecked():
                 # frame idx
