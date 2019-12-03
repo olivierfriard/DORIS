@@ -27,11 +27,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QPushButton, QDialog, QMessageBox,
                              QVBoxLayout, QHBoxLayout,
                              QLabel, QPlainTextEdit, QListView,
+                             QFileDialog
                              )
 
 
 def MessageDialog(title, text, buttons):
-    response = ""
+
     message = QMessageBox()
     message.setWindowTitle(title)
     message.setText(text)
@@ -67,7 +68,7 @@ def error_message(task: str, exc_info: tuple) -> None:
 
     """
     error_type, error_file_name, error_lineno = error_info(exc_info)
-    QMessageBox.critical(None, programName,
+    QMessageBox.critical(None, "DORIS",
                          (f"An error occured during {task}.<br>"
                           f"DORIS version: {version.__version__}<br>"
                           f"Error: {error_type}<br>"
