@@ -2349,14 +2349,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
 
-        # logging.debug(f"contours_list before: {contours_list}")
-
         logging.debug(f"self.objects_to_track: {list(self.objects_to_track.keys())}")
 
         # check filtered objects number
         # no filtered object
-        if len(filtered_objects) == 0 and len(self.objects_to_track):
+
+        if ((self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) 
+            and (len(filtered_objects) == 0) and (len(self.objects_to_track))):
+
             logging.debug("No object detected")
+
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
                                                              {},
                                                              marker_type=MARKER_TYPE)
@@ -2588,7 +2590,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
         # check max distance from previous detected objects
-        if self.sb_max_distance.value():
+        if (self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) and self.sb_max_distance.value():
 
             if self.frame_idx - 1 in self.mem_position_objects:
 

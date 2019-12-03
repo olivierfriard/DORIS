@@ -20,7 +20,7 @@ This file is part of DORIS.
 
 """
 
-import sys
+import os
 import version
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt
