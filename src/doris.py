@@ -2797,7 +2797,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         contours_list = [self.filtered_objects[x]["contour"] for x in self.filtered_objects]
         new_contours = doris_functions.apply_k_means(contours_list, nb_obj)
 
-        if 
         logging.debug(f"Number of new contours: {len(new_contours)}")
         
 
