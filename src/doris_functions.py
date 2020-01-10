@@ -127,7 +127,7 @@ def plot_density(df, x_lim, y_lim):
 
     df = df.dropna(thresh=1)
 
-    for idx in range(1, int((len(df.columns) - 1)/2) +1):
+    for idx in range(1, int((len(df.columns) - 1) / 2) + 1):
         plt.figure()
         axes = plt.gca()
         axes.set_aspect("equal", adjustable="box")
@@ -156,18 +156,18 @@ def group_of(points, centroids):
 
     for idx1, p in enumerate(points):
         for idx2, c in enumerate(centroids):
-            distances[idx1, idx2] = ((p[0] - c[0]) **2 + (p[1] - c[1]) **2)**.5
+            distances[idx1, idx2] = ((p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2) ** .5
 
-    #distances2 = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
+    # distances2 = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
     '''
     print("distances")
     print(distances)
     '''
-    #print("distances2")
-    #print(distances2)
+    # print("distances2")
+    # print(distances2)
 
-    #mini = np.minimum(distances[:,0], distances[:,1])
+    # mini = np.minimum(distances[:,0], distances[:,1])
     mini = np.min(distances, axis=1)
 
     # print(mini)
@@ -179,7 +179,7 @@ def group_of(points, centroids):
     for idx1 in range(len(points)):
         for idx2 in range(len(centroids)):
             if distances[idx1, idx2] == mini[idx1]:
-                new_ctr[idx2].append(tuple(points[idx1,:]))
+                new_ctr[idx2].append(tuple(points[idx1, :]))
 
     return [np.array(x) for x in new_ctr]
 
@@ -197,7 +197,7 @@ def group(points, centroids):
         nobj = np.shape(cc)[0]
         clu = np.zeros(nobj)
         for i in np.arange(nobj):
-            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
+            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i, :], (1, 2))) - ctrOK) ** 2, axis=1)
             clu[i] = (zz == np.min(zz)).nonzero()[0][0]
         return clu
 
@@ -207,7 +207,7 @@ def group(points, centroids):
     '''
     clusters = []
     for idx, centroid in enumerate(centroids):
-        clusters.append(points[(clu == idx).nonzero()[0],:]  )
+        clusters.append(points[(clu == idx).nonzero()[0], :])
 
 
 
