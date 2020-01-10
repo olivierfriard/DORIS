@@ -353,7 +353,8 @@ def apply_k_means(contours, n_inds):
         return new_contours
 
     except Exception:
-        pass
+        logging.error(f"error in apply_k_means function {sys.exc_info()}")
+        return []
 
 
 def image_processing(frame,
