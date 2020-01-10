@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 
+import sys
 import config
 import cv2
 import numpy as np
@@ -118,7 +119,7 @@ def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
         plt.show()
         return True
 
-    except:
+    except Exception:
         return False
 
 
