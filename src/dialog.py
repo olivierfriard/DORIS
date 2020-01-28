@@ -1,7 +1,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2019 Olivier Friard
+Copyright 2017-2020 Olivier Friard
 
 This file is part of DORIS.
 

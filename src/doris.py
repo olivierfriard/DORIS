@@ -1,7 +1,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2019 Olivier Friard
+Copyright 2017-2020 Olivier Friard
 
 This file is part of DORIS.
 
@@ -517,7 +517,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setEscapeButton(QMessageBox.Ok)
 
         about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
-        "<p>Copyright &copy; 2017-2019 Olivier Friard<br><br>"
+        "<p>Copyright &copy; 2017-2020 Olivier Friard<br><br>"
         '<a href="http://www.boris.unito.it/pages/doris">www.boris.unito.it/pages/doris</a> for more details.<br><br>'
         "Department of Life Sciences and Systems Biology<br>"
         "University of Torino - Italy<br>"))
@@ -2353,7 +2353,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check filtered objects number
         # no filtered object
-
         if ((self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) 
             and (len(filtered_objects) == 0) and (len(self.objects_to_track))):
 
@@ -3175,9 +3174,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def new_project(self):
         """
-        initialize program fro new project
+        initialize program for new project
         """
 
+        self.lb_frames.clear()
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
         self.mem_position_objects = {}

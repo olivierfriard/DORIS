@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2019 Olivier Friard
+Copyright 2017-2020 Olivier Friard
 
 This file is part of DORIS.
 
@@ -372,16 +372,8 @@ def image_processing(frame,
     if frame is None:
         return None
 
-    '''
-    if self.fgbg:
-        frame = self.fgbg.apply(frame)
-    '''
-
     # apply masks (black for selected mask areas)
     for mask in masks:
-        print("mask", mask)
-        # mask_array = np.zeros(frame.shape[:2], np.uint8)
-        #if mask[""]
         if mask["type"] == config.RECTANGLE:
             cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
                           color=mask["color"], thickness=cv2.FILLED)
@@ -391,9 +383,6 @@ def image_processing(frame,
         if mask["type"] == config.POLYGON:
             cv2.fillPoly(frame, np.array([mask["coordinates"]]),
                           color=mask["color"])
-
-        # frame = np.where(mask_array==255, 0, frame)
-
 
     # blur
     if blur:
@@ -422,14 +411,14 @@ def image_processing(frame,
     if arena:
         mask = np.zeros(frame.shape[:2], np.uint8)
 
-        if arena["type"] == "polygon":
-            cv2.fillConvexPoly(mask, np.array(arena["points"]), 255)
+        if arena["type"] == config.POLYGON:
+            cv2.fillPoly(mask, [np.array(arena["points"])], 255)
 
-        if arena["type"] == "circle":
+        if arena["type"] == config.CIRCLE:
             cv2.circle(mask, tuple(arena["center"]), arena["radius"],
                        color=255, thickness=cv2.FILLED)
 
-        if arena["type"] == "rectangle":
+        if arena["type"] == config.RECTANGLE:
             cv2.rectangle(mask, tuple(arena["points"][0]), tuple(arena["points"][1]),
                           color=255, thickness=cv2.FILLED)
         inverted_mask = 255 - mask
@@ -438,44 +427,7 @@ def image_processing(frame,
 
     return frame
 
-'''
-def image_processing_old(frame,
-                     blur=5,
-                     threshold_method={},
-                     invert=False):
-    """
-    apply treament to frame
-    returns treated frame
-    """
 
-    if frame is None:
-        return None
-
-     # blur
-    if blur:
-        frame = cv2.blur(frame, (blur, blur))
-
-    # threshold
-    # color to gray levels
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    if threshold_method["name"] == "Simple":
-        ret, frame = cv2.threshold(frame, threshold_method["cut-off"], 255, cv2.THRESH_BINARY)
-
-    if threshold_method["name"] in ["Adaptive (mean)", "Adaptive (Gaussian)"]:
-        tm = cv2.ADAPTIVE_THRESH_MEAN_C if threshold_method["name"] == "Adaptive (mean)" else cv2.ADAPTIVE_THRESH_GAUSSIAN_C
-        frame = cv2.adaptiveThreshold(frame,
-                                      255,
-                                      tm,
-                                      cv2.THRESH_BINARY,
-                                      threshold_method["block_size"] if threshold_method["block_size"] % 2 else threshold_method["block_size"] + 1,
-                                      threshold_method["offset"])
-
-    if invert:
-        frame = (255 - frame)
-
-    return frame
-'''
 
 def euclidean_distance(p1: tuple, p2: tuple) -> float:
     """
@@ -520,8 +472,7 @@ def detect_and_filter_objects(frame,
                               min_size=0,
                               max_size=0,
                               arena={},
-                              max_extension=50,
-                              tolerance_outside_arena=0.05):
+                              max_extension=50):
     """
     returns all detected objects and filtered objects
 
@@ -569,24 +520,6 @@ def detect_and_filter_objects(frame,
     # record objects that not match conditions (for deleting)
     obj_to_del_idx = []
     for idx in all_objects:
-        '''points = np.vstack(all_objects[idx]["contour"]).squeeze()'''
-
-        '''
-        if idx == 2:
-            print("================================================")
-            print(all_objects[idx]["contour"])
-            print("--------------------------------------------------")
-            n = np.vstack(all_objects[idx]["contour"]).squeeze()
-            print(n)
-            print("--------------------------------------------------")
-
-            print(np.min(n[:,0]))
-            print(np.max(n[:,0]))
-
-            print(np.min(n[:,1]))
-            print(np.max(n[:,1]))
-            print("================================================")
-        '''
 
         # check if object area is >= of minimal size
         if min_size and all_objects[idx]["area"] < min_size:
@@ -600,66 +533,11 @@ def detect_and_filter_objects(frame,
 
         # check if object extension <= max extension
         if max_extension:
-            '''
-            if (max(n[:,0]) - min(n[:,0]) > max_extension) or (max(n[:,1]) - min(n[:,1]) > max_extension):
-            '''
             if ((all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension
                 or (all_objects[idx]["max"][1] - all_objects[idx]["min"][1]) > max_extension):
                 obj_to_del_idx.append(idx)
                 continue
 
-        # check if objects in arena
-        """
-        if arena:
-            if arena["type"] == "rectangle":
-                np_arena = np.array(arena["points"])
-
-                if not (np_arena[0][0] <= all_objects[idx]["min"][0] <= np_arena[1][0]
-                    and np_arena[0][1] <= all_objects[idx]["min"][1]  <= np_arena[1][1]):
-                    obj_to_del_idx.append(idx)
-                    continue
-                if not (np_arena[0][0] <= all_objects[idx]["max"][0] <= np_arena[1][0]
-                    and np_arena[0][1] <= all_objects[idx]["max"][1]  <= np_arena[1][1]):
-                    obj_to_del_idx.append(idx)
-                    continue
-
-            # check if all contour points are in polygon arena 
-            if arena["type"] == "polygon":
-                np_arena = np.array(arena["points"])
-                if cv2.pointPolygonTest(np_arena, all_objects[idx]["centroid"], False) < 0:
-                    obj_to_del_idx.append(idx)
-                    continue
-
-                '''
-                # TOLERANCE_OUTSIDE_ARENA tolerance DISABLED
-                n = np.vstack(all_objects[idx]["contour"]).squeeze()
-                nl = len(n)
-                count_out = 0
-                for pt in n:
-                    if cv2.pointPolygonTest(np_arena, tuple(pt), False) < 0:
-                        count_out += 1
-                        if count_out / nl > tolerance_outside_arena:
-                            break
-                if count_out / nl > tolerance_outside_arena:
-                    obj_to_del_idx.append(idx)
-                    continue
-                '''
-
-            # check if all contour points are in circle arena (with TOLERANCE_OUTSIDE_ARENA tolerance)
-            if arena["type"] == "circle":
-                if euclidean_distance(all_objects[idx]["centroid"], arena["center"]) > arena["radius"]:
-                    obj_to_del_idx.append(idx)
-                    continue
-                '''
-                # TOLERANCE_OUTSIDE_ARENA tolerance DISABLED
-                n = np.vstack(all_objects[idx]["contour"]).squeeze()
-                dist_ = ((n[:,0] - arena["center"][0]) ** 2 + (n[:,1] - arena["center"][1]) ** 2) ** 0.5
-
-                if np.count_nonzero(dist_ > arena["radius"]) / len(dist_) > tolerance_outside_arena:
-                    obj_to_del_idx.append(idx)
-                    continue
-                '''
-        """
     filtered_objects = {}
     for obj_idx in all_objects:
         if obj_idx not in obj_to_del_idx:
@@ -670,45 +548,6 @@ def detect_and_filter_objects(frame,
 
     return all_objects, filtered_objects
 
-    '''
-    # check distances from previous detected objects
-    if previous_objects:
-        print("previous objects")
-        mem_costs = {}
-        obj_indexes = list(all_objects.keys())
-        for indexes in itertools.combinations(obj_indexes, number_of_objects):
-            cost = cost_sum_assignment(previous_objects, dict([(idx, all_objects[idx]) for idx in indexes]))
-            print(indexes, cost)
-            mem_costs[cost] = indexes
-
-        min_cost = min(list(mem_costs.keys()))
-        print("min cost", min_cost)
-
-        filtered_objects = dict([(i + 1, all_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
-
-
-    else:
-
-        # select 'number_of_objects' objects
-        print("select objects")
-        sorted_areas = sorted([all_objects[idx]["area"] for idx in all_objects if idx not in obj_to_del_idx], reverse=True)
-        filtered_objects = {}
-        new_idx = 0
-        for idx in all_objects:
-            if (sorted_areas.index(all_objects[idx]["area"]) < number_of_objects):
-                new_idx += 1
-                # min/max
-                n = np.vstack(all_objects[idx]["contour"]).squeeze()
-                x, y = n[:,0], n[:,1]
-
-                filtered_objects[new_idx] = {"centroid": all_objects[idx]["centroid"],
-                                             "contour": all_objects[idx]["contour"],
-                                             "area": all_objects[idx]["area"],
-                                             "min": all_objects[idx]["min"],
-                                             "max": all_objects[idx]["max"]}
-
-    return all_objects, filtered_objects
-    '''
 
 def distances(a1, a2):
     return cdist(a1, a2).diagonal()
@@ -720,10 +559,6 @@ def cost_sum_assignment(mem_objects: dict, objects: dict) -> int:
     """
 
     if len(objects) == len(mem_objects):
-        '''
-        mem_positions = [mem_objects[k]["centroid"] for k in mem_objects]
-        positions = [objects[k]["centroid"] for k in objects]
-        '''
 
         p1 = np.array([mem_objects[k]["centroid"] for k in mem_objects])
         p2 = np.array([objects[k]["centroid"] for k in objects])
