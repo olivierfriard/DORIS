@@ -2497,6 +2497,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
                 centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
+                # FIXME: ValueError: need at least one array to concatenate
                 points1 = np.vstack(contours_list1)
                 points1 = points1.reshape(points1.shape[0], points1.shape[2])
 
@@ -2514,16 +2515,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     contours_list = [filtered_objects[x]["contour"] for x in filtered_objects]
                     new_contours = doris_functions.apply_k_means(contours_list, len(self.objects_to_track))
 
-
                 logging.debug(f"number of new contours after group: {len(new_contours)}")
 
                 new_filtered_objects = {}
                 # add info to objects: centroid, area ...
                 for idx, cnt in enumerate(new_contours):
-
-                    '''
-                    print(f"idx: {idx} len cnt {len(cnt)}")
-                    '''
 
                     #cnt = cv2.convexHull(cnt)
 
