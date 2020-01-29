@@ -391,7 +391,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame, self.previous_frame = None, None
         self.capture = None
         self.output = ""
-        self.videoFileName = ""
+        self.video_file_name = ""
         self.coord_df = None
         self.areas_df = None
         self.fgbg = None
@@ -604,8 +604,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.save_project()
 
 
-
-
     def save_project(self):
         """
         save parameters of current project in a JSON file
@@ -614,7 +612,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             mem_visible = self.hide_viewers()
 
-            project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project", "",
+            
+            if self.video_file_name:
+                project_path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".doris"))
+            
+
+            project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project",
+                                                                 project_path_suggestion,
                                                                  "DORIS projects (*.doris);;All files (*)")
             self.show_viewers(mem_visible)
             if not project_file_path:
@@ -623,14 +627,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             project_file_path = self.project_path
 
         config = {}
-        if self.videoFileName:
-            config["video_file_path"] = self.videoFileName
+        if self.video_file_name:
+            config["video_file_path"] = self.video_file_name
         if self.dir_images_path:
             config["dir_images_path"] = str(self.dir_images_path)
-        '''
-        if self.dir_images:
-            config["dir_images"] = str(self.dir_images[0].parent)
-        '''
 
         config["start_from"] = self.sb_start_from.value()
         config["stop_to"] = self.sb_stop_to.value()
@@ -960,6 +960,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             * origin definition
             * setting scale
             * re-picking objects
+            * masks definition
 
         """
 
@@ -1685,7 +1686,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.pb()
             self.video_height, self.video_width, _ = self.frame.shape
-            self.videoFileName = file_name
+            self.video_file_name = file_name
 
             # default scale
             for idx in range(2):
@@ -2353,9 +2354,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check filtered objects number
         # no filtered object
+        '''
         if ((self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) 
             and (len(filtered_objects) == 0) and (len(self.objects_to_track))):
-
+        '''
+        if len(filtered_objects) == 0 and len(self.objects_to_track):
             logging.debug("No object detected")
 
             frame_with_objects = self.draw_marker_on_objects(self.frame.copy(),
@@ -2422,17 +2425,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # self.continue_when_no_objects = False
 
-        # test match shapes
-        '''
-        if self.frame_idx - 1 in self.mem_position_objects:
-            for o in filtered_objects:
-                for o2 in self.mem_position_objects[self.frame_idx - 1]:
-                    print(f"match shapes: {o} - {o2}", cv2.matchShapes(filtered_objects[o]["contour"],
-                                         self.mem_position_objects[self.frame_idx - 1][o2]["contour"],
-                                         1, 0.0)
-                    )
-        '''
-
 
         # filtered object are less than objects to track
         # apply clustering
@@ -2477,22 +2469,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 filtered_objects = dict(new_filtered_objects)
 
             else: # previous centroids known
+
                 logging.debug("filtered object are less than objects to track: group by distances to centroids")
-
-                # test if object does not moved and shape unmodified
-                '''
-                for o in filtered_objects:
-                    #for o2 in self.mem_position_objects[self.frame_idx - 1]:
-                    match_shape = cv2.matchShapes(filtered_objects[o]["contour"],
-                                         self.mem_position_objects[self.frame_idx - 1][o]["contour"],
-                                         1, 0.0)
-                    print(f"match shapes {o} ", match_shape)
-                    print(filtered_objects[o]["centroid"],
-                          self.mem_position_objects[self.frame_idx - 1][o]["centroid"])
-                    #dist_centroid = ()
-                    #if match_shape
-                '''
-
 
                 contours_list1 = [filtered_objects[x]["contour"] for x in filtered_objects]
                 centroids_list1 = [filtered_objects[obj_idx]["centroid"] for obj_idx in filtered_objects]
@@ -2547,41 +2525,44 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # assign filtered objects to objects to track
         if self.objects_to_track:
-            mem_costs = {}
-            obj_indexes = list(filtered_objects.keys())
-            # iterate all combinations of detected objects of length( self.objects_to_track)
+            try:
+                mem_costs = {}
+                obj_indexes = list(filtered_objects.keys())
+                # iterate all combinations of detected objects of length( self.objects_to_track)
 
-            # logging.debug(f"combinations of filtered objects: {obj_indexes}")
+                # logging.debug(f"combinations of filtered objects: {obj_indexes}")
 
-            if self.frame_idx -1 in self.mem_position_objects:
+                if self.frame_idx -1 in self.mem_position_objects:
 
-                for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
-                    cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1],
-                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                    for indexes in itertools.combinations(obj_indexes, len(self.mem_position_objects[self.frame_idx - 1])):
+                        cost = doris_functions.cost_sum_assignment(self.mem_position_objects[self.frame_idx - 1],
+                                                                dict([(idx, filtered_objects[idx]) for idx in indexes]))
 
-                    # logging.debug(f"index: {indexes} cost: {cost}")
+                        # logging.debug(f"index: {indexes} cost: {cost}")
 
-                    mem_costs[cost] = indexes
+                        mem_costs[cost] = indexes
 
-            else:
-                for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
-                    cost = doris_functions.cost_sum_assignment(self.objects_to_track,
-                                                               dict([(idx, filtered_objects[idx]) for idx in indexes]))
-                    # logging.debug(f"index: {indexes} cost: {cost}")
-                    mem_costs[cost] = indexes
+                else:
+                    for indexes in itertools.combinations(obj_indexes, len(self.objects_to_track)):
+                        cost = doris_functions.cost_sum_assignment(self.objects_to_track,
+                                                                dict([(idx, filtered_objects[idx]) for idx in indexes]))
+                        # logging.debug(f"index: {indexes} cost: {cost}")
+                        mem_costs[cost] = indexes
 
-            min_cost = min(list(mem_costs.keys()))
-            # logging.debug(f"minimal cost: {min_cost}")
+                min_cost = min(list(mem_costs.keys()))
+                # logging.debug(f"minimal cost: {min_cost}")
 
-            # select new objects to track
+                # select new objects to track
 
-            new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
+                new_objects_to_track = dict([(i + 1, filtered_objects[idx]) for i, idx in enumerate(mem_costs[min_cost])])
 
-            # logging.debug(f"new objects to track : {list(new_objects_to_track.keys())}")
+                # logging.debug(f"new objects to track : {list(new_objects_to_track.keys())}")
 
-            self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
+                self.objects_to_track = doris_functions.reorder_objects(self.objects_to_track, new_objects_to_track)
 
-            self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+                self.mem_position_objects[self.frame_idx] = dict(self.objects_to_track)
+            except Exception:
+                self.error_message("assign filtered objects to objects to track", sys.exc_info())
 
 
         # check max distance from previous detected objects
@@ -3225,7 +3206,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_idx = 0
 
         self.video_height, self.video_width = 0, 0
-        self.videoFileName = ""
+        self.video_file_name = ""
 
         self.lw_area_definition.clear()
         self.areas = {}
@@ -3371,6 +3352,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.project_path = file_name
         self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
         return True
+
+
+    def error_message(self, task: str, exc_info: tuple) -> None:
+        """
+        show details about the error
+
+        """
+        error_type, error_file_name, error_lineno = doris_functions.error_info(exc_info)
+        QMessageBox.critical(None, "DORIS",
+                            (f"An error occured during {task}.<br>"
+                            f"DORIS version: {version.__version__}<br>"
+                            f"Error: {error_type}<br>"
+                            f"in {error_file_name} "
+                            f"at line # {error_lineno}<br><br>"
+                            "Please report this problem to improve the software at:<br>"
+                            '<a href="https://github.com/olivierfriard/DORIS/issues">https://github.com/olivierfriard/DORIS/issues</a>'
+                            ))
 
 
 if __name__ == "__main__":

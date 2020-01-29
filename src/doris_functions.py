@@ -22,23 +22,27 @@ This file is part of DORIS.
 
 """
 
-import matplotlib
-matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-import matplotlib.patches as patches
-
-import sys
-import config
-import cv2
-import numpy as np
-import struct
 import itertools
 import logging
+import os.path
+import struct
+import sys
+
+import cv2
+import matplotlib
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.path import Path
 from scipy.optimize import linear_sum_assignment
+from scipy.spatial import distance
 from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
-from scipy.spatial import distance
+
+import config
+
+matplotlib.use("Qt5Agg")
+
 
 
 def rgbstr_to_bgr_tuple(rgb_str):
@@ -354,7 +358,8 @@ def apply_k_means(contours, n_inds):
         return new_contours
 
     except Exception:
-        logging.error(f"error in apply_k_means function {sys.exc_info()}")
+        error_type, error_file_name, error_lineno = error_info(sys.exc_info())
+        logging.error(f"error in apply_k_means function. Error: {error_type} in {error_file_name} {error_lineno}")
         return []
 
 
@@ -600,3 +605,19 @@ def reorder_objects(mem_objects: dict, objects: dict) -> dict:
 
         return objects
 
+
+def error_info(exc_info: tuple) -> tuple:
+    """
+    return details about error
+    usage: error_info(sys.exc_info())
+
+    Args:
+        sys.exc_info() (tuple):
+
+    Returns:
+        tuple: error type, error file name, error line number
+    """
+
+    exc_type, exc_obj, exc_tb = exc_info
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    return (exc_obj, fname, exc_tb.tb_lineno)
