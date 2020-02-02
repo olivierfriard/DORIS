@@ -145,7 +145,6 @@ class FrameViewer(QWidget):
         self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
         hbox.addWidget(self.cb_stay_on_top)
 
-
         hbox.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
 
         self.vbox.addLayout(hbox)
@@ -318,6 +317,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_forward.clicked.connect(lambda: self.for_back_ward("forward"))
         self.pb_backward.clicked.connect(lambda: self.for_back_ward("backward"))
+        self.tb_plus1.pressed.connect(lambda: self.for_back_ward("+1"))
+        self.tb_minus1.pressed.connect(lambda: self.for_back_ward("-1"))
+        self.tb_plus10.pressed.connect(lambda: self.for_back_ward("+10"))
+        self.tb_minus10.pressed.connect(lambda: self.for_back_ward("-10"))
 
         # menu for arena button
         menu1 = QMenu()
@@ -364,7 +367,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # coordinates analysis
         self.pb_view_coordinates.clicked.connect(self.view_coordinates)
         self.pb_delete_coordinates.clicked.connect(self.delete_coordinates)
-        self.pb_save_xy.clicked.connect(self.save_objects_positions)
+        self.pb_save_xy.clicked.connect(self.save_objects_coordinates)
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
@@ -442,7 +445,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].show_contour_changed_signal.connect(self.cb_show_contour_changed)
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].change_frame_signal.connect(self.for_back_ward)
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].setGeometry(10, 10, 512, 512)
-        # self.fw[0].show()
 
         self.fw.append(FrameViewer(PROCESSED_FRAME_VIEWER_IDX))
         self.fw[PROCESSED_FRAME_VIEWER_IDX].zoom_changed_signal.connect(lambda: self.frame_viewer_scale2(PROCESSED_FRAME_VIEWER_IDX))
@@ -544,12 +546,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             print(self.masks)
 
     def actionShow_contour_changed(self):
-        self.fw[0].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
+        self.fw[ORIGINAL_FRAME_VIEWER_IDX].cb_show_contour.setChecked(self.actionShow_contour_of_object.isChecked())
         self.process_and_show()
 
 
     def cb_show_contour_changed(self):
-        self.actionShow_contour_of_object.setChecked(self.fw[0].cb_show_contour.isChecked())
+        self.actionShow_contour_of_object.setChecked(self.fw[ORIGINAL_FRAME_VIEWER_IDX].cb_show_contour.isChecked())
         self.process_and_show()
 
 
@@ -575,7 +577,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.process_and_show()
 
+
     def hide_viewers(self):
+        """ Hide frame viewers"""
         mem_visible = {}
         for w in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
             mem_visible[w] = self.fw[w].isVisible()
@@ -583,7 +587,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.fw[w].hide()
         return mem_visible
 
+
     def show_viewers(self, mem_visible):
+        """ Show frame viewers"""
         for w in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
             if mem_visible[w]:
                 self.fw[w].show()
@@ -612,10 +618,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             mem_visible = self.hide_viewers()
 
-            
             if self.video_file_name:
                 project_path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".doris"))
-            
+            else:
+                project_path_suggestion = ""
 
             project_file_path, _ = QFileDialog().getSaveFileName(self, "Save project",
                                                                  project_path_suggestion,
@@ -655,14 +661,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["frame_scale"] = self.frame_scale
         config["processed_frame_scale"] = self.processed_frame_scale
 
-        config["original_frame_viewer_position"] = [int(self.fw[0].x()), int(self.fw[0].y())]
-        config["processed_frame_viewer_position"] = [int(self.fw[1].x()), int(self.fw[1].y())]
+        config["original_frame_viewer_position"] = [int(self.fw[ORIGINAL_FRAME_VIEWER_IDX].x()),
+                                                    int(self.fw[ORIGINAL_FRAME_VIEWER_IDX].y())]
+        config["processed_frame_viewer_position"] = [int(self.fw[PROCESSED_FRAME_VIEWER_IDX].x()),
+                                                     int(self.fw[PROCESSED_FRAME_VIEWER_IDX].y())]
         config["masks"] = self.masks
-
-        '''
-        config["record_number_of_objects_by_area"] = self.cb_record_number_objects.isChecked()
-        config["record_objects_coordinates"] = self.cb_record_xy.isChecked()
-        '''
 
         try:
             with open(project_file_path, "w") as f_out:
@@ -735,8 +738,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def for_back_ward(self, direction="forward"):
+        """go back and forward"""
 
         logging.debug("function: for_back_ward")
+        if direction in ["+1", "-1", "-10", "+10"]:
+            step = int(direction)
 
         if direction == "forward":
             step = self.sb_frame_offset.value()
@@ -744,27 +750,33 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if direction == "backward":
             step = - self.sb_frame_offset.value()
 
-        #step = (self.sb_frame_offset.value() - 1) if direction == "forward" else (-self.sb_frame_offset.value() - 1)
-        logging.info(f"step: {step}")
+        while True:
+            if self.dir_images:
+                logging.info(f"self.dir_images_index + step: {self.dir_images_index + step}")
+                self.dir_images_index += step
+                if self.dir_images_index >= len(self.dir_images):
+                    self.dir_images_index = len(self.dir_images) - 1
+                if self.dir_images_index < 0:
+                    self.dir_images_index = 0
+                self.previous_frame = self.frame
+                self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
 
-        if self.dir_images:
-            logging.info(f"self.dir_images_index + step: {self.dir_images_index + step}")
-            self.dir_images_index += step
-            if self.dir_images_index >= len(self.dir_images):
-                self.dir_images_index = len(self.dir_images) - 1
-            if self.dir_images_index < 0:
-                self.dir_images_index = 0
-            self.previous_frame = self.frame
-            self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
+            elif self.capture is not None:
+                self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step - 1)
+                self.previous_frame = self.frame
+                ret, self.frame = self.capture.read()
 
-        elif self.capture is not None:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)) + step - 1)
-            self.previous_frame = self.frame
-            ret, self.frame = self.capture.read()
+            if self.dir_images or self.capture is not None:
+                self.update_frame_index()
+                self.process_and_show()
+            app.processEvents()
 
-        if self.dir_images or self.capture is not None:
-            self.update_frame_index()
-            self.process_and_show()
+            if (not self.tb_plus1.isDown() and not self.tb_minus1.isDown() 
+                and not self.tb_plus10.isDown() and not self.tb_minus10.isDown()):
+                break
+
+
+
 
 
     def go_to_frame(self, frame_nb: int):
@@ -965,7 +977,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         logging.debug("function: frame_mousepressed")
-        conversion, drawing_thickness = self.ratio_thickness(self.video_width, self.fw[0].lb_frame.pixmap().width())
+
+        conversion, drawing_thickness = self.ratio_thickness(self.video_width,
+                                                             self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.pixmap().width())
 
         ''' pick object
         if self.pick_point:
@@ -1007,7 +1021,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
             
 
-        # set coordinates of center with 1 point
+        # set coordinates of referential origin with 1 point
         if self.flag_define_coordinate_center_1point:
             self.coordinate_center = [int(event.pos().x() * conversion), int(event.pos().y() * conversion)]
             self.frame = self.draw_point_origin(self.frame, self.coordinate_center, BLUE, drawing_thickness)
@@ -1019,7 +1033,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.reload_frame()
             self.statusBar.showMessage(f"Referential origin defined")
 
-        # set coordinates of center with the center of a 3 points defined circle
+        # set coordinates of referential origin with the center of a 3 points defined circle
         if self.flag_define_coordinate_center_3points:
             self.coordinate_center_def.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
             cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
@@ -1073,6 +1087,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # add mask
         if self.flag_add_mask.define:
 
+            # cancel mask creation (mid button)
+            if event.button() == Qt.MidButton:
+                self.mask_points = []
+                self.flag_add_mask.define = False
+                self.reload_frame()
+                self.statusBar.showMessage("Mask creation canceled")
+
+                return
+
             if event.button() == Qt.LeftButton:
                 cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
                            color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
@@ -1087,8 +1110,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     max_x = max(self.mask_points[0][0], self.mask_points[1][0])
                     min_y = min(self.mask_points[0][1], self.mask_points[1][1])
                     max_y = max(self.mask_points[0][1], self.mask_points[1][1])
-
-                    # self.arena["points"] = [(min_x, min_y), (max_x, max_y)]
 
                     self.masks.append({"type": RECTANGLE, "color": self.flag_add_mask.color,
                                         "coordinates": ((min_x, min_y), (max_x, max_y))})
@@ -1136,20 +1157,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                         "coordinates": self.mask_points})
                     self.lw_masks.addItem(str(self.masks[-1]))
 
-                    '''
-                    for idx, point in enumerate(self.mask_points[:-1]):
-                        cv2.line(self.frame, tuple(point), tuple(self.mask_points[idx + 1]),
-                                color=self.flag_add_mask.color, lineType=8, thickness=drawing_thickness)
-                    cv2.line(self.frame, tuple(self.mask_points[-1]), tuple(self.mask_points[0]),
-                            color=self.flag_add_mask.color, lineType=8, thickness=drawing_thickness)
-                    '''
-                    print(np.array([self.mask_points]))
                     cv2.fillPoly(self.frame, np.array([self.mask_points]), color=self.flag_add_mask.color)
 
                     self.mask_points = []
                     self.display_frame(self.frame)
                     self.flag_add_mask.define = False
-                    #self.reload_frame()
+                    self.reload_frame()
                     self.statusBar.showMessage(f"Mask added")
 
 
@@ -1293,7 +1306,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     cv2.rectangle(self.frame, self.arena["points"][0], self.arena["points"][1],
                                   color=ARENA_COLOR, thickness=drawing_thickness)
 
-                    self.process_and_show()
+                    self.display_frame(self.frame)
+                    self.reload_frame()
+                    '''self.process_and_show()'''
                     self.statusBar.showMessage("The rectangle arena is defined")
 
             if self.flag_define_arena == "polygon":
@@ -1308,7 +1323,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.arena = {**self.arena, **{"type": "polygon", "name": "arena"}}
 
                     self.le_arena.setText(f"{self.arena}")
-                    self.process_and_show()
+                    self.display_frame(self.frame)
+                    self.reload_frame()
+
+                    '''self.process_and_show()'''
                     self.statusBar.showMessage("The new polygon arena is defined")
 
                 else:
@@ -1354,7 +1372,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.le_arena.setText(f"{self.arena}")
 
-                    self.process_and_show()
+                    self.display_frame(self.frame)
+                    self.reload_frame()
+
+                    '''self.process_and_show()'''
                     self.statusBar.showMessage("The new circle arena is defined")
 
             if self.flag_define_arena == "circle (center radius)":
@@ -1380,9 +1401,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.arena = {"type": "circle", "center": [round(cx), round(cy)], "radius": round(radius), "name": "arena"}
                     self.le_arena.setText(f"{self.arena}")
-                    self.process_and_show()
-                    self.statusBar.showMessage("The new circle arena is defined")
+                    self.display_frame(self.frame)
+                    self.reload_frame()
 
+                    '''self.process_and_show()'''
+                    self.statusBar.showMessage("The new circle arena is defined")
 
     def background(self):
         if self.cb_background.isChecked():
@@ -1391,7 +1414,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fgbg = None
         for w in [self.lb_threshold, self.sb_threshold]:
             w.setEnabled(not self.cb_background.isChecked())
-
 
     def reset_origin(self):
         """
@@ -1434,7 +1456,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if dialog.MessageDialog("DORIS", "Confirm reset?", ["Yes", "Cancel"]) == "Cancel":
             return
 
-        self.flag_stop_tracking
+        self.flag_stop_tracking = True
 
         if self.dir_images:
             self.dir_images_index = -1
@@ -1483,7 +1505,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.exec_()
 
 
-
     def delete_coordinates(self):
         """
         reset recorded coordinates
@@ -1497,13 +1518,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.te_xy.clear()
 
 
-    def save_objects_positions(self):
+    def save_objects_coordinates(self):
         """
         save results of recorded coordinates in TSV file
         """
         if self.coord_df is not None:
+
             mem_visible = self.hide_viewers()
-            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates", "", "All files (*)")
+            
+            if self.video_file_name:
+                path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".tsv"))
+            else:
+                path_suggestion = ""
+
+            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates",
+                                                         path_suggestion,
+                                                         "TSV files (*.tsv);;All files (*)")
             self.show_viewers(mem_visible)
             if file_name:
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
@@ -1675,6 +1705,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.capture.release()
                 return
 
+            # frames slider
             self.hs_frame.setMinimum(1)
             self.hs_frame.setMaximum(self.total_frame_nb)
             self.hs_frame.setTickInterval(10)
@@ -1698,7 +1729,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.initialize_areas_dataframe()
 
-            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
+            self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
             self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
 
 
@@ -1759,7 +1790,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
-            self.fw[0].setWindowTitle(f"Original frame - {pathlib.Path(self.dir_images_path).name}")
+            self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle(f"Original frame - {pathlib.Path(self.dir_images_path).name}")
             self.statusBar.showMessage(f"{self.total_frame_nb} image(s) found")
 
 
@@ -2232,10 +2263,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         display the current frame in viewer of index viewer_idx
         """
-        if viewer_idx in [0, 2]:
+        if viewer_idx in [ORIGINAL_FRAME_VIEWER_IDX, PREVIOUS_FRAME_VIEWER_IDX]:
             self.fw[viewer_idx].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[viewer_idx].lb_frame.size(),
                                                                               Qt.KeepAspectRatio))
-        if viewer_idx in [1]:
+        if viewer_idx in [PROCESSED_FRAME_VIEWER_IDX]:
             self.fw[viewer_idx].lb_frame.setPixmap(QPixmap.fromImage(toQImage(frame)).scaled(self.fw[viewer_idx].lb_frame.size(),
                                                                                               Qt.KeepAspectRatio))
 
@@ -2932,7 +2963,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return False
             self.previous_frame = self.frame
             self.frame = cv2.imread(str(self.dir_images[self.dir_images_index]), -1)
-            print(self.frame)
             if self.frame is None:
                 return False
         else:
@@ -3344,7 +3374,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.process_and_show()
 
         except Exception:
-            raise
             logging.warning("Error in project file")
             QMessageBox.critical(self, "DORIS", f"Error in project file: {file_name}")
             return
