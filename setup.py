@@ -25,7 +25,7 @@ setup(
           "matplotlib",
           "numpy",
           "opencv-python-headless",
-          "pandas",
+          "pandas==0.25.1",
           "pyqt5==5.14.0",
           "scikit-learn",
           "scipy",
