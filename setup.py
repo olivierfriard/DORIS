@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(
-   name='doris',
+   name='doris-tracker',
    version=[x for x in open("doris/version.py","r").read().split("\n") if "__version__" in x][0].split(" = ")[1].replace('"', ''),
    description='DORIS',
    author='Olivier Friard - Marco Gamba',
