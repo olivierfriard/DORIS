@@ -1567,7 +1567,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         areas_non_nan_df = self.areas_df.dropna(thresh=1)
         for area in self.areas:
             for idx in self.objects_to_track:
-                time_objects_in_areas[area][idx] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
+                time_objects_in_areas.ix[idx, area] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
 
         logging.debug(f"{time_objects_in_areas}")
 
@@ -1634,7 +1634,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             dx = self.coord_df[f"x{idx}"] - self.coord_df[f"x{idx}"].shift(1)
             dy = self.coord_df[f"y{idx}"] - self.coord_df[f"y{idx}"].shift(1)
             dist = (dx*dx + dy*dy) ** 0.5
-            results["distance"][idx] = dist.sum()
+            results.ix[idx, "distance"] = dist.sum()
 
         file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
         if file_name:
@@ -2440,12 +2440,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_record_xy.isChecked():
                 # frame idx
-                self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
+                self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
                 # tag
-                self.coord_df["tag"][self.frame_idx] = self.le_tag.text()
+                self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
                 for idx in sorted(list(self.objects_to_track.keys())):
-                    self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                    self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+                    self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
+                    self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
 
                 # reset next frames to nan
                 self.coord_df.loc[self.frame_idx + 1:] = np.nan
@@ -2669,12 +2669,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                         if self.cb_record_xy.isChecked():
                             # frame idx
-                            self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
+                            self.coord_df.ix[self.frame_idx, "frame"] = self.frame_idx + 1
                             # tag
-                            self.coord_df["tag"][self.frame_idx] = self.le_tag.text()
+                            self.coord_df.ix[self.frame_idx, "tag"] = self.le_tag.text()
                             for idx in sorted(list(self.objects_to_track.keys())):
-                                self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                                self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+                                self.coord_df.ix[self.frame_idx, f"x{idx}"] = np.nan
+                                self.coord_df.ix[self.frame_idx, f"y{idx}"] = np.nan
                             # reset next frames to nan
                             self.coord_df.loc[self.frame_idx + 1:] = np.nan
 
@@ -3006,17 +3006,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 
             # frame idx
-            self.coord_df["frame"][frame_idx] = frame_idx + 1
+            self.coord_df.ix[frame_idx, "frame"] = frame_idx + 1
             # tag
-            self.coord_df["tag"][frame_idx] = self.le_tag.text()
+            self.coord_df.ix[frame_idx, "tag"] = self.le_tag.text()
 
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
-                    self.coord_df[f"x{idx}"][frame_idx] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
-                    self.coord_df[f"y{idx}"][frame_idx] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
+                    self.coord_df.ix[frame_idx, f"x{idx}"] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
+                    self.coord_df.ix[frame_idx, f"y{idx}"] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
                 else:
-                    self.coord_df[f"x{idx}"][frame_idx] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
-                    self.coord_df[f"y{idx}"][frame_idx] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
+                    self.coord_df.ix[frame_idx, f"x{idx}"] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
+                    self.coord_df.ix[frame_idx, f"y{idx}"] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
 
             # set NaN to next frames
             self.coord_df.loc[frame_idx + 1:] = np.nan
@@ -3032,9 +3032,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             # frame idx
-            self.areas_df["frame"][frame_idx] = frame_idx
+            self.areas_df.ix[frame_idx, "frame"] = frame_idx
             # tag
-            self.areas_df["tag"][frame_idx] = self.le_tag.text()
+            self.areas_df.ix[frame_idx, "tag"] = self.le_tag.text()
 
             for area in sorted(list(self.areas.keys())):
 
@@ -3049,7 +3049,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         if ((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius:
                             nb[area] += 1
 
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(((cx - x) ** 2 + (cy - y) ** 2) ** .5 <= radius)
 
                 if self.areas[area]["type"] == RECTANGLE:
                     minx, miny = self.areas[area]["pt1"]
@@ -3057,7 +3057,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(minx <= x <= maxx and miny <= y <= maxy)
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(minx <= x <= maxx and miny <= y <= maxy)
 
                         if minx <= x <= maxx and miny <= y <= maxy:
                             nb[area] += 1
@@ -3065,7 +3065,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.areas[area]["type"] == "polygon":
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]),
+                        self.areas_df.ix[frame_idx, f"area {area} object #{idx}"] = int(cv2.pointPolygonTest(np.array(self.areas[area]["points"]),
                                                                                                              (x, y), False) >= 0)
 
                         if cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0:

@@ -123,6 +123,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QLabel" name="label_16">
+        <property name="text">
+         <string>Hold down:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QToolButton" name="tb_minus10">
         <property name="text">
          <string>-10</string>
@@ -604,16 +611,16 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="pb_track_all_filtered">
+         <widget class="QPushButton" name="pb_select_objects_to_track">
           <property name="text">
-           <string>Track all filtered objects</string>
+           <string>Select objects to track</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="pb_select_objects_to_track">
+         <widget class="QPushButton" name="pb_track_all_filtered">
           <property name="text">
-           <string>Select objects to track</string>
+           <string>Track all filtered objects</string>
           </property>
          </widget>
         </item>
