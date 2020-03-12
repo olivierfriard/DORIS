@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'doris.ui'
+# Form implementation generated from reading ui file 'doris/doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.14.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -68,6 +68,9 @@ class Ui_MainWindow(object):
         self.pb_forward = QtWidgets.QPushButton(self.centralwidget)
         self.pb_forward.setObjectName("pb_forward")
         self.horizontalLayout_5.addWidget(self.pb_forward)
+        self.label_16 = QtWidgets.QLabel(self.centralwidget)
+        self.label_16.setObjectName("label_16")
+        self.horizontalLayout_5.addWidget(self.label_16)
         self.tb_minus10 = QtWidgets.QToolButton(self.centralwidget)
         self.tb_minus10.setObjectName("tb_minus10")
         self.horizontalLayout_5.addWidget(self.tb_minus10)
@@ -280,12 +283,12 @@ class Ui_MainWindow(object):
         self.te_tracked_objects.setReadOnly(True)
         self.te_tracked_objects.setObjectName("te_tracked_objects")
         self.verticalLayout_4.addWidget(self.te_tracked_objects)
-        self.pb_track_all_filtered = QtWidgets.QPushButton(self.centralwidget)
-        self.pb_track_all_filtered.setObjectName("pb_track_all_filtered")
-        self.verticalLayout_4.addWidget(self.pb_track_all_filtered)
         self.pb_select_objects_to_track = QtWidgets.QPushButton(self.centralwidget)
         self.pb_select_objects_to_track.setObjectName("pb_select_objects_to_track")
         self.verticalLayout_4.addWidget(self.pb_select_objects_to_track)
+        self.pb_track_all_filtered = QtWidgets.QPushButton(self.centralwidget)
+        self.pb_track_all_filtered.setObjectName("pb_track_all_filtered")
+        self.verticalLayout_4.addWidget(self.pb_track_all_filtered)
         self.pb_repick_objects = QtWidgets.QPushButton(self.centralwidget)
         self.pb_repick_objects.setObjectName("pb_repick_objects")
         self.verticalLayout_4.addWidget(self.pb_repick_objects)
@@ -601,6 +604,7 @@ class Ui_MainWindow(object):
         self.label_10.setText(_translate("MainWindow", "Step"))
         self.pb_backward.setText(_translate("MainWindow", "go backward"))
         self.pb_forward.setText(_translate("MainWindow", "go forward"))
+        self.label_16.setText(_translate("MainWindow", "Hold down:"))
         self.tb_minus10.setText(_translate("MainWindow", "-10"))
         self.tb_minus1.setText(_translate("MainWindow", "-1"))
         self.tb_plus1.setText(_translate("MainWindow", "+1"))
@@ -632,8 +636,8 @@ class Ui_MainWindow(object):
         self.pb_show_all_filtered_objects.setText(_translate("MainWindow", "Display all filtered objects"))
         self.pb_separate_objects.setText(_translate("MainWindow", "Force objects number"))
         self.lb_tracked_objects.setText(_translate("MainWindow", "Tracked objects"))
-        self.pb_track_all_filtered.setText(_translate("MainWindow", "Track all filtered objects"))
         self.pb_select_objects_to_track.setText(_translate("MainWindow", "Select objects to track"))
+        self.pb_track_all_filtered.setText(_translate("MainWindow", "Track all filtered objects"))
         self.pb_repick_objects.setText(_translate("MainWindow", "Repick objects from image"))
         self.pb_repick_objects_from_all.setText(_translate("MainWindow", "Repick objects from all objects"))
         self.label_12.setText(_translate("MainWindow", "Tracking"))
