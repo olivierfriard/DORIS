@@ -2,3 +2,4 @@
 build
 dist
 doris_tracker.egg-info
+doris/__pycache__/*
