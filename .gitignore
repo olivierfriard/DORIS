@@ -4,3 +4,4 @@ dist
 doris_tracker.egg-info
 doris/__pycache__/*
 *~
+Makefile

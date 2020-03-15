@@ -112,24 +112,6 @@ def plot_density(df, x_lim, y_lim):
     i = 1
     while True:
     
-        '''
-        plt.figure()
-        axes = plt.gca()
-        axes.set_aspect("equal", adjustable="box")
-
-        plt.hist2d(df[f"x{idx}"].dropna(), df[f"y{idx}"].dropna(), bins=20, cmap=plt.cm.Reds)
-
-        plt.xlabel("x")
-        plt.ylabel("y")
-
-        axes.set_xlim(x_lim)
-        axes.set_ylim(y_lim)
-        axes.set_ylim(axes.get_ylim()[::-1])
-
-        plt.tight_layout()
-        plt.show()
-        '''
-
         if f"x{i}" not in df:
             return
         
