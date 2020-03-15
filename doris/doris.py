@@ -24,7 +24,6 @@ opencv
 pandas
 numpy
 matplotlib
-scikit-learn
 sklearn
 
 optional:
@@ -56,6 +55,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import __version__ as scipy_version
+from sklearn import __version__ as sklearn_version
 from matplotlib.figure import Figure
 from matplotlib.path import Path
 from PyQt5.QtCore import (PYQT_VERSION_STR, QT_VERSION_STR, QEvent, QSettings,
@@ -68,8 +69,8 @@ from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog,
                              QWidget)
 
 import cv2
-from doris import doris_functions, version, dialog
 
+from doris import doris_functions, version, dialog
 from doris.config import *
 from doris.doris_ui import Ui_MainWindow
 
@@ -505,12 +506,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         modules = []
-        modules.append("OpenCV")
-        modules.append(f"version {cv2.__version__}")
-
-        # matplotlib
-        modules.append("\nMatplotlib")
-        modules.append(f"version {matplotlib.__version__}")
+        modules.append(f"OpenCV version {cv2.__version__}")
+        modules.append(f"\nNumpy version {np.__version__}")
+        modules.append(f"\nMatplotlib version {matplotlib.__version__}")
+        modules.append(f"\nPandas version {pd.__version__}")
+        modules.append(f"\nSciPy version {scipy_version}")
+        modules.append(f"\nsklearn version {sklearn_version}")
         modules_str = "\n".join(modules)
 
         about_dialog = msg = QMessageBox()
@@ -535,6 +536,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         about_dialog.setDetailedText(details)
 
         _ = about_dialog.exec_()
+
 
 
     def lw_masks_doubleclicked(self):
@@ -1612,7 +1614,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                         x_lim=x_lim,
                                         y_lim=y_lim)
         except Exception:
-            raise
             error_type, _, _ = dialog.error_message("plot density", sys.exc_info())
             logging.debug(error_type)
 
