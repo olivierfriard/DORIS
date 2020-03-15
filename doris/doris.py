@@ -1537,6 +1537,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.show_viewers(mem_visible)
             if file_name:
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
+                self.coord_df.to_pickle(file_name  + ".pickle")
         else:
             QMessageBox.warning(self, "DORIS", "No coordinates to save")
 
@@ -1600,20 +1601,24 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             return
 
         try:
+            # set origin
             x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
             y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
 
+            # normalize (if required)
             if self.cb_normalize_coordinates.isChecked():
                 x_lim = x_lim / self.video_width
                 y_lim = y_lim / self.video_width
 
+            # apply scale
             x_lim = x_lim * self.scale
             y_lim = y_lim * self.scale
 
             doris_functions.plot_density(self.coord_df,
-                                        x_lim=x_lim,
-                                        y_lim=y_lim)
+                                         x_lim=x_lim,
+                                         y_lim=y_lim)
         except Exception:
+            raise
             error_type, _, _ = dialog.error_message("plot density", sys.exc_info())
             logging.debug(error_type)
 

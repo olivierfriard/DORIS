@@ -38,7 +38,9 @@ from matplotlib.path import Path
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import distance
 from scipy.spatial.distance import cdist
+from scipy.stats import kde
 from sklearn.cluster import KMeans
+import pandas as pd
 
 from doris import config
 
@@ -104,37 +106,18 @@ def plot_positions(df, x_lim, y_lim,):
     plt.show()
 
 
-def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
-
-    try:
-        x = np.array(x)
-        y = np.array(y)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1, projection="scatter_density")
-        ax.scatter_density(x, y)
-        if x_lim != (0, 0):
-            ax.set_xlim(x_lim)
-        if y_lim != (0, 0):
-            ax.set_ylim(y_lim[::-1])
-
-        plt.show()
-        return True
-
-    except Exception:
-        return False
-
-
 def plot_density(df, x_lim, y_lim):
 
-    #df = df.dropna(thresh=1)
-
-    for idx in range(1, int((len(df.columns) - 1) / 2) + 1):
+    nbins=100
+    i = 1
+    while True:
+    
+        '''
         plt.figure()
         axes = plt.gca()
         axes.set_aspect("equal", adjustable="box")
 
-        plt.hist2d(df.dropna()[f"x{idx}"], df.dropna()[f"y{idx}"], bins=20, cmap=plt.cm.Reds)
+        plt.hist2d(df[f"x{idx}"].dropna(), df[f"y{idx}"].dropna(), bins=20, cmap=plt.cm.Reds)
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -145,6 +128,38 @@ def plot_density(df, x_lim, y_lim):
 
         plt.tight_layout()
         plt.show()
+        '''
+
+        if f"x{i}" not in df:
+            return
+        
+        df[f"x{i}"] = pd.to_numeric(df[f"x{i}"], errors='coerce')
+        df[f"y{i}"] = pd.to_numeric(df[f"y{i}"], errors='coerce')
+
+        k = kde.gaussian_kde((df[f"x{i}"].dropna(), df[f"y{i}"].dropna()))
+
+        xi, yi = np.mgrid[df[f"x{i}"].dropna().min():df[f"x{i}"].dropna().max():nbins*1j,
+                          df[f"y{i}"].dropna().min():df[f"y{i}"].dropna().max():nbins*1j]
+        zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+
+        plt.figure()
+        axes = plt.gca()
+        axes.set_aspect("equal", adjustable="box")
+
+        plt.xlabel("x")
+        plt.ylabel("y")
+
+        axes.set_xlim(x_lim)
+        axes.set_ylim(y_lim)
+        axes.set_ylim(axes.get_ylim()[::-1])
+
+        plt.title(f"Density plot for object #{i}")
+        plt.pcolormesh(xi, yi, zi.reshape(xi.shape))  # , cmap=plt.cm.BuGn_r
+        plt.colorbar()
+        plt.tight_layout()
+        plt.show()
+        i += 1
+
 
 
 def group_of(points, centroids):
