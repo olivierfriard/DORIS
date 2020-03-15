@@ -30,6 +30,7 @@ import sys
 
 import cv2
 import matplotlib
+matplotlib.use("Qt5Agg")
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,9 +41,6 @@ from scipy.spatial.distance import cdist
 from sklearn.cluster import KMeans
 
 from doris import config
-
-matplotlib.use("Qt5Agg")
-
 
 
 def rgbstr_to_bgr_tuple(rgb_str):
@@ -129,14 +127,14 @@ def plot_density_old(x, y, x_lim=(0, 0), y_lim=(0,0)):
 
 def plot_density(df, x_lim, y_lim):
 
-    df = df.dropna(thresh=1)
+    #df = df.dropna(thresh=1)
 
     for idx in range(1, int((len(df.columns) - 1) / 2) + 1):
         plt.figure()
         axes = plt.gca()
         axes.set_aspect("equal", adjustable="box")
 
-        plt.hist2d(df[f"x{idx}"], df[f"y{idx}"], bins=20, cmap=plt.cm.Reds)
+        plt.hist2d(df.dropna()[f"x{idx}"], df.dropna()[f"y{idx}"], bins=20, cmap=plt.cm.Reds)
 
         plt.xlabel("x")
         plt.ylabel("y")
@@ -487,7 +485,7 @@ def detect_and_filter_objects(frame,
         max_size (int): maximum size of objects to detect
         number_of_objects (int): number of objects to return
         arena (list): list of arena
-        max_extension (int): maximum extension of object to select
+        max_extension (int): maximum extension of object to select (in pixels)
 
     Returns:
         dict: all detected objects
@@ -501,19 +499,20 @@ def detect_and_filter_objects(frame,
 
     all_objects = {}
     for idx, cnt in enumerate(contours):
-        M = cv2.moments(cnt)
-        if M["m00"] != 0:
-            cx = int(M["m10"] / M["m00"])
-            cy = int(M["m01"] / M["m00"])
-        else:
-            cx, cy = 0, 0
 
         n = np.vstack(cnt).squeeze()
         try:
             x, y = n[:,0], n[:,1]
         except:
-            x = n[0]
-            y = n[1]
+            x, y = n[0], n[1]
+
+        # centroid
+        M = cv2.moments(cnt)
+        if M["m00"] != 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+        else:
+            cx, cy = np.mean(x), np.mean(y)
 
         all_objects[idx] = {"centroid": (cx, cy),
                             "contour": cnt,
