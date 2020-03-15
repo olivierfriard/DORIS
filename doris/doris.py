@@ -1618,7 +1618,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                          x_lim=x_lim,
                                          y_lim=y_lim)
         except Exception:
-            raise
             error_type, _, _ = dialog.error_message("plot density", sys.exc_info())
             logging.debug(error_type)
 
