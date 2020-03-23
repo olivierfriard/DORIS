@@ -13,11 +13,14 @@ setup(
    url="http://www.boris.unito.it/pages/doris",
    python_requires=">=3.6",
    classifiers=[
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Education",
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         "Operating System :: OS Independent",
+        "Topic :: Scientific/Engineering",
     ],
     packages=['doris'],  #same as name
    
@@ -32,11 +35,10 @@ setup(
           "sklearn"
       ],
 
-    include_package_data=True,
-
-    # package_data={
-    # 'behatrix': ['behatrix.qrc', 'behatrix.ui', 'LICENSE.TXT', 'README.TXT'],
-    # },
+    package_data={
+    'doris': ['doris.ui', 'LICENSE.TXT', 'README.TXT'],
+     "": ["README.TXT", "LICENSE.TXT"],
+    },
 
     entry_points={
         'console_scripts': [
