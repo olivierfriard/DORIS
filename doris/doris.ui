@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1186</width>
+    <width>1217</width>
     <height>856</height>
    </rect>
   </property>
@@ -871,7 +871,7 @@
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_7">
             <item>
-             <widget class="QCheckBox" name="cb_record_number_objects">
+             <widget class="QCheckBox" name="cb_record_presence_area">
               <property name="text">
                <string>Record presence of objects(s) in areas</string>
               </property>
@@ -1056,7 +1056,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1186</width>
+     <width>1217</width>
      <height>22</height>
     </rect>
    </property>
@@ -1064,13 +1064,13 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionOpen_video"/>
-    <addaction name="actionLoad_directory_of_images"/>
-    <addaction name="separator"/>
     <addaction name="actionNew_project"/>
     <addaction name="actionOpen_project"/>
     <addaction name="actionSave_project"/>
     <addaction name="actionSave_project_as"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen_video"/>
+    <addaction name="actionLoad_directory_of_images"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>

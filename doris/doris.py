@@ -48,6 +48,7 @@ import pathlib
 import platform
 import sys
 import time
+from io import StringIO
 from doris import doris_qrc
 
 import matplotlib
@@ -431,6 +432,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.mem_position_objects = {}
 
+        self.project = ""
         self.project_path = ""
 
         # default
@@ -477,6 +479,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.read_config()
 
+        self.menu_update()
+
     def about(self):
         """About dialog box."""
 
@@ -514,6 +518,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         _ = about_dialog.exec_()
 
 
+    def menu_update(self):
+        """Update the menu"""
+        
+        self.actionOpen_video.setEnabled(self.project != "")
+        self.actionLoad_directory_of_images.setEnabled(self.project != "")
+        self.actionSave_project.setEnabled(self.project != "")
+        self.actionSave_project_as.setEnabled(self.project != "")
+
+
     def lw_masks_right_clicked(self, QPos):
         """right click menu for masks listwidget"""
 
@@ -533,8 +546,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.masks.pop(self.lw_masks.row(self.lw_masks.currentItem()))
         self.lw_masks.takeItem(self.lw_masks.row(self.lw_masks.currentItem()))
         self.reload_frame()
-
-
 
 
 
@@ -617,12 +628,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         save parameters of current project in a JSON file
         """
+
         if not self.project_path:
 
             mem_visible = self.hide_viewers()
 
             if self.video_file_name:
                 project_path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".doris"))
+            elif self.dir_images_path:
+                project_path_suggestion = str(pathlib.Path(self.dir_images_path).with_suffix(".doris"))
             else:
                 project_path_suggestion = ""
 
@@ -669,6 +683,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["processed_frame_viewer_position"] = [int(self.fw[PROCESSED_FRAME_VIEWER_IDX].x()),
                                                      int(self.fw[PROCESSED_FRAME_VIEWER_IDX].y())]
         config["masks"] = self.masks
+
+        config["record_coordinates"] = self.cb_record_xy.isChecked()
+        config["record_presence_area"] = self.cb_record_presence_area.isChecked()
+
+        # coordinates
+        if self.coord_df is not None:
+            config["coordinates"] = self.coord_df.to_csv()
+
+        # current frame
+        config["current_frame"] = self.frame_idx
+
+        # objects to track
+        if self.objects_to_track:
+            obj_dict = dict(self.objects_to_track)
+            for idx in obj_dict:
+                obj_dict[idx]["contour"] = obj_dict[idx]["contour"].tolist()
+            config["objects_to_track"] = obj_dict
 
         try:
             with open(project_file_path, "w") as f_out:
@@ -1499,7 +1530,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.ptText.setReadOnly(True)
             font = QFont("Monospace")
             w.ptText.setFont(font)
-            w.ptText.appendPlainText(self.coord_df.iloc[:, 1:].to_string(index=False))
+            w.ptText.appendPlainText(self.coord_df.iloc[:, :].to_string(index=False))
 
             w.exec_()
 
@@ -1524,9 +1555,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.coord_df is not None:
 
             mem_visible = self.hide_viewers()
-            
+
             if self.video_file_name:
                 path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".tsv"))
+            elif self.dir_images_path:
+                project_path_suggestion = str(pathlib.Path(self.dir_images_path).with_suffix(".doris"))
             else:
                 path_suggestion = ""
 
@@ -1536,7 +1569,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.show_viewers(mem_visible)
             if file_name:
                 self.coord_df.to_csv(file_name, sep="\t", decimal=".")
-                self.coord_df.to_pickle(file_name  + ".pickle")
+                # self.coord_df.to_pickle(file_name  + ".pickle")
         else:
             QMessageBox.warning(self, "DORIS", "No coordinates to save")
 
@@ -1803,7 +1836,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def update_frame_index(self):
         """
-        update frame index
+        update frame index in label
         """
         if self.dir_images:
             self.frame_idx = self.dir_images_index
@@ -1955,6 +1988,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.te_tracked_objects.clear()
             else:
                 return
+
+        print(f"self.objects_to_track\n {self.objects_to_track}")
 
         self.initialize_positions_dataframe()
         self.initialize_areas_dataframe()
@@ -2365,7 +2400,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 start = 0
 
-            self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1, 1:].to_string(index=False))
+            self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1, :].to_string(index=False))
 
 
     def process_and_show(self):
@@ -2396,7 +2431,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check filtered objects number
         # no filtered object
         '''
-        if ((self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) 
+        if ((self.cb_record_xy.isChecked() or self.cb_record_presence_area.isChecked()) 
             and (len(filtered_objects) == 0) and (len(self.objects_to_track))):
         '''
         if len(filtered_objects) == 0 and len(self.objects_to_track):
@@ -2605,7 +2640,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
         # check max distance from previous detected objects
-        if (self.cb_record_xy.isChecked() or self.cb_record_number_objects.isChecked()) and self.sb_max_distance.value():
+        if (self.cb_record_xy.isChecked() or self.cb_record_presence_area.isChecked()) and self.sb_max_distance.value():
 
             if self.frame_idx - 1 in self.mem_position_objects:
 
@@ -3026,7 +3061,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.display_coordinates(frame_idx)
 
         # presence in areas
-        if self.cb_record_number_objects.isChecked():
+        if self.cb_record_presence_area.isChecked():
 
             nb = {}
             if self.areas_df is None:
@@ -3186,6 +3221,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         initialize program for new project
         """
 
+
         self.lb_frames.clear()
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
@@ -3242,13 +3278,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.lw_area_definition.clear()
         self.areas = {}
 
-        self.__init__()
+        #self.__init__()
 
         try:
             for i in range(3):
                self.fw[i].close()
         except Exception:
             pass
+
+        self.project = "NO NAME"
+        self.menu_update()
 
 
     def open_project(self, file_name=""):
@@ -3272,11 +3311,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             with open(file_name) as f_in:
                 config = json.loads(f_in.read())
 
+            if "coordinates" in config:
+                self.coord_df = pd.read_csv(StringIO(config["coordinates"]), sep=",", index_col=0)
+
             self.sb_start_from.setValue(config.get("start_from", 0))
             self.sb_stop_to.setValue(config.get("stop_to", 0))
             self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
             self.cb_invert.setChecked(config.get("invert", False))
             self.cb_normalize_coordinates.setChecked(config.get("normalize_coordinates", False))
+
+            self.cb_record_xy.setChecked(config.get("record_coordinates", False))
+            self.cb_record_presence_area.setChecked(config.get("record_presence_area", False))
 
             try:
                 self.arena = config["arena"]
@@ -3369,7 +3414,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fw[PROCESSED_FRAME_VIEWER_IDX].zoom.setCurrentText(str(self.processed_frame_scale))
             self.frame_viewer_scale(PROCESSED_FRAME_VIEWER_IDX, self.processed_frame_scale)
 
-            if self.sb_start_from.value():
+            self.frame_idx = config.get("current_frame", 0)
+            if self.frame_idx:
+                self.go_to_frame(self.frame_idx)
+            elif self.sb_start_from.value():
                 self.go_to_frame(self.sb_start_from.value())
             else:
                 self.process_and_show()
@@ -3381,6 +3429,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.project_path = file_name
         self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
+
+        self.project = pathlib.Path(self.project_path).name
+        self.menu_update()
+
         return True
 
 

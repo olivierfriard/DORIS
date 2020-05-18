@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'doris.ui'
+# Form implementation generated from reading ui file 'doris/doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.14.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1186, 856)
+        MainWindow.resize(1217, 856)
         MainWindow.setBaseSize(QtCore.QSize(0, 0))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -396,9 +396,9 @@ class Ui_MainWindow(object):
         self.horizontalLayout_15.setObjectName("horizontalLayout_15")
         self.verticalLayout_7 = QtWidgets.QVBoxLayout()
         self.verticalLayout_7.setObjectName("verticalLayout_7")
-        self.cb_record_number_objects = QtWidgets.QCheckBox(self.tab_2)
-        self.cb_record_number_objects.setObjectName("cb_record_number_objects")
-        self.verticalLayout_7.addWidget(self.cb_record_number_objects)
+        self.cb_record_presence_area = QtWidgets.QCheckBox(self.tab_2)
+        self.cb_record_presence_area.setObjectName("cb_record_presence_area")
+        self.verticalLayout_7.addWidget(self.cb_record_presence_area)
         self.label_2 = QtWidgets.QLabel(self.tab_2)
         self.label_2.setObjectName("label_2")
         self.verticalLayout_7.addWidget(self.label_2)
@@ -478,7 +478,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_6.addLayout(self.horizontalLayout_6)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1186, 22))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1217, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -554,13 +554,13 @@ class Ui_MainWindow(object):
         self.actionShow_object_path.setObjectName("actionShow_object_path")
         self.actionNew_project = QtWidgets.QAction(MainWindow)
         self.actionNew_project.setObjectName("actionNew_project")
-        self.menuFile.addAction(self.actionOpen_video)
-        self.menuFile.addAction(self.actionLoad_directory_of_images)
-        self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionNew_project)
         self.menuFile.addAction(self.actionOpen_project)
         self.menuFile.addAction(self.actionSave_project)
         self.menuFile.addAction(self.actionSave_project_as)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionOpen_video)
+        self.menuFile.addAction(self.actionLoad_directory_of_images)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionQuit)
         self.menuFrame_viewer_scale.addAction(self.action2)
@@ -584,7 +584,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tab_tracking_results.setCurrentIndex(0)
+        self.tab_tracking_results.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -654,7 +654,7 @@ class Ui_MainWindow(object):
         self.pb_plot_xy_density.setText(_translate("MainWindow", "plot XY density"))
         self.pb_distances.setText(_translate("MainWindow", "Save distances"))
         self.tab_tracking_results.setTabText(self.tab_tracking_results.indexOf(self.tab), _translate("MainWindow", "Objects coordinates"))
-        self.cb_record_number_objects.setText(_translate("MainWindow", "Record presence of objects(s) in areas"))
+        self.cb_record_presence_area.setText(_translate("MainWindow", "Record presence of objects(s) in areas"))
         self.label_2.setText(_translate("MainWindow", "Areas"))
         self.pb_add_area.setText(_translate("MainWindow", "Add area"))
         self.pb_remove_area.setText(_translate("MainWindow", "Remove selected area"))
