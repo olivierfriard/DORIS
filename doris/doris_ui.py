@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'doris/doris.ui'
+# Form implementation generated from reading ui file 'doris.ui'
 #
-# Created by: PyQt5 UI code generator 5.14.0
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +13,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1186, 1070)
+        MainWindow.resize(1186, 856)
+        MainWindow.setBaseSize(QtCore.QSize(0, 0))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -90,15 +91,15 @@ class Ui_MainWindow(object):
         self.hs_frame.setOrientation(QtCore.Qt.Horizontal)
         self.hs_frame.setObjectName("hs_frame")
         self.verticalLayout_6.addWidget(self.hs_frame)
+        self.horizontalLayout_10 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
         self.label_9 = QtWidgets.QLabel(self.centralwidget)
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
         self.label_9.setFont(font)
         self.label_9.setObjectName("label_9")
-        self.verticalLayout_6.addWidget(self.label_9)
-        self.horizontalLayout_10 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.horizontalLayout_10.addWidget(self.label_9)
         self.label_8 = QtWidgets.QLabel(self.centralwidget)
         self.label_8.setObjectName("label_8")
         self.horizontalLayout_10.addWidget(self.label_8)
@@ -149,15 +150,15 @@ class Ui_MainWindow(object):
         spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_10.addItem(spacerItem1)
         self.verticalLayout_6.addLayout(self.horizontalLayout_10)
+        self.horizontalLayout_16 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
         self.label_5 = QtWidgets.QLabel(self.centralwidget)
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
         self.label_5.setFont(font)
         self.label_5.setObjectName("label_5")
-        self.verticalLayout_6.addWidget(self.label_5)
-        self.horizontalLayout_16 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.horizontalLayout_16.addWidget(self.label_5)
         self.pb_define_arena = QtWidgets.QPushButton(self.centralwidget)
         self.pb_define_arena.setObjectName("pb_define_arena")
         self.horizontalLayout_16.addWidget(self.pb_define_arena)
@@ -298,17 +299,12 @@ class Ui_MainWindow(object):
         self.horizontalLayout_21.addLayout(self.verticalLayout_4)
         self.verticalLayout_6.addLayout(self.horizontalLayout_21)
         self.label_12 = QtWidgets.QLabel(self.centralwidget)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setWeight(75)
+        self.label_12.setFont(font)
         self.label_12.setObjectName("label_12")
         self.verticalLayout_6.addWidget(self.label_12)
-        self.horizontalLayout_19 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_19.setObjectName("horizontalLayout_19")
-        self.label_20 = QtWidgets.QLabel(self.centralwidget)
-        self.label_20.setObjectName("label_20")
-        self.horizontalLayout_19.addWidget(self.label_20)
-        self.le_tag = QtWidgets.QLineEdit(self.centralwidget)
-        self.le_tag.setObjectName("le_tag")
-        self.horizontalLayout_19.addWidget(self.le_tag)
-        self.verticalLayout_6.addLayout(self.horizontalLayout_19)
         self.tab_tracking_results = QtWidgets.QTabWidget(self.centralwidget)
         self.tab_tracking_results.setObjectName("tab_tracking_results")
         self.tab = QtWidgets.QWidget()
@@ -641,7 +637,6 @@ class Ui_MainWindow(object):
         self.pb_repick_objects.setText(_translate("MainWindow", "Repick objects from image"))
         self.pb_repick_objects_from_all.setText(_translate("MainWindow", "Repick objects from all objects"))
         self.label_12.setText(_translate("MainWindow", "Tracking"))
-        self.label_20.setText(_translate("MainWindow", "Tag"))
         self.label.setText(_translate("MainWindow", "Origin of referential system"))
         self.pb_define_origin.setText(_translate("MainWindow", "Define origin"))
         self.pb_reset_origin.setText(_translate("MainWindow", "Reset origin"))

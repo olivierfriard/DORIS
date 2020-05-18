@@ -7,8 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>1186</width>
-    <height>1070</height>
+    <height>856</height>
    </rect>
+  </property>
+  <property name="baseSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -180,20 +186,20 @@
      </widget>
     </item>
     <item>
-     <widget class="QLabel" name="label_9">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Image processing</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_10">
+      <item>
+       <widget class="QLabel" name="label_9">
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>Image processing</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QLabel" name="label_8">
         <property name="text">
@@ -316,20 +322,20 @@
      </layout>
     </item>
     <item>
-     <widget class="QLabel" name="label_5">
-      <property name="font">
-       <font>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Objects</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_16">
+      <item>
+       <widget class="QLabel" name="label_5">
+        <property name="font">
+         <font>
+          <weight>75</weight>
+          <bold>true</bold>
+         </font>
+        </property>
+        <property name="text">
+         <string>Objects</string>
+        </property>
+       </widget>
+      </item>
       <item>
        <widget class="QPushButton" name="pb_define_arena">
         <property name="text">
@@ -644,24 +650,16 @@
     </item>
     <item>
      <widget class="QLabel" name="label_12">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
       <property name="text">
        <string>Tracking</string>
       </property>
      </widget>
-    </item>
-    <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_19">
-      <item>
-       <widget class="QLabel" name="label_20">
-        <property name="text">
-         <string>Tag</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="le_tag"/>
-      </item>
-     </layout>
     </item>
     <item>
      <widget class="QTabWidget" name="tab_tracking_results">

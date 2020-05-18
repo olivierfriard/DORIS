@@ -1899,7 +1899,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         initialize dataframe for recording objects coordinates
         """
-        columns = ["tag", "frame"]
+        columns = ["frame"]
         for idx in self.objects_to_track:
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
@@ -1911,7 +1911,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         initialize dataframe for recording presence of objects in areas
         """
-        columns = ["tag", "frame"]
+        columns = ["frame"]
         for area in sorted(self.areas.keys()):
             for idx in self.objects_to_track:
                 columns.append(f"area {area} object #{idx}")
@@ -2451,7 +2451,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 # frame idx
                 self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
                 # tag
-                self.coord_df["tag"][self.frame_idx] = self.le_tag.text()
                 for idx in sorted(list(self.objects_to_track.keys())):
                     self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
                     self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
@@ -2678,8 +2677,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         if self.cb_record_xy.isChecked():
                             # frame idx
                             self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
-                            # tag
-                            self.coord_df["tag"][self.frame_idx] = self.le_tag.text()
                             for idx in sorted(list(self.objects_to_track.keys())):
                                 self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
                                 self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
@@ -3015,10 +3012,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # frame idx
             self.coord_df["frame"][frame_idx - 1] = frame_idx  # + 1
-            '''
-            # tag
-            self.coord_df["tag"][frame_idx - 1] = self.le_tag.text()
-            '''
 
             for idx in sorted(list(objects.keys())):
                 if self.cb_normalize_coordinates.isChecked():
@@ -3043,10 +3036,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # frame idx
             self.areas_df["frame"][frame_idx - 1] = frame_idx
-            '''
-            # tag
-            self.areas_df["tag"][frame_idx] = self.le_tag.text()
-            '''
 
             for area in sorted(list(self.areas.keys())):
 
@@ -3229,7 +3218,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_blur.setValue(BLUR_DEFAULT_VALUE)
         self.sb_threshold.setValue(THRESHOLD_DEFAULT)
         self.cb_threshold_method.setCurrentIndex(0)
-        self.le_tag.clear()
 
         self.cb_record_xy.setChecked(False)
         self.cb_normalize_coordinates.setChecked(False)
