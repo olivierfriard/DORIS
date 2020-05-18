@@ -48,6 +48,7 @@ import pathlib
 import platform
 import sys
 import time
+from doris import doris_qrc
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -73,8 +74,6 @@ import cv2
 from doris import doris_functions, version, dialog
 from doris.config import *
 from doris.doris_ui import Ui_MainWindow
-
-
 
 
 
@@ -478,6 +477,42 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.read_config()
 
+    def about(self):
+        """About dialog box."""
+
+        modules = []
+        modules.append(f"OpenCV version {cv2.__version__}")
+        modules.append(f"\nNumpy version {np.__version__}")
+        modules.append(f"\nMatplotlib version {matplotlib.__version__}")
+        modules.append(f"\nPandas version {pd.__version__}")
+        modules.append(f"\nSciPy version {scipy_version}")
+        modules.append(f"\nsklearn version {sklearn_version}")
+        modules_str = "\n".join(modules)
+
+        about_dialog = msg = QMessageBox()
+        #about_dialog.setIconPixmap(QPixmap("/home/olivier/gdrive/src/python/doris/logo/doris_logo.256px.png"))
+        about_dialog.setIconPixmap(QPixmap(":/logo_256px"))
+        about_dialog.setWindowTitle("About DORIS")
+        about_dialog.setStandardButtons(QMessageBox.Ok)
+        about_dialog.setDefaultButton(QMessageBox.Ok)
+        about_dialog.setEscapeButton(QMessageBox.Ok)
+
+        about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
+        "<p>Copyright &copy; 2017-2020 Olivier Friard<br><br>"
+        '<a href="http://www.boris.unito.it/pages/doris">www.boris.unito.it/pages/doris</a> for more details.<br><br>'
+        "Department of Life Sciences and Systems Biology<br>"
+        "University of Torino - Italy<br>"))
+
+        architecture = "64-bit" if sys.maxsize > 2**32 else "32-bit"
+        details = (f"Python {platform.python_version()} ({architecture}) "
+                   f"- Qt {QT_VERSION_STR} - PyQt{PYQT_VERSION_STR} on {platform.system()}\n"
+                   f"CPU type: {platform.machine()}\n\n"
+                   f"{modules_str}")
+
+        about_dialog.setDetailedText(details)
+
+        _ = about_dialog.exec_()
+
 
     def lw_masks_right_clicked(self, QPos):
         """right click menu for masks listwidget"""
@@ -500,42 +535,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-    def about(self):
-        """
-        About dialog box
-        """
-
-        modules = []
-        modules.append(f"OpenCV version {cv2.__version__}")
-        modules.append(f"\nNumpy version {np.__version__}")
-        modules.append(f"\nMatplotlib version {matplotlib.__version__}")
-        modules.append(f"\nPandas version {pd.__version__}")
-        modules.append(f"\nSciPy version {scipy_version}")
-        modules.append(f"\nsklearn version {sklearn_version}")
-        modules_str = "\n".join(modules)
-
-        about_dialog = msg = QMessageBox()
-        # about_dialog.setIconPixmap(QPixmap(os.path.dirname(os.path.realpath(__file__)) + "/logo_eye.128px.png"))
-        about_dialog.setWindowTitle("About DORIS")
-        about_dialog.setStandardButtons(QMessageBox.Ok)
-        about_dialog.setDefaultButton(QMessageBox.Ok)
-        about_dialog.setEscapeButton(QMessageBox.Ok)
-
-        about_dialog.setInformativeText((f"<b>DORIS</b> v. {version.__version__} - {version.__version_date__}"
-        "<p>Copyright &copy; 2017-2020 Olivier Friard<br><br>"
-        '<a href="http://www.boris.unito.it/pages/doris">www.boris.unito.it/pages/doris</a> for more details.<br><br>'
-        "Department of Life Sciences and Systems Biology<br>"
-        "University of Torino - Italy<br>"))
-
-        architecture = "64-bit" if sys.maxsize > 2**32 else "32-bit"
-        details = (f"Python {platform.python_version()} ({architecture}) "
-                   f"- Qt {QT_VERSION_STR} - PyQt{PYQT_VERSION_STR} on {platform.system()}\n"
-                   f"CPU type: {platform.machine()}\n\n"
-                   f"{modules_str}")
-
-        about_dialog.setDetailedText(details)
-
-        _ = about_dialog.exec_()
 
 
 
