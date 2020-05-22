@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'doris/doris.ui'
+# Form implementation generated from reading ui file 'doris.ui'
 #
 # Created by: PyQt5 UI code generator 5.14.0
 #
@@ -340,6 +340,9 @@ class Ui_MainWindow(object):
         self.pb_reset_scale = QtWidgets.QPushButton(self.tab)
         self.pb_reset_scale.setObjectName("pb_reset_scale")
         self.horizontalLayout_11.addWidget(self.pb_reset_scale)
+        self.cb_apply_scale = QtWidgets.QCheckBox(self.tab)
+        self.cb_apply_scale.setObjectName("cb_apply_scale")
+        self.horizontalLayout_11.addWidget(self.cb_apply_scale)
         spacerItem6 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_11.addItem(spacerItem6)
         self.verticalLayout_5.addLayout(self.horizontalLayout_11)
@@ -584,7 +587,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tab_tracking_results.setCurrentIndex(1)
+        self.tab_tracking_results.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -644,6 +647,7 @@ class Ui_MainWindow(object):
         self.le_scale.setText(_translate("MainWindow", "1"))
         self.pb_define_scale.setText(_translate("MainWindow", "Define scale"))
         self.pb_reset_scale.setText(_translate("MainWindow", "Reset scale"))
+        self.cb_apply_scale.setText(_translate("MainWindow", "Apply scale to coordinates"))
         self.cb_record_xy.setText(_translate("MainWindow", "Record objects coordinates"))
         self.cb_normalize_coordinates.setText(_translate("MainWindow", "Normalize coordinates"))
         self.pb_save_xy.setText(_translate("MainWindow", "Save objects coordinates"))

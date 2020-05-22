@@ -142,7 +142,7 @@ class FrameViewer(QWidget):
         # stay on top
         self.cb_stay_on_top = QCheckBox("Stay on top")
         self.cb_stay_on_top.setChecked(True)
-        self.cb_stay_on_top.clicked.connect(self.cb_stay_on_top_clicked)
+        self.cb_stay_on_top.stateChanged.connect(self.cb_stay_on_top_clicked)
         hbox.addWidget(self.cb_stay_on_top)
 
         hbox.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -493,8 +493,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         modules.append(f"\nsklearn version {sklearn_version}")
         modules_str = "\n".join(modules)
 
-        about_dialog = msg = QMessageBox()
-        #about_dialog.setIconPixmap(QPixmap("/home/olivier/gdrive/src/python/doris/logo/doris_logo.256px.png"))
+        about_dialog = QMessageBox()
         about_dialog.setIconPixmap(QPixmap(":/logo_256px"))
         about_dialog.setWindowTitle("About DORIS")
         about_dialog.setStandardButtons(QMessageBox.Ok)
@@ -686,9 +685,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         config["record_coordinates"] = self.cb_record_xy.isChecked()
         config["record_presence_area"] = self.cb_record_presence_area.isChecked()
+        config["apply_scale"] = self.cb_apply_scale.isChecked()
 
-        # coordinates
+        # save coordinates
         if self.coord_df is not None:
+            # self.coord_df[self.coord_df.columns] = self.coord_df[self.coord_df.columns].fillna(0).astype(int)
             config["coordinates"] = self.coord_df.to_csv()
 
         # current frame
@@ -855,6 +856,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def add_area_func(self, shape):
         if shape:
+            # disable the stay on top property for frame viewers
+            for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+                self.fw[viewer].cb_stay_on_top.setChecked(False)
+
             text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
                 self.add_area = {"type": shape, "name": text}
@@ -1103,6 +1108,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.display_frame(self.frame)
                     self.flag_define_scale = False
                     self.actionDefine_scale.setText("Define scale")
+
+                    # disable the stay on top property for frame viewers
+                    for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+                        self.fw[viewer].cb_stay_on_top.setChecked(False)
+
                     while True:
                         real_length_str, ok_pressed = QInputDialog.getText(self, "Real length", "Value (w/o unit):")
                         if not ok_pressed:
@@ -1516,6 +1526,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
+    def disable_viewers_stay_on_top(self):
+        """
+        disable the stay on top property on viewers
+        to allow a correct visualization of the message dialog
+        """
+        for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+            self.fw[viewer].cb_stay_on_top.setChecked(False)
+
+
     def view_coordinates(self):
         """
         view dataframe of recorded coordinates
@@ -1533,6 +1552,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.ptText.appendPlainText(self.coord_df.iloc[:, :].to_string(index=False))
 
             w.exec_()
+
+        else:
+            self.disable_viewers_stay_on_top()
+            QMessageBox.warning(self, "DORIS", "No objects to track were selected")
 
 
     def delete_coordinates(self):
@@ -1922,6 +1945,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         define scale. from pixels to real unit
         """
         if self.frame is not None:
+            # disable the stay on top property for frame viewers
+            #for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+            #    self.fw[viewer].cb_stay_on_top.setChecked(False)
+
             self.flag_define_scale = not self.flag_define_scale
             self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
             self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_define_scale)
@@ -1931,23 +1958,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         initialize dataframe for recording objects coordinates
         """
+
+        logging.debug("function: initialize_positions_dataframe" )
+
         columns = ["frame"]
-        for idx in self.objects_to_track:
+        for idx in sorted(list(self.objects_to_track.keys())):
             columns.extend([f"x{idx}", f"y{idx}"])
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+        # set frame index
+        self.coord_df["frame"] = range(1, self.total_frame_nb + 1)
+        self.coord_df["x1"] = pd.NA
+        self.coord_df["y1"] = pd.NA
 
-        logging.debug(f"self.coord_df: {self.coord_df}" )
+        logging.debug(f"self.coord_df: {self.coord_df}")
 
 
     def initialize_areas_dataframe(self):
         """
         initialize dataframe for recording presence of objects in areas
         """
+        logging.debug("function: initialize_areas_dataframe" )
+
         columns = ["frame"]
         for area in sorted(self.areas.keys()):
             for idx in self.objects_to_track:
                 columns.append(f"area {area} object #{idx}")
         self.areas_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
+        # set frame index
+        self.areas_df["frame"] = range(1, self.total_frame_nb + 1)
 
 
     def select_objects_to_track(self, all_=False):
@@ -1989,7 +2027,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 return
 
-        print(f"self.objects_to_track\n {self.objects_to_track}")
+        logging.debug(f"self.objects_to_track\n {self.objects_to_track}")
 
         self.initialize_positions_dataframe()
         self.initialize_areas_dataframe()
@@ -2486,11 +2524,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
                 # tag
                 for idx in sorted(list(self.objects_to_track.keys())):
-                    self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                    self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+                    #self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
+                    #self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+                    self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
 
                 # reset next frames to nan
-                self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                # self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                # self.coord_df.loc[self.frame_idx + 1:] = pd.NA
 
                 self.display_coordinates(self.frame_idx)
 
@@ -2712,10 +2752,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             # frame idx
                             self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
                             for idx in sorted(list(self.objects_to_track.keys())):
-                                self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                                self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+                                #self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
+                                #self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
+
+                                self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
+
                             # reset next frames to nan
-                            self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                            # self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                            self.coord_df.loc[self.frame_idx + 1:] = pd.NA
 
                             self.display_coordinates(self.frame_idx)
 
@@ -3045,18 +3089,30 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 
             # frame idx
-            self.coord_df["frame"][frame_idx - 1] = frame_idx  # + 1
+            #self.coord_df["frame"][frame_idx - 1] = frame_idx  # + 1
+            self.coord_df.loc[frame_idx - 1, "frame"] = frame_idx  # + 1
 
+            obj_col_coord = [] # list of objects coordinates columns 
             for idx in sorted(list(objects.keys())):
+                obj_col_coord.extend([f"x{idx}", f"y{idx}"]) 
                 if self.cb_normalize_coordinates.isChecked():
-                    self.coord_df[f"x{idx}"][frame_idx - 1] = (objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width
-                    self.coord_df[f"y{idx}"][frame_idx - 1] = (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
-                else:
-                    self.coord_df[f"x{idx}"][frame_idx - 1] = self.scale * (objects[idx]["centroid"][0] - self.coordinate_center[0])
-                    self.coord_df[f"y{idx}"][frame_idx - 1] = self.scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
+                    self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = ((objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width,
+                                                                                (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
+                                                                               ) 
 
-            # set NaN to next frames
-            self.coord_df.loc[frame_idx:] = np.nan
+                else:
+                    if self.cb_apply_scale.isChecked():
+                        scale = self.scale
+                    else:
+                        scale = 1
+
+                    self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = (scale * (objects[idx]["centroid"][0] - self.coordinate_center[0]),
+                                                                                scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
+                                                                               )
+
+            # set NaN as coordinates to next frames
+            #self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
+            self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
 
             self.display_coordinates(frame_idx)
 
@@ -3180,8 +3236,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.running_tracking:
             self.flag_stop_tracking = True
-            '''QMessageBox.warning(self, "DORIS", "A tracking task is already running")'''
             return
+
+        # disable the stay on top property for frame viewers
+        for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+            self.fw[viewer].cb_stay_on_top.setChecked(False)
 
         try:
             text, ok = QInputDialog.getText(self, "Run tracking", "Frames interval: (ex. 123-456)")
@@ -3311,8 +3370,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             with open(file_name) as f_in:
                 config = json.loads(f_in.read())
 
+            # load coordinates
             if "coordinates" in config:
                 self.coord_df = pd.read_csv(StringIO(config["coordinates"]), sep=",", index_col=0)
+                self.coord_df = self.coord_df.convert_dtypes()
+                #self.coord_df[self.coord_df.columns] = self.coord_df[self.coord_df.columns].fillna(0).astype(int)
 
             self.sb_start_from.setValue(config.get("start_from", 0))
             self.sb_stop_to.setValue(config.get("stop_to", 0))
@@ -3322,6 +3384,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.cb_record_xy.setChecked(config.get("record_coordinates", False))
             self.cb_record_presence_area.setChecked(config.get("record_presence_area", False))
+            self.cb_apply_scale.setChecked(config.get("apply_scale", False))
 
             try:
                 self.arena = config["arena"]
@@ -3377,19 +3440,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 except Exception:
                     pass
 
-            if "dir_images" in config:
-                self.dir_images_path = config["dir_images"]
-                try:
-                    if os.path.isdir(self.dir_images_path):
-                        self.load_dir_images()
-                    else:
-                        QMessageBox.critical(self, "DORIS", f"Directory {self.dir_images_path} not found")
-                        self.dir_images_path = ""
-                        return None
-                except Exception:
-                    raise
-                    pass
-
             self.coordinate_center = config.get("referential_system_origin", [0,0])
             self.le_coordinates_center.setText(f"{self.coordinate_center}")
             self.masks = config.get("masks", [])
@@ -3414,6 +3464,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.fw[PROCESSED_FRAME_VIEWER_IDX].zoom.setCurrentText(str(self.processed_frame_scale))
             self.frame_viewer_scale(PROCESSED_FRAME_VIEWER_IDX, self.processed_frame_scale)
 
+            # objects to track
+            if "objects_to_track" in config:
+                obj_dict = dict(config["objects_to_track"])
+                for idx in obj_dict:
+                    obj_dict[idx]["contour"] = np.asarray(obj_dict[idx]["contour"])
+
+                self.objects_to_track = dict(obj_dict)
+
             self.frame_idx = config.get("current_frame", 0)
             if self.frame_idx:
                 self.go_to_frame(self.frame_idx)
@@ -3422,7 +3480,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 self.process_and_show()
 
+
+
         except Exception:
+            raise
             logging.warning("Error in project file")
             QMessageBox.critical(self, "DORIS", f"Error in project file: {file_name}")
             return
