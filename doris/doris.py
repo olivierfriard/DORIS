@@ -367,7 +367,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # coordinates analysis
         self.pb_view_coordinates.clicked.connect(self.view_coordinates)
         self.pb_delete_coordinates.clicked.connect(self.delete_coordinates)
-        self.pb_save_xy.clicked.connect(self.save_objects_coordinates)
+        self.pb_save_xy.clicked.connect(self.export_objects_coordinates)
         self.pb_plot_path.clicked.connect(lambda: self.plot_path_clicked("path"))
         self.pb_plot_positions.clicked.connect(lambda: self.plot_path_clicked("positions"))
         self.pb_plot_xy_density.clicked.connect(self.plot_xy_density)
@@ -592,7 +592,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def hide_viewers(self):
-        """ Hide frame viewers"""
+        """
+        Hide frame viewers
+        """
         mem_visible = {}
         for w in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
             mem_visible[w] = self.fw[w].isVisible()
@@ -686,6 +688,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         config["record_coordinates"] = self.cb_record_xy.isChecked()
         config["record_presence_area"] = self.cb_record_presence_area.isChecked()
         config["apply_scale"] = self.cb_apply_scale.isChecked()
+        config["apply_origin"] = self.cb_apply_origin.isChecked()
 
         # save coordinates
         if self.coord_df is not None:
@@ -1549,7 +1552,23 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.ptText.setReadOnly(True)
             font = QFont("Monospace")
             w.ptText.setFont(font)
-            w.ptText.appendPlainText(self.coord_df.iloc[:, :].to_string(index=False))
+
+            if self.cb_apply_scale.isChecked():
+                scale = self.scale
+            else:
+                scale = 1
+
+            if self.cb_apply_origin.isChecked():
+                origin_x, origin_y = self.coordinate_center
+            else:
+                origin_x, origin_y = 0, 0
+
+            df = self.coord_df.copy()
+            for idx in sorted(list(self.objects_to_track.keys())):
+                df[f"x{idx}"] = scale * (df[f"x{idx}"] - origin_x)
+                df[f"y{idx}"] = scale * (df[f"y{idx}"] - origin_y)
+
+            w.ptText.appendPlainText(df.iloc[:, :].to_string(index=False))
 
             w.exec_()
 
@@ -1571,14 +1590,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.te_xy.clear()
 
 
-    def save_objects_coordinates(self):
+    def export_objects_coordinates(self):
         """
-        save results of recorded coordinates in TSV file
+        Export objects coordinates in TSV file
         """
         if self.coord_df is not None:
 
             mem_visible = self.hide_viewers()
-
             if self.video_file_name:
                 path_suggestion = str(pathlib.Path(self.video_file_name).with_suffix(".tsv"))
             elif self.dir_images_path:
@@ -1586,13 +1604,39 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 path_suggestion = ""
 
-            file_name, _ = QFileDialog().getSaveFileName(self, "Save objects coordinates",
+            file_name, _ = QFileDialog().getSaveFileName(self, "Export objects coordinates",
                                                          path_suggestion,
                                                          "TSV files (*.tsv);;All files (*)")
-            self.show_viewers(mem_visible)
+
             if file_name:
-                self.coord_df.to_csv(file_name, sep="\t", decimal=".")
+                apply_scale, apply_origin = False, False
+                if self.scale != 1:
+                    apply_scale = dialog.MessageDialog("DORIS", "Apply scale to exported coordinates", ["Yes", "No"]) == "Yes"
+
+                if self.coordinate_center != [0, 0]:
+                    apply_origin = dialog.MessageDialog("DORIS", "Apply origin to exported coordinates", ["Yes", "No"]) == "Yes"
+
+                if apply_scale:
+                    scale = self.scale
+                else:
+                    scale = 1
+
+                if apply_origin:
+                    origin_x, origin_y = self.coordinate_center
+                else:
+                    origin_x, origin_y = 0, 0
+
+                #obj_col_coord = [] # list of objects coordinates columns 
+                df = self.coord_df.copy()
+                for idx in sorted(list(self.objects_to_track.keys())):
+                    df[f"x{idx}"] = scale * (df[f"x{idx}"] - origin_x)
+                    df[f"y{idx}"] = scale * (df[f"y{idx}"] - origin_y)
+                    #obj_col_coord.extend([f"x{idx}", f"y{idx}"]) 
+
+
+                df.to_csv(file_name, sep="\t", decimal=".")
                 # self.coord_df.to_pickle(file_name  + ".pickle")
+            self.show_viewers(mem_visible)
         else:
             QMessageBox.warning(self, "DORIS", "No coordinates to save")
 
@@ -2432,13 +2476,29 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         display coordinates
         """
         if self.cb_display_analysis.isChecked():
+
+            if self.cb_apply_scale.isChecked():
+                scale = self.scale
+            else:
+                scale = 1
+
+            if self.cb_apply_origin.isChecked():
+                origin_x, origin_y = self.coordinate_center
+            else:
+                origin_x, origin_y = 0, 0
+
+            df = self.coord_df.copy()
+            for idx in sorted(list(self.objects_to_track.keys())):
+                df[f"x{idx}"] = scale * (df[f"x{idx}"] - origin_x)
+                df[f"y{idx}"] = scale * (df[f"y{idx}"] - origin_y)
+
             self.te_xy.clear()
             if frame_idx >= NB_ROWS_COORDINATES_VIEWER // 2:
                 start = frame_idx - NB_ROWS_COORDINATES_VIEWER // 2
             else:
                 start = 0
 
-            self.te_xy.append(self.coord_df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1, :].to_string(index=False))
+            self.te_xy.append(df.iloc[start: frame_idx + NB_ROWS_COORDINATES_VIEWER // 2 + 1, :].to_string(index=False))
 
 
     def process_and_show(self):
@@ -3089,27 +3149,34 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
 
             # frame idx
-            #self.coord_df["frame"][frame_idx - 1] = frame_idx  # + 1
             self.coord_df.loc[frame_idx - 1, "frame"] = frame_idx  # + 1
 
             obj_col_coord = [] # list of objects coordinates columns 
             for idx in sorted(list(objects.keys())):
                 obj_col_coord.extend([f"x{idx}", f"y{idx}"]) 
+                # record centroid of objects without modifications (oring, scale)
+                self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = (objects[idx]["centroid"][0], objects[idx]["centroid"][1])
+
+                '''
                 if self.cb_normalize_coordinates.isChecked():
                     self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = ((objects[idx]["centroid"][0] - self.coordinate_center[0]) / self.video_width,
                                                                                 (objects[idx]["centroid"][1] - self.coordinate_center[1]) / self.video_width
                                                                                ) 
-
                 else:
                     if self.cb_apply_scale.isChecked():
                         scale = self.scale
                     else:
                         scale = 1
 
-                    self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = (scale * (objects[idx]["centroid"][0] - self.coordinate_center[0]),
-                                                                                scale * (objects[idx]["centroid"][1] - self.coordinate_center[1])
-                                                                               )
+                    if self.cb_apply_origin.isChecked():
+                        origin_x, origin_y = self.coordinate_center
+                    else:
+                        origin_x, origin_y = 0, 0
 
+                    self.coord_df.loc[frame_idx - 1, (f"x{idx}", f"y{idx}")] = (scale * (objects[idx]["centroid"][0] - origin_x),
+                                                                                scale * (objects[idx]["centroid"][1] - origin_y)
+                                                                               )
+                '''
             # set NaN as coordinates to next frames
             #self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
             self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
@@ -3385,6 +3452,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.cb_record_xy.setChecked(config.get("record_coordinates", False))
             self.cb_record_presence_area.setChecked(config.get("record_presence_area", False))
             self.cb_apply_scale.setChecked(config.get("apply_scale", False))
+            self.cb_apply_origin.setChecked(config.get("apply_origin", False))
 
             try:
                 self.arena = config["arena"]

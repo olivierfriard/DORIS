@@ -702,6 +702,13 @@
            </widget>
           </item>
           <item>
+           <widget class="QCheckBox" name="cb_apply_origin">
+            <property name="text">
+             <string>Apply origin to coordinates</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <widget class="QLabel" name="label_21">
             <property name="text">
              <string>Scale (Units/pixel)</string>
@@ -805,7 +812,7 @@
           <item>
            <widget class="QPushButton" name="pb_save_xy">
             <property name="text">
-             <string>Save objects coordinates</string>
+             <string>Export coordinates</string>
             </property>
            </widget>
           </item>

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'doris.ui'
+# Form implementation generated from reading ui file 'doris/doris.ui'
 #
 # Created by: PyQt5 UI code generator 5.14.0
 #
@@ -326,6 +326,9 @@ class Ui_MainWindow(object):
         self.pb_reset_origin = QtWidgets.QPushButton(self.tab)
         self.pb_reset_origin.setObjectName("pb_reset_origin")
         self.horizontalLayout_11.addWidget(self.pb_reset_origin)
+        self.cb_apply_origin = QtWidgets.QCheckBox(self.tab)
+        self.cb_apply_origin.setObjectName("cb_apply_origin")
+        self.horizontalLayout_11.addWidget(self.cb_apply_origin)
         self.label_21 = QtWidgets.QLabel(self.tab)
         self.label_21.setObjectName("label_21")
         self.horizontalLayout_11.addWidget(self.label_21)
@@ -643,6 +646,7 @@ class Ui_MainWindow(object):
         self.label.setText(_translate("MainWindow", "Origin of referential system"))
         self.pb_define_origin.setText(_translate("MainWindow", "Define origin"))
         self.pb_reset_origin.setText(_translate("MainWindow", "Reset origin"))
+        self.cb_apply_origin.setText(_translate("MainWindow", "Apply origin to coordinates"))
         self.label_21.setText(_translate("MainWindow", "Scale (Units/pixel)"))
         self.le_scale.setText(_translate("MainWindow", "1"))
         self.pb_define_scale.setText(_translate("MainWindow", "Define scale"))
@@ -650,7 +654,7 @@ class Ui_MainWindow(object):
         self.cb_apply_scale.setText(_translate("MainWindow", "Apply scale to coordinates"))
         self.cb_record_xy.setText(_translate("MainWindow", "Record objects coordinates"))
         self.cb_normalize_coordinates.setText(_translate("MainWindow", "Normalize coordinates"))
-        self.pb_save_xy.setText(_translate("MainWindow", "Save objects coordinates"))
+        self.pb_save_xy.setText(_translate("MainWindow", "Export coordinates"))
         self.pb_view_coordinates.setText(_translate("MainWindow", "View coordinates"))
         self.pb_delete_coordinates.setText(_translate("MainWindow", "Delete coordinates"))
         self.pb_plot_path.setText(_translate("MainWindow", "Plot path"))
