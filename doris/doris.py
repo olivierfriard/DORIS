@@ -1543,6 +1543,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         view dataframe of recorded coordinates
         """
 
+        print("self.coord_df", self.coord_df)
+
         if self.coord_df is not None and self.objects_to_track:
 
             w = dialog.Results_dialog()
@@ -1581,6 +1583,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         reset recorded coordinates
         """
+
         if self.coord_df is not None and self.objects_to_track:
 
             if dialog.MessageDialog("DORIS", "Confirm deletion of coordinates?", ["Yes", "Cancel"]) == "Cancel":
@@ -2042,8 +2045,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
         # set frame index
         self.coord_df["frame"] = range(1, self.total_frame_nb + 1)
-        self.coord_df["x1"] = pd.NA
-        self.coord_df["y1"] = pd.NA
+
+        #self.coord_df.loc[:, ] = pd.NA
+        #self.coord_df["y1"] = pd.NA
+
+        print("self.coord_df", self.coord_df)
 
         logging.debug(f"self.coord_df: {self.coord_df}")
 
@@ -2615,9 +2621,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
                 # tag
                 for idx in sorted(list(self.objects_to_track.keys())):
-                    #self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                    #self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
-                    self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
+                    # self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
+                    self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [np.nan, np.nan]
 
                 # reset next frames to nan
                 # self.coord_df.loc[self.frame_idx + 1:] = np.nan
@@ -2843,14 +2848,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             # frame idx
                             self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
                             for idx in sorted(list(self.objects_to_track.keys())):
-                                #self.coord_df[f"x{idx}"][self.frame_idx] = np.nan
-                                #self.coord_df[f"y{idx}"][self.frame_idx] = np.nan
-
-                                self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
+                                # self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
+                                self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [np.nan, np.nan]
 
                             # reset next frames to nan
-                            # self.coord_df.loc[self.frame_idx + 1:] = np.nan
-                            self.coord_df.loc[self.frame_idx + 1:] = pd.NA
+                            self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                            # self.coord_df.loc[self.frame_idx + 1:] = pd.NA
 
                             self.display_coordinates(self.frame_idx)
 
@@ -3209,8 +3212,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                                )
                 '''
             # set NaN as coordinates to next frames
-            #self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
-            self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
+            self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
+            #self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
 
             self.display_coordinates(frame_idx)
 
@@ -3471,7 +3474,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # load coordinates
             if "coordinates" in config:
                 self.coord_df = pd.read_csv(StringIO(config["coordinates"]), sep=",", index_col=0)
-                self.coord_df = self.coord_df.convert_dtypes()
+                #self.coord_df = self.coord_df.convert_dtypes()
                 #self.coord_df[self.coord_df.columns] = self.coord_df[self.coord_df.columns].fillna(0).astype(int)
 
             self.sb_start_from.setValue(config.get("start_from", 0))

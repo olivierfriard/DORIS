@@ -56,16 +56,27 @@ def plot_path(df, x_lim, y_lim):
     plot path
     """
 
+    print("df", df)
+
     plt.figure()
     axes = plt.gca()
     axes.set_aspect("equal", adjustable="box")
 
     for idx in range(1, int((len(df.columns) - 1)/2) + 1):
         plot_color = "#" + config.RGBSTR_COLORS_LIST[(idx - 1) % len(config.RGBSTR_COLORS_LIST)]
+        
         plt.plot(df[f"x{idx}"].to_numpy(float, na_value=np.nan),
                  df[f"y{idx}"].to_numpy(float, na_value=np.nan),
                  color=plot_color,
                  alpha=1)
+        
+
+        '''
+        plt.plot(df[f"x{idx}"],
+                 df[f"y{idx}"],
+                 color=plot_color,
+                 alpha=1)
+        '''
 
 
     plt.xlabel("x")
@@ -91,6 +102,8 @@ def plot_positions(df, x_lim, y_lim,):
 
     #plt.figure(figsize=(5,5))
 
+    print("df", df)
+
     plt.figure()
     axes = plt.gca()
     axes.set_aspect("equal", adjustable="box")
@@ -99,7 +112,8 @@ def plot_positions(df, x_lim, y_lim,):
         plot_color = "#" + config.RGBSTR_COLORS_LIST[(idx - 1) % len(config.RGBSTR_COLORS_LIST)]
         plt.scatter(df[f"x{idx}"].to_numpy(float, na_value=np.nan),
                     df[f"y{idx}"].to_numpy(float, na_value=np.nan),
-                    c=plot_color, alpha=0.5)
+                    c=plot_color,
+                    alpha=0.5)
 
     plt.xlabel('x')
     plt.ylabel('y')
