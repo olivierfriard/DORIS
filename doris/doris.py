@@ -1753,9 +1753,39 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
 
         if self.coord_df is None:
-            QMessageBox.warning(self, "DORIS", "no positions recorded")
+            QMessageBox.warning(self, "DORIS", "No Coordinates were recorded")
             return
 
+        apply_scale, apply_origin = False, False
+        if self.scale != 1:
+            apply_scale = dialog.MessageDialog("DORIS", "Apply scale to exported coordinates", ["Yes", "No"]) == "Yes"
+
+        if self.coordinate_center != [0, 0]:
+            apply_origin = dialog.MessageDialog("DORIS", "Apply origin to exported coordinates", ["Yes", "No"]) == "Yes"
+
+        if apply_scale:
+            scale = self.scale
+        else:
+            scale = 1
+
+        if apply_origin:
+            origin_x, origin_y = self.coordinate_center
+        else:
+            origin_x, origin_y = 0, 0
+
+        df = self.coord_df.copy()
+        for idx in sorted(list(self.objects_to_track.keys())):
+            df[f"x{idx}"] = scale * (df[f"x{idx}"] - origin_x)
+            df[f"y{idx}"] = scale * (df[f"y{idx}"] - origin_y)
+
+        x_lim = np.array([0 - origin_x, self.video_width - origin_x])
+        y_lim = np.array([0 - origin_y, self.video_height - origin_y])
+
+        x_lim = x_lim * scale
+        y_lim = y_lim * scale
+
+
+        '''
         x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
         y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
 
@@ -1765,13 +1795,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         x_lim = x_lim * self.scale
         y_lim = y_lim * self.scale
+        '''
 
         if plot_type == "path":
-            doris_functions.plot_path(self.coord_df,
+            doris_functions.plot_path(df,
                                       x_lim=x_lim,
                                       y_lim=y_lim)
         if plot_type == "positions":
-            doris_functions.plot_positions(self.coord_df,
+            doris_functions.plot_positions(df,
                                            x_lim=x_lim,
                                            y_lim=y_lim)
 

@@ -775,6 +775,9 @@
           </item>
           <item>
            <widget class="QCheckBox" name="cb_normalize_coordinates">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Normalize coordinates</string>
             </property>
@@ -996,6 +999,9 @@
       </item>
       <item>
        <widget class="QLabel" name="label_15">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="text">
          <string>Display 1 frame every </string>
         </property>
@@ -1003,6 +1009,9 @@
       </item>
       <item>
        <widget class="QSpinBox" name="sb_display_frequency">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="minimum">
          <number>1</number>
         </property>
