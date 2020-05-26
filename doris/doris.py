@@ -3474,8 +3474,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             # load coordinates
             if "coordinates" in config:
                 self.coord_df = pd.read_csv(StringIO(config["coordinates"]), sep=",", index_col=0)
-                #self.coord_df = self.coord_df.convert_dtypes()
-                #self.coord_df[self.coord_df.columns] = self.coord_df[self.coord_df.columns].fillna(0).astype(int)
 
             self.sb_start_from.setValue(config.get("start_from", 0))
             self.sb_stop_to.setValue(config.get("stop_to", 0))
@@ -3524,6 +3522,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 try:
                     if os.path.isfile(config["video_file_path"]):
                         self.open_video(config["video_file_path"])
+                    # check if video file is on same dir than project file
+                    elif (pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name).is_file():
+                        self.open_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
                     else:
                         QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
                         return None
