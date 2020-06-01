@@ -23,6 +23,7 @@ class Ui_MainWindow(object):
         font = QtGui.QFont()
         font.setPointSize(14)
         self.lb_frames.setFont(font)
+        self.lb_frames.setText("")
         self.lb_frames.setObjectName("lb_frames")
         self.verticalLayout_6.addWidget(self.lb_frames)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
@@ -599,7 +600,6 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.lb_frames.setText(_translate("MainWindow", "Number of frames: "))
         self.pb_1st_frame.setText(_translate("MainWindow", "Reset"))
         self.label_11.setText(_translate("MainWindow", "frame number"))
         self.le_goto_frame.setText(_translate("MainWindow", "1"))

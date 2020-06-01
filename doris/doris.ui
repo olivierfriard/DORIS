@@ -29,7 +29,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Number of frames: </string>
+       <string/>
       </property>
      </widget>
     </item>

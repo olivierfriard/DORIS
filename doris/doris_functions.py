@@ -464,9 +464,10 @@ def find_circle(points):
         points (list): list of points
 
     Returns:
-        float: x of circle center
-        float: y of circle center
-        float: radius of circle
+        float: x of circle center or 0 in case of error
+        float: y of circle center or 0 in case of error
+        float: radius of circle or -1 in case of error
+
     """
 
     x1, y1 = points[0]
@@ -481,11 +482,14 @@ def find_circle(points):
 
     mb = (y3 - y2) / (x3 - x2)
 
-    x = (ma * mb * (y1 - y3) + mb * (x1 + x2) - ma * (x2 + x3)) / (2 * (mb - ma))
+    try:
+        x = (ma * mb * (y1 - y3) + mb * (x1 + x2) - ma * (x2 + x3)) / (2 * (mb - ma))
+        y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
+    except ZeroDivisionError:
+        return (0, 0, -1)
 
-    y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
 
-    return x, y, euclidean_distance((x, y), (x1, y1))
+    return (x, y, euclidean_distance((x, y), (x1, y1)))
 
 
 def detect_and_filter_objects(frame,
