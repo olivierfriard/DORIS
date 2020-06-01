@@ -848,6 +848,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug("function: pb_go_to_frame")
 
+        if not self.dir_images and self.capture is None:
+            return
+
         if self.le_goto_frame.text():
             try:
                 int(self.le_goto_frame.text())
@@ -857,6 +860,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def add_area_func(self, shape):
+
+        if self.frame is None:
+            return
+
         if shape:
             # disable the stay on top property for frame viewers
             for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
@@ -1494,11 +1501,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if not self.dir_images and self.capture is None:
             return
 
-        '''
-        if self.running_tracking:
-            return
-        '''
-
         if dialog.MessageDialog("DORIS", "Confirm reset?", ["Yes", "Cancel"]) == "Cancel":
             return
 
@@ -1533,8 +1535,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         disable the stay on top property on viewers
         to allow a correct visualization of the message dialog
         """
-        for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
-            self.fw[viewer].cb_stay_on_top.setChecked(False)
+        if self.fw:
+            for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+                self.fw[viewer].cb_stay_on_top.setChecked(False)
 
 
     def view_coordinates(self):
@@ -1542,7 +1545,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         view dataframe of recorded coordinates
         """
 
-        print("self.coord_df", self.coord_df)
+        # print(f"self.coord_df\n {self.coord_df}")
 
         if self.coord_df is not None and self.objects_to_track:
 
@@ -3398,6 +3401,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.capture.release()
             self.capture = None
         self.dir_images = ""
+        self.fw = []
 
         self.lb_frames.clear()
         self.objects_to_track = {}
