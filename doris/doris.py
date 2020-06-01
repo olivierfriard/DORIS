@@ -630,9 +630,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def save_project(self):
-        """
-        save parameters of current project in a JSON file
-        """
+        """ Save parameters of current project in a JSON file """
 
         if not self.project_path:
 
@@ -703,7 +701,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # objects to track
         if self.objects_to_track:
-            obj_dict = dict(self.objects_to_track)
+            obj_dict = copy.deepcopy(self.objects_to_track)
             for idx in obj_dict:
                 obj_dict[idx]["contour"] = obj_dict[idx]["contour"].tolist()
             config["objects_to_track"] = obj_dict
@@ -714,7 +712,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.project_path = project_file_path
             self.setWindowTitle(f"DORIS v. {version.__version__} - {self.project_path}")
         except:
-            raise
             logging.critical(f"project not saved: {project_file_path}")
             QMessageBox.critical(self, "DORIS", f"project not saved: {project_file_path}")
 
@@ -3469,7 +3466,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.flag_define_scale = False
         self.scale_points = []
-        # self.reload_frame()
+
         self.scale = 1
         self.le_scale.setText("1")
 
