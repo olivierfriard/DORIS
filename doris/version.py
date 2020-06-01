@@ -22,5 +22,5 @@ This file is part of DORIS.
 
 """
 
-__version__ = "2020.5.30"
-__version_date__ = "2020-05-30"
+__version__ = "2020.06.01"
+__version_date__ = "2020-06-01"

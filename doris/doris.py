@@ -704,7 +704,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             obj_dict = copy.deepcopy(self.objects_to_track)
             for idx in obj_dict:
                 obj_dict[idx]["contour"] = obj_dict[idx]["contour"].tolist()
-            config["objects_to_track"] = obj_dict
+            config["objects_to_track"] = copy.deepcopy(obj_dict)
 
         try:
             with open(project_file_path, "w") as f_out:
