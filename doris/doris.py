@@ -2156,11 +2156,15 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug(f"self.objects_to_track\n {self.objects_to_track}")
 
-        if self.coord_df is not None:
+        if self.coord_df is None:
+            self.initialize_positions_dataframe()
+        else:
             if dialog.MessageDialog("DORIS", "Do you want to reset the coordinates?",
                                     [YES, NO]) == YES: 
                 self.initialize_positions_dataframe()
-        if self.areas_df is not None:
+        if self.areas_df is None:
+            self.initialize_areas_dataframe()
+        else:
             if dialog.MessageDialog("DORIS", "Do you want to reset the coordinates?",
                                     [YES, NO]) == YES: 
                 self.initialize_areas_dataframe()
@@ -2904,7 +2908,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                 self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [np.nan, np.nan]
 
                             # reset next frames to nan
-                            self.coord_df.loc[self.frame_idx + 1:] = np.nan
+                            if self.cb_reset_following_coordinates.isChecked():
+                                self.coord_df.loc[self.frame_idx + 1:] = np.nan
 
                             self.display_coordinates(self.frame_idx)
 
@@ -3233,7 +3238,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.cb_record_xy.isChecked():
 
             if self.coord_df is None:
-                # QMessageBox.warning(self, "DORIS", "No objects to track")
                 return
 
             logging.debug(f"sorted objects to record: {sorted(list(objects.keys()))}")
@@ -3268,8 +3272,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                                                )
                 '''
             # set NaN as coordinates to next frames
-            self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
-            #self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
+            if self.cb_reset_following_coordinates.isChecked():
+                self.coord_df.loc[frame_idx:, obj_col_coord] = np.nan
+                # self.coord_df.loc[frame_idx:, obj_col_coord] = pd.NA
 
             self.display_coordinates(frame_idx)
 
