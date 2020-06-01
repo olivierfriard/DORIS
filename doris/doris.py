@@ -547,7 +547,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.reload_frame()
 
 
-
     def lw_masks_doubleclicked(self):
         """
         remove the mask form listwidget
@@ -1936,9 +1935,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def update_frame_index(self):
-        """
-        update frame index in label
-        """
+        """update frame index in label"""
+
         if self.dir_images:
             self.frame_idx = self.dir_images_index
             self.lb_frames.setText(f"Frame: <b>{self.frame_idx + 1}</b> / {self.total_frame_nb}")
@@ -1976,6 +1974,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         define a mask to apply on image
         """
+
+        if not self.dir_images and self.capture is None:
+            return
+
         if self.frame is not None:
             self.flag_add_mask.define = not self.flag_add_mask.define
             self.statusBar.showMessage("")
@@ -1989,7 +1991,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.statusBar.showMessage(("New circle mask: Click on the video to define 3 points "
                                                "belonging to the circle") * self.flag_add_mask.define)
                 if shape == POLYGON:
-                    self.statusBar.showMessage(("New polygon mask: click on the video to define the vertices of the polygon. "
+                    self.statusBar.showMessage(("New polygon mask: click on the video to define the vertices of the polygon."
                                                 "Right click to close the polygon") * self.flag_add_mask.define)
                     
 
@@ -2049,8 +2051,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         #self.coord_df.loc[:, ] = pd.NA
         #self.coord_df["y1"] = pd.NA
 
-        print("self.coord_df", self.coord_df)
-
         logging.debug(f"self.coord_df: {self.coord_df}")
 
 
@@ -2076,7 +2076,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         Args:
             all_ (boolean): True -> track all filtered objects
-                            False (default) ->  let user choose the objstes to track from filtered objects
+                            False (default) ->  let user choose the objects to track from filtered objects
         """
 
         logging.debug(f"function select_objects_to_track")
@@ -2110,8 +2110,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         logging.debug(f"self.objects_to_track\n {self.objects_to_track}")
 
-        self.initialize_positions_dataframe()
-        self.initialize_areas_dataframe()
+        if self.coord_df is not None:
+            if dialog.MessageDialog("DORIS", "Do you want to reset the coordinates?",
+                                    [YES, NO]) == YES: 
+                self.initialize_positions_dataframe()
+        if self.areas_df is not None:
+            if dialog.MessageDialog("DORIS", "Do you want to reset the coordinates?",
+                                    [YES, NO]) == YES: 
+                self.initialize_areas_dataframe()
 
         # delete positions on last frame
         if self.frame_idx - 1 in self.mem_position_objects:
@@ -2821,19 +2827,19 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.display_frame(processed_frame, 1)
 
                     if not self.always_skip_frame:
-                        buttons = ["Repick objects",
-                                   "Accept movement",
+                        buttons = [REPICK_OBJECTS,
+                                   ACCEPT_MOVEMENT,
                                    SKIP_FRAME,
                                    ALWAYS_SKIP_FRAME
                                    ]
                         if not self.running_tracking:
-                            buttons.append("Go to previous frame")
+                            buttons.append(GO_TO_PREVIOUS_FRAME)
 
                         if self.running_tracking:
                             buttons.append("Stop tracking")
 
                         response = dialog.MessageDialog("DORIS",
-                                        (f"The object(s) <b>{', '.join([str(x + 1) for x in distant_objects])}</b> "
+                                        (f"The object(s) # <b>{', '.join([str(x + 1) for x in distant_objects])}</b> "
                                          "moved more than allowed.<br>"
                                          f"Maximum distance allowed: {self.sb_max_distance.value()}.<br><br>"
                                          "What do you want to do?"),
@@ -2846,14 +2852,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                         if self.cb_record_xy.isChecked():
                             # frame idx
-                            self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
+                            self.coord_df.loc[self.frame_idx, ("frame")] = self.frame_idx + 1
                             for idx in sorted(list(self.objects_to_track.keys())):
-                                # self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
                                 self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [np.nan, np.nan]
 
                             # reset next frames to nan
                             self.coord_df.loc[self.frame_idx + 1:] = np.nan
-                            # self.coord_df.loc[self.frame_idx + 1:] = pd.NA
 
                             self.display_coordinates(self.frame_idx)
 
@@ -2865,10 +2869,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                         return
 
-                    if response == "Repick objects":
+                    if response == REPICK_OBJECTS:
                         self.repick_objects("tracked")
 
-                    if response == "Go to previous frame":
+                    if response == GO_TO_PREVIOUS_FRAME:
                         self.for_back_ward(direction="backward")
                         return
 
@@ -2892,7 +2896,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             # draw coordinate center if defined
             if self.coordinate_center != [0, 0]:
-                frame_with_objects = self.draw_point_origin(frame_with_objects, self.coordinate_center, BLUE, drawing_thickness)
+                frame_with_objects = self.draw_point_origin(frame_with_objects,
+                                                            self.coordinate_center,
+                                                            BLUE,
+                                                            drawing_thickness)
 
             # draw areas
             frame_with_objects = self.draw_areas(frame_with_objects, drawing_thickness)
@@ -2966,17 +2973,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def force_objects_number(self):
-        """
-        separate initial aggregated objects using k-means clustering to arbitrary number of objects
-        """
-
+        """separate initial aggregated objects using k-means clustering to arbitrary number of objects"""
 
         logging.debug("function: force_objects_number")
+
+        if not self.dir_images and self.capture is None:
+            return
+
         if not self.filtered_objects:
             return
+
         logging.debug(f"filtered objects: {list(self.filtered_objects.keys())}")
 
-        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects to filter", "Number of objects:", 1, 1, 1000, 1)
+        nb_obj, ok_pressed = QInputDialog.getInt(self, "Get number of objects to filter",
+                                                 "Number of objects:", 1, 1, 1000, 1)
         if (not ok_pressed) or (not nb_obj):
             return
 
@@ -3381,11 +3391,20 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         initialize program for new project
         """
 
+        self.frame = None
+        self.frame_idx = 0
+        self.total_frame_nb = 0
+        if self.capture:
+            self.capture.release()
+            self.capture = None
+        self.dir_images = ""
 
         self.lb_frames.clear()
         self.objects_to_track = {}
         self.te_tracked_objects.clear()
         self.mem_position_objects = {}
+        self.cb_record_xy.setChecked(False)
+        self.cb_record_presence_area.setChecked(False)
         self.coord_df = None
         self.areas_df = None
 
@@ -3402,7 +3421,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.flag_define_scale = False
         self.scale_points = []
-        self.reload_frame()
+        # self.reload_frame()
         self.scale = 1
         self.le_scale.setText("1")
 
@@ -3411,26 +3430,27 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_max_extension.setValue(0)
         self.sb_max_distance.setValue(DIST_MAX)
         self.sb_blur.setValue(BLUR_DEFAULT_VALUE)
-        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
-        self.cb_threshold_method.setCurrentIndex(0)
 
-        self.cb_record_xy.setChecked(False)
+        self.cb_threshold_method.setCurrentIndex(0)
+        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
+        self.sb_block_size.setValue(ADAPTIVE_BLOCK_SIZE)
+        self.sb_threshold.setValue(ADAPTIVE_OFFSET)
+
+
         self.cb_normalize_coordinates.setChecked(False)
         self.cb_display_analysis.setChecked(True)
 
         self.clear_arena()
 
-        if self.capture:
-            self.capture.release()
+        # masks
+        self.masks = []
+        self.lw_masks.clear()
 
         self.te_all_objects.clear()
         self.te_filtered_objects.clear()
 
         self.project_path = ""
-        self.dir_images = ""
         self.setWindowTitle(f"DORIS v. {version.__version__}")
-
-        self.frame_idx = 0
 
         self.video_height, self.video_width = 0, 0
         self.video_file_name = ""
