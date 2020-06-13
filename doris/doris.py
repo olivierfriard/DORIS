@@ -1119,6 +1119,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.scale_points.append((int(event.pos().x() * conversion), int(event.pos().y() * conversion)))
 
+                # if 2 points defined
                 if len(self.scale_points) == 2:
                     cv2.line(self.frame, self.scale_points[0], self.scale_points[1],
                              color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
@@ -3133,7 +3134,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             return self.DEFAULT_CONFIG
 
 
-
     def read_config(self):
         """
         Read configuration file
@@ -3424,6 +3424,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         run tracking in a frames interval
         """
+
         # check if objects to track are defined
         if not self.objects_to_track:
             self.disable_viewers_stay_on_top()
@@ -3577,6 +3578,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             return
 
         try:
+            self.new_project()
             with open(file_name) as f_in:
                 config = json.loads(f_in.read())
 
@@ -3590,8 +3592,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.cb_invert.setChecked(config.get("invert", False))
             self.cb_normalize_coordinates.setChecked(config.get("normalize_coordinates", False))
 
-            self.cb_record_xy.setChecked(config.get("record_coordinates", False))
-            self.cb_record_presence_area.setChecked(config.get("record_presence_area", False))
+            # self.cb_record_xy.setChecked(config.get("record_coordinates", False))
+            # self.cb_record_presence_area.setChecked(config.get("record_presence_area", False))
             self.cb_apply_scale.setChecked(config.get("apply_scale", False))
             self.cb_apply_origin.setChecked(config.get("apply_origin", False))
 

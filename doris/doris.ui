@@ -1105,8 +1105,9 @@
     <addaction name="actionOpen_video"/>
     <addaction name="actionLoad_directory_of_images"/>
     <addaction name="separator"/>
-    <addaction name="actionQuit"/>
     <addaction name="actionSave_default_values"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
