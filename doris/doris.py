@@ -77,7 +77,7 @@ from doris.config import *
 from doris.doris_ui import Ui_MainWindow
 
 
-
+print(DEFAULT_CONFIG)
 
 
 
@@ -238,6 +238,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
     def __init__(self, parent=None):
 
+        self.DEFAULT_CONFIG = dict(DEFAULT_CONFIG)
+
         class Flag():
             def __init__(self, define=False, shape="", color=BLACK):
                 self.define = define
@@ -279,6 +281,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSave_project.triggered.connect(self.save_project)
         self.actionSave_project_as.triggered.connect(self.save_project_as)
         self.actionQuit.triggered.connect(self.close)
+
+        self.actionSave_default_values.triggered.connect(self.save_default_values)
+
+        self.read_config()
+        self.DEFAULT_CONFIG = dict(self.read_default_values())
 
         self.hs_frame.setMinimum(1)
         self.hs_frame.setMaximum(100)
@@ -334,10 +341,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb_run_tracking.clicked.connect(self.run_tracking)
         self.pb_run_tracking_frame_interval.clicked.connect(self.run_tracking_frames_interval)
-        '''
-        self.pb_stop.clicked.connect(self.stop_button)
-        '''
-
         self.cb_threshold_method.currentIndexChanged.connect(self.threshold_method_changed)
 
         self.sb_blur.valueChanged.connect(self.process_and_show)
@@ -354,7 +357,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sbMax.valueChanged.connect(self.process_and_show)
 
         self.sb_max_extension.valueChanged.connect(self.process_and_show)
-        self.sb_max_distance.setValue(DIST_MAX)
+        self.sb_max_distance.setValue(self.DEFAULT_CONFIG["MAXIMUM_DISTANCE_BETWEEN_FRAMES"])
 
         self.pb_show_all_objects.clicked.connect(self.show_all_objects)
         self.pb_show_all_filtered_objects.clicked.connect(self.show_all_filtered_objects)
@@ -436,7 +439,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.project_path = ""
 
         # default
-        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
+        print(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
+        self.sb_threshold.setValue(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
+        print(self.sb_threshold.value())
 
         self.fw = []
 
@@ -447,22 +452,21 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_scale = DEFAULT_FRAME_SCALE
         self.processed_frame_scale = DEFAULT_FRAME_SCALE
 
-        
         # screen_size = app.primaryScreen().size()
         screen_size = QApplication.primaryScreen().size()
         if screen_size.width() >= 1200 and screen_size.height() >= 750:
             self.setGeometry(0, 0, 1200, 750)
         else:
             self.setGeometry(0, 0, 1000, 700)
-        
 
         self.pick_point = None
 
         self.repicked_objects = None
 
-        self.read_config()
-
         self.menu_update()
+
+        self.new_project()
+
 
 
     def about(self):
@@ -3085,14 +3089,49 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.display_frame(frame_with_objects)
 
 
+    def save_default_values(self):
+        """
+        Save default values
+        """
+        self.DEFAULT_CONFIG = {
+        "MINIMUM_OBJECT_SIZE": self.sbMin.value(), 
+        "MAXIMUM_OBJECT_SIZE": self.sbMax.value(), 
+        "MAXIMUM_OBJECT_EXTENSION": self.sb_max_extension.value(),
+        "MAXIMUM_DISTANCE_BETWEEN_FRAMES": self.sb_max_distance.value(),
+        "BLUR_DEFAULT_VALUE": self.sb_blur.value(),
+        "SHOW_CENTROID_DEFAULT": self.actionShow_centroid_of_object.isChecked(),
+        "SHOW_CONTOUR_DEFAULT": self.actionShow_contour_of_object.isChecked(),
+        "THRESHOLD_DEFAULT": self.sb_threshold.value(),
+        "ADAPTIVE_BLOCK_SIZE": self.sb_block_size.value(),
+        "ADAPTIVE_OFFSET": self.sb_offset.value(),
+        "THRESHOLD_METHOD": self.cb_threshold_method.currentIndex(),
+        }
+        config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris_default_config")
+        with open(config_file_path, "w") as f_out:
+            f_out.write(json.dumps(self.DEFAULT_CONFIG))
+
+
     def save_config(self):
         """
         save configuration file
         """
-
         config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris")
         settings = QSettings(config_file_path, QSettings.IniFormat)
         settings.setValue("geometry", self.saveGeometry())
+
+
+    def read_default_values(self):
+        """
+        Save default values
+        """
+        config_file_path = str(pathlib.Path(os.path.expanduser("~")) / ".doris_default_config")
+        if os.path.isfile(config_file_path):
+            with open(config_file_path) as f_in:
+                DEFAULT_CONFIG = json.loads(f_in.read())
+            return DEFAULT_CONFIG
+        else:
+            return self.DEFAULT_CONFIG
+
 
 
     def read_config(self):
@@ -3475,16 +3514,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.scale = 1
         self.le_scale.setText("1")
 
-        self.sbMin.setValue(0)
-        self.sbMax.setValue(0)
-        self.sb_max_extension.setValue(0)
-        self.sb_max_distance.setValue(DIST_MAX)
-        self.sb_blur.setValue(BLUR_DEFAULT_VALUE)
+        self.sbMin.setValue(self.DEFAULT_CONFIG["MINIMUM_OBJECT_SIZE"])
+        self.sbMax.setValue(self.DEFAULT_CONFIG["MAXIMUM_OBJECT_SIZE"])
+        self.sb_max_extension.setValue(self.DEFAULT_CONFIG["MAXIMUM_OBJECT_EXTENSION"])
+        self.sb_max_distance.setValue(self.DEFAULT_CONFIG["MAXIMUM_DISTANCE_BETWEEN_FRAMES"])
+        self.sb_blur.setValue(self.DEFAULT_CONFIG["BLUR_DEFAULT_VALUE"])
 
-        self.cb_threshold_method.setCurrentIndex(0)
-        self.sb_threshold.setValue(THRESHOLD_DEFAULT)
-        self.sb_block_size.setValue(ADAPTIVE_BLOCK_SIZE)
-        self.sb_offset.setValue(ADAPTIVE_OFFSET)
+        self.cb_threshold_method.setCurrentIndex(self.DEFAULT_CONFIG["THRESHOLD_METHOD"])
+        self.sb_threshold.setValue(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
+        self.sb_block_size.setValue(self.DEFAULT_CONFIG["ADAPTIVE_BLOCK_SIZE"])
+        self.sb_offset.setValue(self.DEFAULT_CONFIG["ADAPTIVE_OFFSET"])
 
 
         self.cb_normalize_coordinates.setChecked(False)
@@ -3547,7 +3586,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.sb_start_from.setValue(config.get("start_from", 0))
             self.sb_stop_to.setValue(config.get("stop_to", 0))
-            self.sb_blur.setValue(config.get("blur", BLUR_DEFAULT_VALUE))
+            self.sb_blur.setValue(config.get("blur", self.DEFAULT_CONFIG["BLUR_DEFAULT_VALUE"]))
             self.cb_invert.setChecked(config.get("invert", False))
             self.cb_normalize_coordinates.setChecked(config.get("normalize_coordinates", False))
 
@@ -3565,9 +3604,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except KeyError:
                 logging.info("arena not found")
 
-            self.sbMin.setValue(config.get("min_object_size", 0))
-            self.sbMax.setValue(config.get("max_object_size", 0))
-            self.sb_max_extension.setValue(config.get("object_max_extension", 0))
+            self.sbMin.setValue(config.get("min_object_size", self.DEFAULT_CONFIG["MINIMUM_OBJECT_SIZE"]))
+            self.sbMax.setValue(config.get("max_object_size", self.DEFAULT_CONFIG["MAXIMUM_OBJECT_SIZE"]))
+            self.sb_max_extension.setValue(config.get("object_max_extension", self.DEFAULT_CONFIG["MAXIMUM_OBJECT_EXTENSION"]))
             if "threshold_method" in config:
                 self.cb_threshold_method.setCurrentIndex(THRESHOLD_METHODS.index(config["threshold_method"]))
             if "block_size" in config:
@@ -3621,10 +3660,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 for mask in self.masks:
                     self.lw_masks.addItem(str(mask))
 
-            self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", SHOW_CENTROID_DEFAULT))
-            self.actionShow_contour_of_object.setChecked(config.get("show_contour", SHOW_CONTOUR_DEFAULT))
+            self.actionShow_centroid_of_object.setChecked(config.get("show_centroid", self.DEFAULT_CONFIG["SHOW_CENTROID_DEFAULT"]))
+            self.actionShow_contour_of_object.setChecked(config.get("show_contour", self.DEFAULT_CONFIG["SHOW_CONTOUR_DEFAULT"]))
             self.actionDraw_reference.setChecked(config.get("show_reference", False))
-            self.sb_max_distance.setValue(config.get("max_distance", 0))
+            self.sb_max_distance.setValue(config.get("max_distance", 
+                                                     self.DEFAULT_CONFIG["MAXIMUM_DISTANCE_BETWEEN_FRAMES"]))
 
             '''
             # original frame viewer
@@ -3697,9 +3737,6 @@ def main():
 
     parser.add_argument("-v", action="store_true", default=False, dest="version", help="Print version")
     parser.add_argument("-p", action="store", dest="project_file", help="path of project file")
-    parser.add_argument("--threshold", action="store", default=THRESHOLD_DEFAULT, dest="threshold", help="Threshold value")
-    parser.add_argument("--blur", action="store", default=BLUR_DEFAULT_VALUE, dest="blur", help="Blur value")
-    parser.add_argument("--invert", action="store_true", dest="invert", help="Invert B/W")
 
     options = parser.parse_args()
     if options.version:
@@ -3716,14 +3753,6 @@ def main():
         else:
             print(f"{options.project_file} not found!")
             sys.exit()
-    else:
-        if options.blur:
-            w.sb_blur.setValue(int(options.blur))
-
-        if options.threshold:
-            w.sb_threshold.setValue(int(options.threshold))
-
-        w.cb_invert.setChecked(options.invert)
 
     w.show()
     w.raise_()
