@@ -77,17 +77,11 @@ from doris.config import *
 from doris.doris_ui import Ui_MainWindow
 
 
-print(DEFAULT_CONFIG)
-
-
-
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
                             datefmt='%H:%M:%S',
                             level=logging.DEBUG)
 
 COLORS_LIST = doris_functions.COLORS_LIST
-
-
 
 
 class Click_label(QLabel):
@@ -506,7 +500,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def create_viewers(self):
-        """Crete the frame viewers"""
+        """
+        Create the frame viewers
+        """
         self.fw.append(FrameViewer(ORIGINAL_FRAME_VIEWER_IDX))
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle("Original frame")
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
@@ -1896,6 +1892,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.hs_frame.setTickInterval(10)
 
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+
             logging.debug(f"FPS: {self.fps}")
 
             self.frame_idx = 0
@@ -1905,16 +1902,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.video_file_name = file_name
 
             # default scale
-            for idx in range(2):
+            for idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
                 self.fw[idx].zoom.setCurrentIndex(ZOOM_LEVELS.index(str(DEFAULT_FRAME_SCALE)))
                 self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
-
-            '''
-            # moved after selection of objects to track
-            self.initialize_positions_dataframe()
-            self.initialize_areas_dataframe()
-            '''
 
             self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
             self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
@@ -1931,7 +1922,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.dir_images_path:
             p = pathlib.Path(self.dir_images_path)
             self.dir_images = sorted(list(p.glob('*')))
-            print(f"self.dir_images: {self.dir_images}")
+
+            logging.debug(f"self.dir_images: {self.dir_images}")
 
             '''
                                      + list(p.glob('*.jpg'))
@@ -1943,12 +1935,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             logging.info(f"images number: {self.total_frame_nb}")
 
-            
             if not self.total_frame_nb:
                 QMessageBox.critical(self, "DORIS", f"No images were found in {self.dir_images_path}")
                 self.dir_images_path = ""
                 return
-            
+
+            self.create_viewers()
+
             self.dir_images_index = -1
             r = self.pb()
             if r == False:
@@ -1957,8 +1950,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.dir_images_path = ""
                 self.dir_images = []
                 return
-
-            self.create_viewers()
 
             logging.debug(f"self.frame.shape: {self.frame.shape}")
 
@@ -1970,14 +1961,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.video_height, self.video_width, _ = self.frame.shape
 
-            '''
-            # moved after selection of objects to track
-            self.initialize_positions_dataframe()
-            self.initialize_areas_dataframe()
-            '''
-
             # default scale
-            for idx in range(2):
+            for idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
@@ -2213,8 +2198,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if mode == "all":
             self.show_all_filtered_objects()
 
-            print(f"filtered objects: {list(self.filtered_objects.keys())}")
-        
+            logging.debug(f"filtered objects: {list(self.filtered_objects.keys())}")
 
 
         self.statusBar.showMessage(f"Click object #1 on the original frame viewer (right-click to cancel)")
@@ -2241,16 +2225,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             elif mode == "tracked":
                 distances = [doris_functions.euclidean_distance(self.objects_to_track[o]["centroid"], (x, y)) for o in self.objects_to_track]
 
-            print(distances)
-            print(min(distances))
-            print(distances.index(min(distances)))
+            logging.debug(f"distances: {distances}")
+            logging.debug(f"min(distances): {min(distances)}")
+            logging.debug(f"distances.index(min(distances)): {distances.index(min(distances))}")
 
             new_order[idx + 1] = distances.index(min(distances)) + 1
 
-        print(f"new order: {new_order}")
+        logging.debug(f"new order: {new_order}")
 
         # test if objects clicked more than one time
-        print(list(new_order.values()))
+        logging.debug(list(new_order.values()))
 
         if sorted(list(set(new_order.values()))) == sorted(list(new_order.values())):
             new_objects_to_track = {}
@@ -2308,11 +2292,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cy = int(np.mean(y))
 
                 new_objects[idx + 1] = {"centroid": (cx, cy),
-                                                 "contour": cnt,
-                                                 "area": cv2.contourArea(cnt),
-                                                 "min": (int(np.min(x)), int(np.min(y))),
-                                                 "max": (int(np.max(x)), int(np.max(y)))
-                                                }
+                                        "contour": cnt,
+                                        "area": cv2.contourArea(cnt),
+                                        "min": (int(np.min(x)), int(np.min(y))),
+                                        "max": (int(np.max(x)), int(np.max(y)))
+                                       }
 
             # print("new_filtered_objects", [(x, new_filtered_objects[x]["centroid"]) for x in new_filtered_objects])
 
@@ -2443,9 +2427,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             np.array: frame with objects drawn
         """
 
-        logging.debug("function: draw_maker_on_objects")
-
-        # print([(x, objects[x]["centroid"]) for x in objects])
+        logging.debug("function: draw_marker_on_objects")
 
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
@@ -2486,6 +2468,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         display the current frame in viewer of index viewer_idx
         """
+        logging.debug(f"viewer_idx: {viewer_idx}")
+        logging.debug(f"self.fw: {self.fw}")
+
         if viewer_idx in [ORIGINAL_FRAME_VIEWER_IDX, PREVIOUS_FRAME_VIEWER_IDX]:
             self.fw[viewer_idx].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[viewer_idx].lb_frame.size(),
                                                                               Qt.KeepAspectRatio))
@@ -2554,7 +2539,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         draw masks on frame
         """
         for mask in self.masks:
-            print(mask)
+
             if mask["type"] == RECTANGLE:
                 cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
                               color=mask["color"], thickness=-1)
@@ -2786,7 +2771,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                      "min": (int(np.min(x)), int(np.min(y))),
                                                      "max": (int(np.max(x)), int(np.max(y)))
                                                     }
-                    # print(idx, "centroid", (cx, cy))
+
                 filtered_objects = dict(new_filtered_objects)
 
         self.filtered_objects = filtered_objects
@@ -3526,6 +3511,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.cb_normalize_coordinates.setChecked(False)
         self.cb_display_analysis.setChecked(True)
+        self.cb_reset_following_coordinates.setChecked(False)
 
         self.clear_arena()
 
@@ -3626,14 +3612,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except KeyError:
                 self.areas = {}
 
-
             if "video_file_path" in config:
                 try:
                     if os.path.isfile(config["video_file_path"]):
                         self.open_video(config["video_file_path"])
                     # check if video file is on same dir than project file
                     elif (pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name).is_file():
+                        QMessageBox.warning(self, "DORIS",
+                                                  (f"Path {config['video_file_path']} not found.\n"
+                                                   f"Using the file found in {pathlib.Path(file_name).parent}")
+                                           ) 
                         self.open_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
+
                     else:
                         QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
                         return None
@@ -3644,6 +3634,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.dir_images_path:
                 try:
                     if os.path.isdir(self.dir_images_path):
+                        self.load_dir_images()
+                    # check if images directory in same directory than the project file
+                    elif (pathlib.Path(file_name).parent / pathlib.Path(self.dir_images_path).name).is_dir():
+                        QMessageBox.warning(self, "DORIS",
+                                            (f"Path {self.dir_images_path} not found.\n"
+                                             f"Using the directory found in {pathlib.Path(file_name).parent}")
+                                           )
+                        self.dir_images_path = pathlib.Path(file_name).parent / pathlib.Path(self.dir_images_path).name
                         self.load_dir_images()
                     else:
                         QMessageBox.critical(self, "DORIS", f"Directory {self.dir_images_path} not found")
