@@ -439,9 +439,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.project_path = ""
 
         # default
-        print(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
         self.sb_threshold.setValue(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
-        print(self.sb_threshold.value())
 
         self.cb_reset_following_coordinates.setChecked(False)
 
@@ -2100,9 +2098,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
         # set frame index
         self.coord_df["frame"] = range(1, self.total_frame_nb + 1)
-
-        #self.coord_df.loc[:, ] = pd.NA
-        #self.coord_df["y1"] = pd.NA
 
         logging.debug(f"self.coord_df: {self.coord_df}")
 
