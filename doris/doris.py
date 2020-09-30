@@ -443,6 +443,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.sb_threshold.setValue(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
         print(self.sb_threshold.value())
 
+        self.cb_reset_following_coordinates.setChecked(False)
+
         self.fw = []
 
         self.running_tracking = False
@@ -871,7 +873,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if shape:
             # disable the stay on top property for frame viewers
-            self.disable_viewers_stay_on_top
+            self.disable_viewers_stay_on_top()
 
             text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
