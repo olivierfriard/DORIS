@@ -867,7 +867,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if shape:
             # disable the stay on top property for frame viewers
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
 
             text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
@@ -885,6 +885,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     msg = "New rectangle area: click on the video to define 2 opposite vertices."
 
                 self.statusBar.showMessage(msg)
+            self.set_viewers_stay_on_top({}, mem_stay_on_top)
 
 
     def remove_area(self):
@@ -1086,11 +1087,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 x, y, radius = doris_functions.find_circle(self.coordinate_center_def)
                 if radius == -1:
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                     QMessageBox.warning(self, "DORIS",
                                         ("A circle can not be defined with the selected points. "
                                          "Please retry selecting different points.")
                                        )
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
                     self.statusBar.showMessage("")
                     self.coordinate_center_def = []
                     self.reload_frame()
@@ -1123,7 +1125,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.flag_define_scale = False
                     self.actionDefine_scale.setText("Define scale")
 
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
 
                     while True:
                         real_length_str, ok_pressed = QInputDialog.getText(self, "Real length", "Value (w/o unit):")
@@ -1139,6 +1141,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.scale_points = []
                     self.reload_frame()
                     self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
+
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
 
         # add mask
         if self.flag_add_mask.define:
@@ -1192,11 +1196,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if (self.flag_add_mask.shape in [CIRCLE_3PTS]) and len(self.mask_points) == 3:
                 cx, cy, radius = doris_functions.find_circle(self.mask_points)
                 if radius == -1:
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                     QMessageBox.warning(self, "DORIS",
                                         ("A circle can not be defined with the selected points. "
                                          "Please retry selecting different points.")
                                        )
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
                     self.mask_points = []
                     self.statusBar.showMessage("")
                     self.flag_add_mask.define = False
@@ -1282,11 +1287,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
                     if radius == -1:
-                        self.disable_viewers_stay_on_top()
+                        mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                         QMessageBox.warning(self, "DORIS",
                                             ("A circle can not be defined with the selected points. "
                                             "Please retry selecting different points.")
                                         )
+                        self.set_viewers_stay_on_top(None, mem_stay_on_top)
                         self.statusBar.showMessage("")
                         del self.add_area["points"]
                         self.add_area = {}
@@ -1442,11 +1448,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.arena["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.arena["points"])
                     if radius == -1:
-                        self.disable_viewers_stay_on_top()
+                        mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                         QMessageBox.warning(self, "DORIS",
                                             ("A circle can not be defined with the selected points. "
                                             "Please retry selecting different points.")
                                         )
+                        self.set_viewers_stay_on_top(None, mem_stay_on_top)
                         self.statusBar.showMessage("")
                         self.flag_define_arena = ""
                         self.arena = {}
@@ -1570,14 +1577,38 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def disable_viewers_stay_on_top(self):
+    '''
+    def disable_viewers_stay_on_top(self) -> dict:
         """
         disable the stay on top property on viewers
         to allow a correct visualization of the message dialog
         """
         if self.fw:
+            mem_stay_on_top = {}
             for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+                mem_stay_on_top[viewer] = self.fw[viewer].cb_stay_on_top.isChecked()
                 self.fw[viewer].cb_stay_on_top.setChecked(False)
+            return mem_stay_on_top
+        else:
+            return {}
+    '''
+
+    def set_viewers_stay_on_top(self, general_value, stay_on_top) -> dict:
+        """
+        disable the stay on top property on viewers
+        to allow a correct visualization of the message dialog
+        """
+        if self.fw:
+            mem_stay_on_top = {}
+            for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
+                mem_stay_on_top[viewer] = self.fw[viewer].cb_stay_on_top.isChecked()
+                if general_value in [True, False]:
+                    self.fw[viewer].cb_stay_on_top.setChecked(general_value)
+                else: # None for value from dict
+                    self.fw[viewer].cb_stay_on_top.setChecked(stay_on_top[viewer])
+            return mem_stay_on_top
+        else:
+            return {}
 
 
     def view_coordinates(self):
@@ -1617,9 +1648,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.exec_()
 
         else:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track were selected")
-
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
 
     def delete_coordinates(self):
         """
@@ -2061,10 +2092,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         define scale. from pixels to real unit
         """
         if self.frame is not None:
-            # disable the stay on top property for frame viewers
-            #for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
-            #    self.fw[viewer].cb_stay_on_top.setChecked(False)
-
             self.flag_define_scale = not self.flag_define_scale
             self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
             self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_define_scale)
@@ -3369,8 +3396,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check if objects to track are defined
         if not self.objects_to_track :
 
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             self.pb_run_tracking.setChecked(False)
             return
 
@@ -3383,8 +3411,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.capture
             except:
                 self.stop_tracking()
-                self.disable_viewers_stay_on_top()
+                mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                 QMessageBox.warning(self, "DORIS", "No video")
+                self.set_viewers_stay_on_top(None, mem_stay_on_top)
                 return
 
         self.running_tracking = True
@@ -3409,8 +3438,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check if objects to track are defined
         if not self.objects_to_track:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             self.pb_run_tracking_frame_interval.setChecked(False)
             return
 
@@ -3430,8 +3460,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if start_frame >= stop_frame:
                 raise
         except:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", f"{text} is not a valid interval")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             return
 
         logging.info(f"start_frame: {start_frame} stop frame: {stop_frame}")
