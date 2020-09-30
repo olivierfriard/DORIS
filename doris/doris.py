@@ -268,7 +268,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSelect_objects_to_track.triggered.connect(lambda: self.select_objects_to_track(all_=False))
         self.actionDefine_scale.triggered.connect(self.define_scale)
 
-        self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
+        self.actionOpen_video.triggered.connect(lambda: self.load_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
         self.actionNew_project.triggered.connect(self.new_project)
         self.actionOpen_project.triggered.connect(self.open_project)
@@ -952,15 +952,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return ratio and pen thickness for contours according to video resolution
         """
 
-        #logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
-
         ratio = video_width / frame_width
         if ratio <= 1:
             drawing_thickness = 1
         else:
             drawing_thickness = round(ratio)
-
-        #logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
 
         return ratio, drawing_thickness
 
@@ -1015,7 +1011,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             * setting scale
             * re-picking objects
             * masks definition
-
         """
 
         logging.debug("function: frame_mousepressed")
@@ -1023,13 +1018,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         conversion, drawing_thickness = self.ratio_thickness(self.video_width,
                                                              self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.pixmap().width())
 
-        ''' pick object
-        if self.pick_point:
-            print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-            self.pick_point = False
-        '''
         if self.repicked_objects is not None:
-
             # cancel repick
             if event.button() in [Qt.RightButton]:
                 self.repicked_objects = None
@@ -1057,11 +1046,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
             '''
 
-            
             # pick object by clicking nearly (not inside)
             self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
             self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
-            
 
         # set coordinates of referential origin with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -1136,7 +1123,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             break
                         except:
                             QMessageBox.warning(self, "DORIS", f"{real_length_str} was not recognized as length")
-                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0], self.scale_points[1])
+                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0],
+                                                                                             self.scale_points[1])
                     self.le_scale.setText(f"{self.scale:0.5f}")
                     self.scale_points = []
                     self.reload_frame()
@@ -1337,10 +1325,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     return
 
                 if event.button() == Qt.LeftButton:
-                    '''
-                    cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                               color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    '''
                     if "points" not in self.add_area:
                         self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
                     else:
@@ -1576,22 +1560,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.pb()
 
-
-    '''
-    def disable_viewers_stay_on_top(self) -> dict:
-        """
-        disable the stay on top property on viewers
-        to allow a correct visualization of the message dialog
-        """
-        if self.fw:
-            mem_stay_on_top = {}
-            for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
-                mem_stay_on_top[viewer] = self.fw[viewer].cb_stay_on_top.isChecked()
-                self.fw[viewer].cb_stay_on_top.setChecked(False)
-            return mem_stay_on_top
-        else:
-            return {}
-    '''
 
     def set_viewers_stay_on_top(self, general_value, stay_on_top) -> dict:
         """
@@ -1860,19 +1828,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         x_lim = x_lim * scale
         y_lim = y_lim * scale
 
-
-        '''
-        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
-        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
-
-        if self.cb_normalize_coordinates.isChecked():
-            x_lim = x_lim / self.video_width
-            y_lim = y_lim / self.video_width
-
-        x_lim = x_lim * self.scale
-        y_lim = y_lim * self.scale
-        '''
-
         if plot_type == "path":
             doris_functions.plot_path(df,
                                       x_lim=x_lim,
@@ -1883,13 +1838,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                            y_lim=y_lim)
 
 
-    def open_video(self, file_name):
+    def load_video(self, file_name):
         """
-        open a video
+        load a video
         if file_name not provided ask user to select a file
         """
 
-        logging.debug("function: open_video")
+        logging.debug("function: load_video")
 
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open video", "", "All files (*)")
@@ -3646,14 +3601,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if "video_file_path" in config:
                 try:
                     if os.path.isfile(config["video_file_path"]):
-                        self.open_video(config["video_file_path"])
+                        self.load_video(config["video_file_path"])
                     # check if video file is on same dir than project file
                     elif (pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name).is_file():
                         QMessageBox.warning(self, "DORIS",
                                                   (f"Path {config['video_file_path']} not found.\n"
                                                    f"Using the file found in {pathlib.Path(file_name).parent}")
                                            ) 
-                        self.open_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
+                        self.load_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
 
                     else:
                         QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
