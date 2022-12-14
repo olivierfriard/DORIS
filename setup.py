@@ -6,7 +6,7 @@ setup(
    name='doris-tracker',
    version=[x for x in open("doris/version.py","r").read().split("\n") if "__version__" in x][0].split(" = ")[1].replace('"', ''),
    description='DORIS',
-   author='Olivier Friard - Marco Gamba',
+   author='Olivier Friard',
    author_email='olivier.friard@unito.it',
    long_description=open("README_pip.rst", "r").read(),
    #long_description_content_type="text/markdown",
@@ -29,7 +29,7 @@ setup(
           "numpy",
           "opencv-python-headless",
           "pandas",
-          "pyqt5==5.14.0",
+          "pyqt5",
           "scikit-learn",
           "scipy",
           "sklearn"
