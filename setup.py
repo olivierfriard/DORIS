@@ -37,7 +37,7 @@ setup(
 
     package_data={
     'doris': ['doris.ui','icons/*'],
-    "" = ['LICENSE.TXT', 'README.TXT'],
+    "" : ['LICENSE.TXT', 'README.TXT'],
     },
 
     entry_points={
