@@ -529,7 +529,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
     def about(self):
         """About dialog box."""
 
-        1 / 0
         modules = []
         modules.append(f"OpenCV version {cv2.__version__}")
         modules.append(f"\nNumpy version {np.__version__}")
