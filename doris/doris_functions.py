@@ -27,7 +27,7 @@ import logging
 import os.path
 import struct
 import sys
-
+from typing import List, Tuple, Dict, Optional
 import cv2
 import matplotlib
 
@@ -53,12 +53,10 @@ def rgbstr_to_bgr_tuple(rgb_str):
 COLORS_LIST = [rgbstr_to_bgr_tuple(x) for x in config.RGBSTR_COLORS_LIST]
 
 
-def plot_path(df, x_lim, y_lim):
+def plot_path(df: pd.DataFrame, x_lim, y_lim) -> None:
     """
     plot path
     """
-
-    print("df", df)
 
     plt.figure()
     axes = plt.gca()
@@ -74,13 +72,6 @@ def plot_path(df, x_lim, y_lim):
             alpha=1,
         )
 
-        """
-        plt.plot(df[f"x{idx}"],
-                 df[f"y{idx}"],
-                 color=plot_color,
-                 alpha=1)
-        """
-
     plt.xlabel("x")
     plt.ylabel("y")
 
@@ -93,10 +84,10 @@ def plot_path(df, x_lim, y_lim):
 
 
 def plot_positions(
-    df,
+    df: pd.DataFrame,
     x_lim,
     y_lim,
-):
+) -> None:
     """
     plot positions
 
@@ -134,7 +125,7 @@ def plot_positions(
     plt.show()
 
 
-def plot_density(df, x_lim, y_lim):
+def plot_density(df: pd.DataFrame, x_lim, y_lim) -> None:
 
     nbins = 100
     i = 1
@@ -338,7 +329,7 @@ def group_sc(points, centroids_list0, centroids_list1):
     return clusters
 
 
-def apply_k_means(contours, n_inds):
+def apply_k_means(contours: list, n_inds: int) -> list:
     """
     This function applies the k-means clustering algorithm to separate merged
     contours. The algorithm is applied when detected contours are fewer than
@@ -462,7 +453,7 @@ def euclidean_distance(p1: tuple, p2: tuple) -> float:
     return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
 
 
-def find_circle(points):
+def find_circle(points: List[list]) -> Tuple[float, float, float]:
     """
     Find circle that pass by 3 points
 
