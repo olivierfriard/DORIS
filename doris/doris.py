@@ -596,7 +596,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.fw[cfg.PREVIOUS_FRAME_VIEWER_IDX].setWindowTitle("Previous frame")
 
     def menu_update(self):
-        """Update the menu"""
+        """
+        Update the menu
+        """
 
         self.actionOpen_video.setEnabled(self.project != "")
         self.actionLoad_directory_of_images.setEnabled(self.project != "")
@@ -604,7 +606,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSave_project_as.setEnabled(self.project != "")
 
     def lw_masks_right_clicked(self, QPos):
-        """right click menu for masks listwidget"""
+        """
+        right click menu for masks listwidget
+        """
 
         if self.lw_masks.currentItem():
             self.listMenu = QMenu()
@@ -617,7 +621,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.listMenu.show()
 
     def mask_menu_item_clicked(self):
-        """remove mask from listwidget"""
+        """
+        remove mask from listwidget
+        """
         self.masks.pop(self.lw_masks.row(self.lw_masks.currentItem()))
         self.lw_masks.takeItem(self.lw_masks.row(self.lw_masks.currentItem()))
         self.reload_frame()
@@ -676,13 +682,17 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return mem_visible
 
     def show_viewers(self, mem_visible):
-        """Show frame viewers"""
+        """
+        Show frame viewers
+        """
         for w in [cfg.ORIGINAL_FRAME_VIEWER_IDX, cfg.PROCESSED_FRAME_VIEWER_IDX]:
             if mem_visible[w]:
                 self.fw[w].show()
 
     def save_project_as(self):
-        """Save project as."""
+        """
+        Save project as.
+        """
 
         mem_visible = self.hide_viewers()
 
@@ -697,7 +707,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.save_project()
 
     def save_project(self):
-        """Save parameters of current project in a JSON file"""
+        """
+        Save parameters of current project in a JSON file
+        """
 
         if not self.project_path:
 

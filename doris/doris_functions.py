@@ -22,7 +22,6 @@ This file is part of DORIS.
 
 """
 
-import itertools
 import logging
 import os.path
 import struct
@@ -97,10 +96,6 @@ def plot_positions(
         y_lim (tuple of int): plot y limits
     """
 
-    # plt.figure(figsize=(5,5))
-
-    print("df", df)
-
     plt.figure()
     axes = plt.gca()
     axes.set_aspect("equal", adjustable="box")
@@ -165,11 +160,7 @@ def plot_density(df: pd.DataFrame, x_lim, y_lim) -> None:
 
 
 def group_of(points, centroids):
-
-    """
-    print(points)
-    print(centroids)
-    """
+    """ """
 
     distances = np.zeros([len(points), len(centroids)])
 
@@ -210,7 +201,7 @@ def group(points, centroids):
     """
 
     def f_clu(cc, ctrOK):
-        # assegna ciascun punto al centroide piu vicino
+        # assign each point to closest centroid
         nclu = np.shape(ctrOK)[0]
         nobj = np.shape(cc)[0]
         clu = np.zeros(nobj)
@@ -226,12 +217,6 @@ def group(points, centroids):
     clusters = []
     for idx, centroid in enumerate(centroids):
         clusters.append(points[(clu == idx).nonzero()[0], :])
-
-    # distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
-
-    # results = [points[d==np.minimum(*distances)] for d in distances]
-
-    # return results
 
     return clusters
 
