@@ -22,5 +22,10 @@ This file is part of DORIS.
 
 """
 
+<<<<<<< HEAD
 __version__ = "2020.09.30"
 __version_date__ = "2020-09-30"
+=======
+__version__ = "2022.12.19"
+__version_date__ = "2022-12-19"
+>>>>>>> da2f7c098bb0d24a439d750a141a56e47f0f2963

@@ -58,7 +58,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import __version__ as scipy_version
-from sklearn import __version__ as sklearn_version
+#from sklearn import __version__ as sklearn_version
 from matplotlib.figure import Figure
 from matplotlib.path import Path
 from PyQt5.QtCore import (PYQT_VERSION_STR, QT_VERSION_STR, QEvent, QSettings,
@@ -472,7 +472,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         modules.append(f"\nMatplotlib version {matplotlib.__version__}")
         modules.append(f"\nPandas version {pd.__version__}")
         modules.append(f"\nSciPy version {scipy_version}")
-        modules.append(f"\nsklearn version {sklearn_version}")
+        #modules.append(f"\nsklearn version {sklearn_version}")
         modules_str = "\n".join(modules)
 
         about_dialog = QMessageBox()
