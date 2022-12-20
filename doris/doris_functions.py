@@ -2,7 +2,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2020 Olivier Friard
+Copyright 2017-2022 Olivier Friard
 
 This file is part of DORIS.
 
@@ -30,6 +30,7 @@ import sys
 
 import cv2
 import matplotlib
+
 matplotlib.use("Qt5Agg")
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -46,10 +47,11 @@ from doris import config
 
 
 def rgbstr_to_bgr_tuple(rgb_str):
-    return struct.unpack('BBB', bytes.fromhex(rgb_str))[::-1]
+    return struct.unpack("BBB", bytes.fromhex(rgb_str))[::-1]
 
 
 COLORS_LIST = [rgbstr_to_bgr_tuple(x) for x in config.RGBSTR_COLORS_LIST]
+
 
 def plot_path(df, x_lim, y_lim):
     """
@@ -62,22 +64,22 @@ def plot_path(df, x_lim, y_lim):
     axes = plt.gca()
     axes.set_aspect("equal", adjustable="box")
 
-    for idx in range(1, int((len(df.columns) - 1)/2) + 1):
+    for idx in range(1, int((len(df.columns) - 1) / 2) + 1):
         plot_color = "#" + config.RGBSTR_COLORS_LIST[(idx - 1) % len(config.RGBSTR_COLORS_LIST)]
-        
-        plt.plot(df[f"x{idx}"].to_numpy(float, na_value=np.nan),
-                 df[f"y{idx}"].to_numpy(float, na_value=np.nan),
-                 color=plot_color,
-                 alpha=1)
-        
 
-        '''
+        plt.plot(
+            df[f"x{idx}"].to_numpy(float, na_value=np.nan),
+            df[f"y{idx}"].to_numpy(float, na_value=np.nan),
+            color=plot_color,
+            alpha=1,
+        )
+
+        """
         plt.plot(df[f"x{idx}"],
                  df[f"y{idx}"],
                  color=plot_color,
                  alpha=1)
-        '''
-
+        """
 
     plt.xlabel("x")
     plt.ylabel("y")
@@ -90,7 +92,11 @@ def plot_path(df, x_lim, y_lim):
     plt.show()
 
 
-def plot_positions(df, x_lim, y_lim,):
+def plot_positions(
+    df,
+    x_lim,
+    y_lim,
+):
     """
     plot positions
 
@@ -100,7 +106,7 @@ def plot_positions(df, x_lim, y_lim,):
         y_lim (tuple of int): plot y limits
     """
 
-    #plt.figure(figsize=(5,5))
+    # plt.figure(figsize=(5,5))
 
     print("df", df)
 
@@ -108,15 +114,17 @@ def plot_positions(df, x_lim, y_lim,):
     axes = plt.gca()
     axes.set_aspect("equal", adjustable="box")
 
-    for idx in range(1, int((len(df.columns) - 1)/2) +1):
+    for idx in range(1, int((len(df.columns) - 1) / 2) + 1):
         plot_color = "#" + config.RGBSTR_COLORS_LIST[(idx - 1) % len(config.RGBSTR_COLORS_LIST)]
-        plt.scatter(df[f"x{idx}"].to_numpy(float, na_value=np.nan),
-                    df[f"y{idx}"].to_numpy(float, na_value=np.nan),
-                    c=plot_color,
-                    alpha=0.5)
+        plt.scatter(
+            df[f"x{idx}"].to_numpy(float, na_value=np.nan),
+            df[f"y{idx}"].to_numpy(float, na_value=np.nan),
+            c=plot_color,
+            alpha=0.5,
+        )
 
-    plt.xlabel('x')
-    plt.ylabel('y')
+    plt.xlabel("x")
+    plt.ylabel("y")
 
     axes.set_xlim(x_lim)
     axes.set_ylim(y_lim)
@@ -128,20 +136,22 @@ def plot_positions(df, x_lim, y_lim,):
 
 def plot_density(df, x_lim, y_lim):
 
-    nbins=100
+    nbins = 100
     i = 1
     while True:
-    
+
         if f"x{i}" not in df:
             return
-        
-        df[f"x{i}"] = pd.to_numeric(df[f"x{i}"], errors='coerce')
-        df[f"y{i}"] = pd.to_numeric(df[f"y{i}"], errors='coerce')
+
+        df[f"x{i}"] = pd.to_numeric(df[f"x{i}"], errors="coerce")
+        df[f"y{i}"] = pd.to_numeric(df[f"y{i}"], errors="coerce")
 
         k = kde.gaussian_kde((df[f"x{i}"].dropna(), df[f"y{i}"].dropna()))
 
-        xi, yi = np.mgrid[df[f"x{i}"].dropna().min():df[f"x{i}"].dropna().max():nbins*1j,
-                          df[f"y{i}"].dropna().min():df[f"y{i}"].dropna().max():nbins*1j]
+        xi, yi = np.mgrid[
+            df[f"x{i}"].dropna().min() : df[f"x{i}"].dropna().max() : nbins * 1j,
+            df[f"y{i}"].dropna().min() : df[f"y{i}"].dropna().max() : nbins * 1j,
+        ]
         zi = k(np.vstack([xi.flatten(), yi.flatten()]))
 
         plt.figure()
@@ -163,26 +173,25 @@ def plot_density(df, x_lim, y_lim):
         i += 1
 
 
-
 def group_of(points, centroids):
 
-    '''
+    """
     print(points)
     print(centroids)
-    '''
+    """
 
     distances = np.zeros([len(points), len(centroids)])
 
     for idx1, p in enumerate(points):
         for idx2, c in enumerate(centroids):
-            distances[idx1, idx2] = ((p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2) ** .5
+            distances[idx1, idx2] = ((p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2) ** 0.5
 
     # distances2 = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
-    '''
+    """
     print("distances")
     print(distances)
-    '''
+    """
     # print("distances2")
     # print(distances2)
 
@@ -203,7 +212,6 @@ def group_of(points, centroids):
     return [np.array(x) for x in new_ctr]
 
 
-
 def group(points, centroids):
     """
     group points by distance to centroids
@@ -221,14 +229,12 @@ def group(points, centroids):
         return clu
 
     clu = f_clu(points, centroids)
-    '''
+    """
     print(f"clu: {clu}")
-    '''
+    """
     clusters = []
     for idx, centroid in enumerate(centroids):
         clusters.append(points[(clu == idx).nonzero()[0], :])
-
-
 
     # distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
@@ -237,7 +243,6 @@ def group(points, centroids):
     # return results
 
     return clusters
-
 
 
 def group_sc(points, centroids_list0, centroids_list1):
@@ -266,27 +271,26 @@ def group_sc(points, centroids_list0, centroids_list1):
         conta = 0
         for i in np.arange(nobj0):
             x = (riga == i).nonzero()[0]
-            '''
+            """
             print("x", x)
-            '''
+            """
             if len(x) == 1:
-                '''
+                """
                 print("conta", conta)
-                '''
+                """
                 ctrOK[conta, 0] = ctr0[int(riga[x]), 0]
                 ctrOK[conta, 1] = ctr0[int(riga[x]), 1]
                 conta += 1
             else:
                 for j in np.arange(len(x)):
-                    '''
+                    """
                     print("conta", conta)
-                    '''
+                    """
                     ctrOK[conta, 0] = (ctr0[int(riga[x[j]]), 0] + ctr1[int(colonna[x[j]]), 0]) / 2
                     ctrOK[conta, 1] = (ctr0[int(riga[x[j]]), 1] + ctr1[int(colonna[x[j]]), 1]) / 2
                     conta += 1
 
         return ctrOK
-
 
     def f_clu(cc, ctrOK):
         # assing each point to the nearest centroid
@@ -294,45 +298,44 @@ def group_sc(points, centroids_list0, centroids_list1):
         nobj = np.shape(cc)[0]
         clu = np.zeros(nobj)
         for i in np.arange(nobj):
-            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i,:], (1, 2))) - ctrOK) ** 2,axis = 1)
+            zz = np.sum((np.dot(np.ones((nclu, 1)), np.reshape(cc[i, :], (1, 2))) - ctrOK) ** 2, axis=1)
             clu[i] = (zz == np.min(zz)).nonzero()[0][0]
         return clu
 
-    '''
+    """
     print(f"centroids_list0 {centroids_list0}")
     print(f"centroids_list1 {centroids_list1}")
-    '''
+    """
 
-    '''
+    """
     problem with:
     centroids_list0 [(508, 556), (555, 552), (511, 503), (555, 491)]
     centroids_list1 [(555, 552), (511, 515), (555, 491)]
-    '''
+    """
 
     ctrOK = f_obj(np.array(centroids_list1), len(centroids_list1), np.array(centroids_list0), len(centroids_list0))
-    '''
+    """
     print("ctrOK", ctrOK)
-    '''
+    """
 
     clu = f_clu(points, ctrOK)
 
-    '''
+    """
     print(f"clu: {clu}")
-    '''
+    """
 
     clusters = []
     for idx, _ in enumerate(ctrOK):
-        clusters.append(points[(clu == idx).nonzero()[0],:]  )
+        clusters.append(points[(clu == idx).nonzero()[0], :])
 
-    '''
+    """
     distances = [((points[:,0] - centroid[0]) **2 + (points[:,1] - centroid[1]) **2)**.5 for centroid in centroids]
 
     results = [points[d==np.minimum(*distances)] for d in distances]
 
     return results
-    '''
+    """
     return clusters
-
 
 
 def apply_k_means(contours, n_inds):
@@ -360,15 +363,15 @@ def apply_k_means(contours, n_inds):
         myarray = np.vstack(contours)
         myarray = myarray.reshape(myarray.shape[0], myarray.shape[2])
 
-        kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init = 50).fit(myarray)
-        '''l = len(kmeans.cluster_centers_)'''
+        kmeans = KMeans(n_clusters=n_inds, random_state=0, n_init=50).fit(myarray)
+        """l = len(kmeans.cluster_centers_)"""
 
-        new_contours = [myarray[kmeans.labels_==i] for i in range(n_inds)]
+        new_contours = [myarray[kmeans.labels_ == i] for i in range(n_inds)]
 
-        '''
+        """
         for i in range(n_inds):
             new_contours.append(myarray[kmeans.labels_==i])
-        '''
+        """
 
         return new_contours
 
@@ -378,12 +381,7 @@ def apply_k_means(contours, n_inds):
         return []
 
 
-def image_processing(frame,
-                     blur=5,
-                     threshold_method={},
-                     invert=False,
-                     arena={},
-                     masks=[]):
+def image_processing(frame, blur=5, threshold_method={}, invert=False, arena={}, masks=[]):
     """
     apply treament to frame
     returns treated frame
@@ -395,14 +393,17 @@ def image_processing(frame,
     # apply masks (black for selected mask areas)
     for mask in masks:
         if mask["type"] == config.RECTANGLE:
-            cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
-                          color=mask["color"], thickness=cv2.FILLED)
+            cv2.rectangle(
+                frame,
+                tuple(mask["coordinates"][0]),
+                tuple(mask["coordinates"][1]),
+                color=mask["color"],
+                thickness=cv2.FILLED,
+            )
         if mask["type"] == config.CIRCLE:
-            cv2.circle(frame, tuple(mask["center"]), mask["radius"],
-                          color=mask["color"], thickness=cv2.FILLED)
+            cv2.circle(frame, tuple(mask["center"]), mask["radius"], color=mask["color"], thickness=cv2.FILLED)
         if mask["type"] == config.POLYGON:
-            cv2.fillPoly(frame, np.array([mask["coordinates"]]),
-                          color=mask["color"])
+            cv2.fillPoly(frame, np.array([mask["coordinates"]]), color=mask["color"])
 
     # blur
     if blur:
@@ -416,16 +417,24 @@ def image_processing(frame,
         ret, frame = cv2.threshold(frame, threshold_method["cut-off"], 255, cv2.THRESH_BINARY)
 
     if threshold_method["name"] in ["Adaptive (mean)", "Adaptive (Gaussian)"]:
-        tm = cv2.ADAPTIVE_THRESH_MEAN_C if threshold_method["name"] == "Adaptive (mean)" else cv2.ADAPTIVE_THRESH_GAUSSIAN_C
-        frame = cv2.adaptiveThreshold(frame,
-                                      255,
-                                      tm,
-                                      cv2.THRESH_BINARY,
-                                      threshold_method["block_size"] if threshold_method["block_size"] % 2 else threshold_method["block_size"] + 1,
-                                      threshold_method["offset"])
+        tm = (
+            cv2.ADAPTIVE_THRESH_MEAN_C
+            if threshold_method["name"] == "Adaptive (mean)"
+            else cv2.ADAPTIVE_THRESH_GAUSSIAN_C
+        )
+        frame = cv2.adaptiveThreshold(
+            frame,
+            255,
+            tm,
+            cv2.THRESH_BINARY,
+            threshold_method["block_size"]
+            if threshold_method["block_size"] % 2
+            else threshold_method["block_size"] + 1,
+            threshold_method["offset"],
+        )
 
     if invert:
-        frame = (255 - frame)
+        frame = 255 - frame
 
     # set out of arena to black
     if arena:
@@ -435,18 +444,15 @@ def image_processing(frame,
             cv2.fillPoly(mask, [np.array(arena["points"])], 255)
 
         if arena["type"] == config.CIRCLE:
-            cv2.circle(mask, tuple(arena["center"]), arena["radius"],
-                       color=255, thickness=cv2.FILLED)
+            cv2.circle(mask, tuple(arena["center"]), arena["radius"], color=255, thickness=cv2.FILLED)
 
         if arena["type"] == config.RECTANGLE:
-            cv2.rectangle(mask, tuple(arena["points"][0]), tuple(arena["points"][1]),
-                          color=255, thickness=cv2.FILLED)
+            cv2.rectangle(mask, tuple(arena["points"][0]), tuple(arena["points"][1]), color=255, thickness=cv2.FILLED)
         inverted_mask = 255 - mask
 
-        frame = np.where(inverted_mask==255, 0, frame)
+        frame = np.where(inverted_mask == 255, 0, frame)
 
     return frame
-
 
 
 def euclidean_distance(p1: tuple, p2: tuple) -> float:
@@ -484,19 +490,14 @@ def find_circle(points):
 
     try:
         x = (ma * mb * (y1 - y3) + mb * (x1 + x2) - ma * (x2 + x3)) / (2 * (mb - ma))
-        y = - (1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
+        y = -(1 / ma) * (x - (x1 + x2) / 2) + (y1 + y2) / 2
     except ZeroDivisionError:
         return (0, 0, -1)
-
 
     return (x, y, euclidean_distance((x, y), (x1, y1)))
 
 
-def detect_and_filter_objects(frame,
-                              min_size=0,
-                              max_size=0,
-                              arena={},
-                              max_extension=50):
+def detect_and_filter_objects(frame, min_size=0, max_size=0, arena={}, max_extension=50):
     """
     returns all detected objects and filtered objects
 
@@ -513,7 +514,7 @@ def detect_and_filter_objects(frame,
         dict: filtered objects
     """
 
-    #_, contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # _, contours, _ = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours, _ = cv2.findContours(frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     nr_objects = len(contours)
@@ -523,7 +524,7 @@ def detect_and_filter_objects(frame,
 
         n = np.vstack(cnt).squeeze()
         try:
-            x, y = n[:,0], n[:,1]
+            x, y = n[:, 0], n[:, 1]
         except:
             x, y = n[0], n[1]
 
@@ -535,12 +536,13 @@ def detect_and_filter_objects(frame,
         else:
             cx, cy = np.mean(x), np.mean(y)
 
-        all_objects[idx] = {"centroid": (cx, cy),
-                            "contour": cnt,
-                            "area": cv2.contourArea(cnt),
-                            "min": (int(np.min(x)), int(np.min(y))),
-                            "max": (int(np.max(x)), int(np.max(y)))
-                            }
+        all_objects[idx] = {
+            "centroid": (cx, cy),
+            "contour": cnt,
+            "area": cv2.contourArea(cnt),
+            "min": (int(np.min(x)), int(np.min(y))),
+            "max": (int(np.max(x)), int(np.max(y))),
+        }
 
     # record objects that not match conditions (for deleting)
     obj_to_del_idx = []
@@ -558,8 +560,9 @@ def detect_and_filter_objects(frame,
 
         # check if object extension <= max extension
         if max_extension:
-            if ((all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension
-                or (all_objects[idx]["max"][1] - all_objects[idx]["min"][1]) > max_extension):
+            if (all_objects[idx]["max"][0] - all_objects[idx]["min"][0]) > max_extension or (
+                all_objects[idx]["max"][1] - all_objects[idx]["min"][1]
+            ) > max_extension:
                 obj_to_del_idx.append(idx)
                 continue
 

@@ -2,7 +2,7 @@
 DORIS
 
 Detection of Objects Research Interactive Software
-Copyright 2017-2020 Olivier Friard
+Copyright 2017-2022 Olivier Friard
 
 This file is part of DORIS.
 
@@ -24,4 +24,3 @@ This file is part of DORIS.
 
 __version__ = "2022.12.19"
 __version_date__ = "2022-12-19"
-
