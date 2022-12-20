@@ -694,7 +694,7 @@ class Ui_MainWindow(object):
         self.menuTreatment_viewer_scale.setTitle(_translate("MainWindow", "Treatment viewer scale"))
         self.menuHelp.setTitle(_translate("MainWindow", "Help"))
         self.menuView.setTitle(_translate("MainWindow", "View"))
-        self.actionOpen_video.setText(_translate("MainWindow", "Open video"))
+        self.actionOpen_video.setText(_translate("MainWindow", "Load video"))
         self.actionBackground.setText(_translate("MainWindow", "background"))
         self.actionQuit.setText(_translate("MainWindow", "Quit"))
         self.actionFrame_width.setText(_translate("MainWindow", "Frame width"))

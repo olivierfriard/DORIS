@@ -77,17 +77,11 @@ from doris.config import *
 from doris.doris_ui import Ui_MainWindow
 
 
-print(DEFAULT_CONFIG)
-
-
-
 logging.basicConfig(format='%(asctime)s,%(msecs)d  %(module)s l.%(lineno)d %(levelname)s %(message)s',
                             datefmt='%H:%M:%S',
                             level=logging.DEBUG)
 
 COLORS_LIST = doris_functions.COLORS_LIST
-
-
 
 
 class Click_label(QLabel):
@@ -274,7 +268,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSelect_objects_to_track.triggered.connect(lambda: self.select_objects_to_track(all_=False))
         self.actionDefine_scale.triggered.connect(self.define_scale)
 
-        self.actionOpen_video.triggered.connect(lambda: self.open_video(""))
+        self.actionOpen_video.triggered.connect(lambda: self.load_video(""))
         self.actionLoad_directory_of_images.triggered.connect(self.load_dir_images)
         self.actionNew_project.triggered.connect(self.new_project)
         self.actionOpen_project.triggered.connect(self.open_project)
@@ -439,9 +433,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.project_path = ""
 
         # default
-        print(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
         self.sb_threshold.setValue(self.DEFAULT_CONFIG["THRESHOLD_DEFAULT"])
-        print(self.sb_threshold.value())
+
+        self.cb_reset_following_coordinates.setChecked(False)
 
         self.fw = []
 
@@ -506,7 +500,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
 
     def create_viewers(self):
-        """Crete the frame viewers"""
+        """
+        Create the frame viewers
+        """
         self.fw.append(FrameViewer(ORIGINAL_FRAME_VIEWER_IDX))
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle("Original frame")
         self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.mouse_pressed_signal.connect(self.frame_mousepressed)
@@ -871,7 +867,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         if shape:
             # disable the stay on top property for frame viewers
-            self.disable_viewers_stay_on_top
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
 
             text, ok = QInputDialog.getText(self, "New area", "Area name:")
             if ok:
@@ -889,6 +885,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     msg = "New rectangle area: click on the video to define 2 opposite vertices."
 
                 self.statusBar.showMessage(msg)
+            self.set_viewers_stay_on_top({}, mem_stay_on_top)
 
 
     def remove_area(self):
@@ -955,15 +952,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         return ratio and pen thickness for contours according to video resolution
         """
 
-        #logging.debug(f"video_width: {video_width}, frame_width: {frame_width}")
-
         ratio = video_width / frame_width
         if ratio <= 1:
             drawing_thickness = 1
         else:
             drawing_thickness = round(ratio)
-
-        #logging.debug(f"ratio: {ratio}, drawing_thickness: {drawing_thickness}")
 
         return ratio, drawing_thickness
 
@@ -1018,7 +1011,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             * setting scale
             * re-picking objects
             * masks definition
-
         """
 
         logging.debug("function: frame_mousepressed")
@@ -1026,13 +1018,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         conversion, drawing_thickness = self.ratio_thickness(self.video_width,
                                                              self.fw[ORIGINAL_FRAME_VIEWER_IDX].lb_frame.pixmap().width())
 
-        ''' pick object
-        if self.pick_point:
-            print([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
-            self.pick_point = False
-        '''
         if self.repicked_objects is not None:
-
             # cancel repick
             if event.button() in [Qt.RightButton]:
                 self.repicked_objects = None
@@ -1060,11 +1046,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
             '''
 
-            
             # pick object by clicking nearly (not inside)
             self.repicked_objects.append([int(event.pos().x() * conversion), int(event.pos().y() * conversion)])
             self.statusBar.showMessage(f"Click object #{len(self.repicked_objects) + 1} on the video (right-click to cancel)")
-            
 
         # set coordinates of referential origin with 1 point
         if self.flag_define_coordinate_center_1point:
@@ -1090,11 +1074,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                 x, y, radius = doris_functions.find_circle(self.coordinate_center_def)
                 if radius == -1:
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                     QMessageBox.warning(self, "DORIS",
                                         ("A circle can not be defined with the selected points. "
                                          "Please retry selecting different points.")
                                        )
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
                     self.statusBar.showMessage("")
                     self.coordinate_center_def = []
                     self.reload_frame()
@@ -1127,7 +1112,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     self.flag_define_scale = False
                     self.actionDefine_scale.setText("Define scale")
 
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
 
                     while True:
                         real_length_str, ok_pressed = QInputDialog.getText(self, "Real length", "Value (w/o unit):")
@@ -1138,11 +1123,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                             break
                         except:
                             QMessageBox.warning(self, "DORIS", f"{real_length_str} was not recognized as length")
-                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0], self.scale_points[1])
+                    self.scale = float(real_length_str) / doris_functions.euclidean_distance(self.scale_points[0],
+                                                                                             self.scale_points[1])
                     self.le_scale.setText(f"{self.scale:0.5f}")
                     self.scale_points = []
                     self.reload_frame()
                     self.statusBar.showMessage(f"Scale defined: {self.scale:0.5f}")
+
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
 
         # add mask
         if self.flag_add_mask.define:
@@ -1196,11 +1184,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if (self.flag_add_mask.shape in [CIRCLE_3PTS]) and len(self.mask_points) == 3:
                 cx, cy, radius = doris_functions.find_circle(self.mask_points)
                 if radius == -1:
-                    self.disable_viewers_stay_on_top()
+                    mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                     QMessageBox.warning(self, "DORIS",
                                         ("A circle can not be defined with the selected points. "
                                          "Please retry selecting different points.")
                                        )
+                    self.set_viewers_stay_on_top(None, mem_stay_on_top)
                     self.mask_points = []
                     self.statusBar.showMessage("")
                     self.flag_add_mask.define = False
@@ -1286,11 +1275,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.add_area["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.add_area["points"])
                     if radius == -1:
-                        self.disable_viewers_stay_on_top()
+                        mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                         QMessageBox.warning(self, "DORIS",
                                             ("A circle can not be defined with the selected points. "
                                             "Please retry selecting different points.")
                                         )
+                        self.set_viewers_stay_on_top(None, mem_stay_on_top)
                         self.statusBar.showMessage("")
                         del self.add_area["points"]
                         self.add_area = {}
@@ -1335,10 +1325,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                     return
 
                 if event.button() == Qt.LeftButton:
-                    '''
-                    cv2.circle(self.frame, (int(event.pos().x() * conversion), int(event.pos().y() * conversion)), 4,
-                               color=AREA_COLOR, lineType=8, thickness=drawing_thickness)
-                    '''
                     if "points" not in self.add_area:
                         self.add_area["points"] = [[int(event.pos().x() * conversion), int(event.pos().y() * conversion)]]
                     else:
@@ -1446,11 +1432,12 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if len(self.arena["points"]) == 3:
                     cx, cy, radius = doris_functions.find_circle(self.arena["points"])
                     if radius == -1:
-                        self.disable_viewers_stay_on_top()
+                        mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                         QMessageBox.warning(self, "DORIS",
                                             ("A circle can not be defined with the selected points. "
                                             "Please retry selecting different points.")
                                         )
+                        self.set_viewers_stay_on_top(None, mem_stay_on_top)
                         self.statusBar.showMessage("")
                         self.flag_define_arena = ""
                         self.arena = {}
@@ -1574,14 +1561,22 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.pb()
 
 
-    def disable_viewers_stay_on_top(self):
+    def set_viewers_stay_on_top(self, general_value, stay_on_top) -> dict:
         """
         disable the stay on top property on viewers
         to allow a correct visualization of the message dialog
         """
         if self.fw:
+            mem_stay_on_top = {}
             for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
-                self.fw[viewer].cb_stay_on_top.setChecked(False)
+                mem_stay_on_top[viewer] = self.fw[viewer].cb_stay_on_top.isChecked()
+                if general_value in [True, False]:
+                    self.fw[viewer].cb_stay_on_top.setChecked(general_value)
+                else: # None for value from dict
+                    self.fw[viewer].cb_stay_on_top.setChecked(stay_on_top[viewer])
+            return mem_stay_on_top
+        else:
+            return {}
 
 
     def view_coordinates(self):
@@ -1621,9 +1616,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             w.exec_()
 
         else:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track were selected")
-
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
 
     def delete_coordinates(self):
         """
@@ -1833,19 +1828,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         x_lim = x_lim * scale
         y_lim = y_lim * scale
 
-
-        '''
-        x_lim = np.array([0 - self.coordinate_center[0], self.video_width - self.coordinate_center[0]])
-        y_lim = np.array([0 - self.coordinate_center[1], self.video_height - self.coordinate_center[1]])
-
-        if self.cb_normalize_coordinates.isChecked():
-            x_lim = x_lim / self.video_width
-            y_lim = y_lim / self.video_width
-
-        x_lim = x_lim * self.scale
-        y_lim = y_lim * self.scale
-        '''
-
         if plot_type == "path":
             doris_functions.plot_path(df,
                                       x_lim=x_lim,
@@ -1856,13 +1838,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                            y_lim=y_lim)
 
 
-    def open_video(self, file_name):
+    def load_video(self, file_name):
         """
-        open a video
+        load a video
         if file_name not provided ask user to select a file
         """
 
-        logging.debug("function: open_video")
+        logging.debug("function: load_video")
 
         if not file_name:
             file_name, _ = QFileDialog().getOpenFileName(self, "Open video", "", "All files (*)")
@@ -1896,6 +1878,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.hs_frame.setTickInterval(10)
 
             self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+
             logging.debug(f"FPS: {self.fps}")
 
             self.frame_idx = 0
@@ -1905,16 +1888,10 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             self.video_file_name = file_name
 
             # default scale
-            for idx in range(2):
+            for idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
                 self.fw[idx].zoom.setCurrentIndex(ZOOM_LEVELS.index(str(DEFAULT_FRAME_SCALE)))
                 self.frame_viewer_scale(idx, DEFAULT_FRAME_SCALE)
                 self.fw[idx].show()
-
-            '''
-            # moved after selection of objects to track
-            self.initialize_positions_dataframe()
-            self.initialize_areas_dataframe()
-            '''
 
             self.fw[ORIGINAL_FRAME_VIEWER_IDX].setWindowTitle(f"Original frame - {pathlib.Path(file_name).name}")
             self.statusBar.showMessage(f"video loaded ({self.video_width}x{self.video_height})")
@@ -1931,7 +1908,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if self.dir_images_path:
             p = pathlib.Path(self.dir_images_path)
             self.dir_images = sorted(list(p.glob('*')))
-            print(f"self.dir_images: {self.dir_images}")
+
+            logging.debug(f"self.dir_images: {self.dir_images}")
 
             '''
                                      + list(p.glob('*.jpg'))
@@ -1943,12 +1921,13 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             logging.info(f"images number: {self.total_frame_nb}")
 
-            
             if not self.total_frame_nb:
                 QMessageBox.critical(self, "DORIS", f"No images were found in {self.dir_images_path}")
                 self.dir_images_path = ""
                 return
-            
+
+            self.create_viewers()
+
             self.dir_images_index = -1
             r = self.pb()
             if r == False:
@@ -1957,8 +1936,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.dir_images_path = ""
                 self.dir_images = []
                 return
-
-            self.create_viewers()
 
             logging.debug(f"self.frame.shape: {self.frame.shape}")
 
@@ -1970,14 +1947,8 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             self.video_height, self.video_width, _ = self.frame.shape
 
-            '''
-            # moved after selection of objects to track
-            self.initialize_positions_dataframe()
-            self.initialize_areas_dataframe()
-            '''
-
             # default scale
-            for idx in range(2):
+            for idx in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]:
                 self.frame_viewer_scale(idx, 0.5)
                 self.fw[idx].show()
 
@@ -2076,10 +2047,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         define scale. from pixels to real unit
         """
         if self.frame is not None:
-            # disable the stay on top property for frame viewers
-            #for viewer in [ORIGINAL_FRAME_VIEWER_IDX, PROCESSED_FRAME_VIEWER_IDX]: #  PREVIOUS_FRAME_VIEWER_IDX
-            #    self.fw[viewer].cb_stay_on_top.setChecked(False)
-
             self.flag_define_scale = not self.flag_define_scale
             self.actionDefine_scale.setText("Define scale" if not self.flag_define_scale else "Cancel scale definition")
             self.statusBar.showMessage("You have to select 2 points on the video" * self.flag_define_scale)
@@ -2098,9 +2065,6 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         self.coord_df = pd.DataFrame(index=range(self.total_frame_nb), columns=columns)
         # set frame index
         self.coord_df["frame"] = range(1, self.total_frame_nb + 1)
-
-        #self.coord_df.loc[:, ] = pd.NA
-        #self.coord_df["y1"] = pd.NA
 
         logging.debug(f"self.coord_df: {self.coord_df}")
 
@@ -2216,8 +2180,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         if mode == "all":
             self.show_all_filtered_objects()
 
-            print(f"filtered objects: {list(self.filtered_objects.keys())}")
-        
+            logging.debug(f"filtered objects: {list(self.filtered_objects.keys())}")
 
 
         self.statusBar.showMessage(f"Click object #1 on the original frame viewer (right-click to cancel)")
@@ -2244,16 +2207,16 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             elif mode == "tracked":
                 distances = [doris_functions.euclidean_distance(self.objects_to_track[o]["centroid"], (x, y)) for o in self.objects_to_track]
 
-            print(distances)
-            print(min(distances))
-            print(distances.index(min(distances)))
+            logging.debug(f"distances: {distances}")
+            logging.debug(f"min(distances): {min(distances)}")
+            logging.debug(f"distances.index(min(distances)): {distances.index(min(distances))}")
 
             new_order[idx + 1] = distances.index(min(distances)) + 1
 
-        print(f"new order: {new_order}")
+        logging.debug(f"new order: {new_order}")
 
         # test if objects clicked more than one time
-        print(list(new_order.values()))
+        logging.debug(list(new_order.values()))
 
         if sorted(list(set(new_order.values()))) == sorted(list(new_order.values())):
             new_objects_to_track = {}
@@ -2311,11 +2274,11 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 cy = int(np.mean(y))
 
                 new_objects[idx + 1] = {"centroid": (cx, cy),
-                                                 "contour": cnt,
-                                                 "area": cv2.contourArea(cnt),
-                                                 "min": (int(np.min(x)), int(np.min(y))),
-                                                 "max": (int(np.max(x)), int(np.max(y)))
-                                                }
+                                        "contour": cnt,
+                                        "area": cv2.contourArea(cnt),
+                                        "min": (int(np.min(x)), int(np.min(y))),
+                                        "max": (int(np.max(x)), int(np.max(y)))
+                                       }
 
             # print("new_filtered_objects", [(x, new_filtered_objects[x]["centroid"]) for x in new_filtered_objects])
 
@@ -2446,9 +2409,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             np.array: frame with objects drawn
         """
 
-        logging.debug("function: draw_maker_on_objects")
-
-        # print([(x, objects[x]["centroid"]) for x in objects])
+        logging.debug("function: draw_marker_on_objects")
 
         ratio, drawing_thickness = self.ratio_thickness(self.video_width, self.frame_width)
         for idx in objects:
@@ -2489,6 +2450,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         """
         display the current frame in viewer of index viewer_idx
         """
+        logging.debug(f"viewer_idx: {viewer_idx}")
+        logging.debug(f"self.fw: {self.fw}")
+
         if viewer_idx in [ORIGINAL_FRAME_VIEWER_IDX, PREVIOUS_FRAME_VIEWER_IDX]:
             self.fw[viewer_idx].lb_frame.setPixmap(frame2pixmap(frame).scaled(self.fw[viewer_idx].lb_frame.size(),
                                                                               Qt.KeepAspectRatio))
@@ -2557,7 +2521,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         draw masks on frame
         """
         for mask in self.masks:
-            print(mask)
+
             if mask["type"] == RECTANGLE:
                 cv2.rectangle(frame, tuple(mask["coordinates"][0]), tuple(mask["coordinates"][1]),
                               color=mask["color"], thickness=-1)
@@ -2789,7 +2753,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                                                      "min": (int(np.min(x)), int(np.min(y))),
                                                      "max": (int(np.max(x)), int(np.max(y)))
                                                     }
-                    # print(idx, "centroid", (cx, cy))
+
                 filtered_objects = dict(new_filtered_objects)
 
         self.filtered_objects = filtered_objects
@@ -3387,8 +3351,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         # check if objects to track are defined
         if not self.objects_to_track :
 
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             self.pb_run_tracking.setChecked(False)
             return
 
@@ -3401,8 +3366,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 self.capture
             except:
                 self.stop_tracking()
-                self.disable_viewers_stay_on_top()
+                mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
                 QMessageBox.warning(self, "DORIS", "No video")
+                self.set_viewers_stay_on_top(None, mem_stay_on_top)
                 return
 
         self.running_tracking = True
@@ -3427,8 +3393,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         # check if objects to track are defined
         if not self.objects_to_track:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", "No objects to track.\nSelect objects to track before running tracking")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             self.pb_run_tracking_frame_interval.setChecked(False)
             return
 
@@ -3448,8 +3415,9 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if start_frame >= stop_frame:
                 raise
         except:
-            self.disable_viewers_stay_on_top()
+            mem_stay_on_top = self.set_viewers_stay_on_top(False, {})
             QMessageBox.warning(self, "DORIS", f"{text} is not a valid interval")
+            self.set_viewers_stay_on_top(None, mem_stay_on_top)
             return
 
         logging.info(f"start_frame: {start_frame} stop frame: {stop_frame}")
@@ -3529,6 +3497,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         self.cb_normalize_coordinates.setChecked(False)
         self.cb_display_analysis.setChecked(True)
+        self.cb_reset_following_coordinates.setChecked(False)
 
         self.clear_arena()
 
@@ -3629,14 +3598,18 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             except KeyError:
                 self.areas = {}
 
-
             if "video_file_path" in config:
                 try:
                     if os.path.isfile(config["video_file_path"]):
-                        self.open_video(config["video_file_path"])
+                        self.load_video(config["video_file_path"])
                     # check if video file is on same dir than project file
                     elif (pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name).is_file():
-                        self.open_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
+                        QMessageBox.warning(self, "DORIS",
+                                                  (f"Path {config['video_file_path']} not found.\n"
+                                                   f"Using the file found in {pathlib.Path(file_name).parent}")
+                                           ) 
+                        self.load_video(str(pathlib.Path(file_name).parent / pathlib.Path(config["video_file_path"]).name))
+
                     else:
                         QMessageBox.critical(self, "DORIS", f"File {config['video_file_path']} not found")
                         return None
@@ -3647,6 +3620,14 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             if self.dir_images_path:
                 try:
                     if os.path.isdir(self.dir_images_path):
+                        self.load_dir_images()
+                    # check if images directory in same directory than the project file
+                    elif (pathlib.Path(file_name).parent / pathlib.Path(self.dir_images_path).name).is_dir():
+                        QMessageBox.warning(self, "DORIS",
+                                            (f"Path {self.dir_images_path} not found.\n"
+                                             f"Using the directory found in {pathlib.Path(file_name).parent}")
+                                           )
+                        self.dir_images_path = pathlib.Path(file_name).parent / pathlib.Path(self.dir_images_path).name
                         self.load_dir_images()
                     else:
                         QMessageBox.critical(self, "DORIS", f"Directory {self.dir_images_path} not found")

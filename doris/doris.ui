@@ -1157,7 +1157,7 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen_video">
    <property name="text">
-    <string>Open video</string>
+    <string>Load video</string>
    </property>
   </action>
   <action name="actionBackground">

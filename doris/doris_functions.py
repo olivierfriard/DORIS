@@ -289,7 +289,7 @@ def group_sc(points, centroids_list0, centroids_list1):
 
 
     def f_clu(cc, ctrOK):
-        # assegna ciascun punto al centroide piu vicino
+        # assing each point to the nearest centroid
         nclu = np.shape(ctrOK)[0]
         nobj = np.shape(cc)[0]
         clu = np.zeros(nobj)
