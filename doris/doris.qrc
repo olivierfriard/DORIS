@@ -2,5 +2,6 @@
 <qresource>
 <file alias="logo_256px">icons/doris_logo.256px.png</file>
 <file alias="logo_128px">icons/doris_logo.128px.png</file>
+<file alias="logo_128x150">icons/doris_logo.128x150px.png</file>
 </qresource>
 </RCC>

@@ -254,7 +254,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
         sys.excepthook = self.excepthook
 
-        self.setWindowIcon(QIcon(":/logo_128px"))
+        self.setWindowIcon(QIcon(":/logo_128x150"))
 
         self.setWindowTitle(f"DORIS v. {version.__version__} - (c) Olivier Friard")
         self.tab_tracking_results.setCurrentIndex(0)
@@ -539,7 +539,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         modules_str = "\n".join(modules)
 
         about_dialog = QMessageBox()
-        about_dialog.setIconPixmap(QPixmap(":/logo_256px"))
+        about_dialog.setIconPixmap(QPixmap(":/logo_128x150"))
         about_dialog.setWindowTitle("About DORIS")
         about_dialog.setStandardButtons(QMessageBox.Ok)
         about_dialog.setDefaultButton(QMessageBox.Ok)
