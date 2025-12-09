@@ -1965,7 +1965,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
         areas_non_nan_df = self.areas_df.dropna(thresh=1)
         for area in self.areas:
             for idx in self.objects_to_track:
-                time_objects_in_areas[area][idx] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
+                time_objects_in_areas.loc[idx, area] = areas_non_nan_df[f"area {area} object #{idx}"].sum() / self.fps
 
         logging.debug(f"{time_objects_in_areas}")
 
@@ -2030,7 +2030,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
             dx = self.coord_df[f"x{idx}"] - self.coord_df[f"x{idx}"].shift(1)
             dy = self.coord_df[f"y{idx}"] - self.coord_df[f"y{idx}"].shift(1)
             dist = (dx * dx + dy * dy) ** 0.5
-            results["distance"][idx] = dist.sum()
+            results.loc[idx, "distance"] = dist.sum()
 
         file_name, _ = QFileDialog().getSaveFileName(self, "Save distances", "", "All files (*)")
         if file_name:
@@ -3004,7 +3004,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
             if self.cb_record_xy.isChecked():
                 # frame idx
-                self.coord_df["frame"][self.frame_idx] = self.frame_idx + 1
+                self.coord_df.loc[self.frame_idx, "frame"] = self.frame_idx + 1
                 # tag
                 for idx in sorted(list(self.objects_to_track.keys())):
                     # self.coord_df.loc[self.frame_idx, (f"x{idx}", f"y{idx}")] = [pd.NA, pd.NA]
@@ -3663,7 +3663,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 return
 
             # frame idx
-            self.areas_df["frame"][frame_idx - 1] = frame_idx
+            self.areas_df.loc[frame_idx - 1, "frame"] = frame_idx
 
             for area in sorted(list(self.areas.keys())):
 
@@ -3678,7 +3678,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                         if ((cx - x) ** 2 + (cy - y) ** 2) ** 0.5 <= radius:
                             nb[area] += 1
 
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(
+                        self.areas_df.loc[frame_idx, f"area {area} object #{idx}"] = int(
                             ((cx - x) ** 2 + (cy - y) ** 2) ** 0.5 <= radius
                         )
 
@@ -3688,7 +3688,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
 
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(
+                        self.areas_df.loc[frame_idx, f"area {area} object #{idx}"] = int(
                             minx <= x <= maxx and miny <= y <= maxy
                         )
 
@@ -3698,7 +3698,7 @@ class Ui_MainWindow(QMainWindow, Ui_MainWindow):
                 if self.areas[area]["type"] == "polygon":
                     for idx in objects:
                         x, y = objects[idx]["centroid"]
-                        self.areas_df[f"area {area} object #{idx}"][frame_idx] = int(
+                        self.areas_df.loc[frame_idx, f"area {area} object #{idx}"] = int(
                             cv2.pointPolygonTest(np.array(self.areas[area]["points"]), (x, y), False) >= 0
                         )
 
