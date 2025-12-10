@@ -1,7 +1,7 @@
 """
 DORIS
 Detection of Objects Research Interactive Software
-Copyright 2017-2020 Olivier Friard
+Copyright 2017-2022 Olivier Friard
 
 This file is part of DORIS.
 
@@ -24,11 +24,17 @@ import os
 from doris import version
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QPushButton, QDialog, QMessageBox,
-                             QVBoxLayout, QHBoxLayout,
-                             QLabel, QPlainTextEdit, QListView,
-                             QFileDialog
-                             )
+from PyQt5.QtWidgets import (
+    QPushButton,
+    QDialog,
+    QMessageBox,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPlainTextEdit,
+    QListView,
+    QFileDialog,
+)
 
 
 def MessageDialog(title, text, buttons):
@@ -68,15 +74,19 @@ def error_message(task: str, exc_info: tuple) -> None:
 
     """
     error_type, error_file_name, error_lineno = error_info(exc_info)
-    QMessageBox.critical(None, "DORIS",
-                         (f"An error occured during {task}.<br>"
-                          f"DORIS version: {version.__version__}<br>"
-                          f"Error: {error_type}<br>"
-                          f"in {error_file_name} "
-                          f"at line # {error_lineno}<br><br>"
-                          "Please report this problem to improve the software at:<br>"
-                          '<a href="https://github.com/olivierfriard/DORIS/issues">https://github.com/olivierfriard/DORIS/issues</a>'
-                          ))
+    QMessageBox.critical(
+        None,
+        "DORIS",
+        (
+            f"An error occured during {task}.<br>"
+            f"DORIS version: {version.__version__}<br>"
+            f"Error: {error_type}<br>"
+            f"in {error_file_name} "
+            f"at line # {error_lineno}<br><br>"
+            "Please report this problem to improve the software at:<br>"
+            '<a href="https://github.com/olivierfriard/DORIS/issues">https://github.com/olivierfriard/DORIS/issues</a>'
+        ),
+    )
 
     return (error_type, error_file_name, error_lineno)
 
@@ -85,6 +95,7 @@ class CheckListWidget(QDialog):
     """
     widget for visualizing list with check boxes
     """
+
     def __init__(self, items):
         super().__init__()
 
@@ -122,7 +133,6 @@ class CheckListWidget(QDialog):
 
         self.lv.setModel(self.model)
 
-
     def ok(self):
         self.checked = []
         i = 0
@@ -137,6 +147,7 @@ class Results_dialog(QDialog):
     """
     widget for visualizing text output
     """
+
     def __init__(self):
         super().__init__()
 
@@ -170,7 +181,6 @@ class Results_dialog(QDialog):
 
         self.resize(540, 640)
 
-
     def save_results(self):
         """
         save content of self.ptText
@@ -185,5 +195,3 @@ class Results_dialog(QDialog):
                     f.write(self.ptText.toPlainText())
             except Exception:
                 QMessageBox.critical(self, "DORIS", "The file {} can not be saved".format(file_name))
-
-
