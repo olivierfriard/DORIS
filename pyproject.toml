@@ -1,5 +1,5 @@
 [project]
-name = "doris-tracker"
+name = "doris"
 version = "2025.12.10"
 description="DORIS"
 authors = [{ name="Olivier Friard", email="olivier.friard@unito.it" }]
@@ -31,7 +31,7 @@ Source_code = "https://github.com/olivierfriard/DORIS"
 Issues = "https://github.com/olivierfriard/DORIS/issues"
 
 [project.scripts]
-doris-tracker = "doris:main"
+doris = "doris.doris:main"
 
 [[tool.uv.index]]
 name = "pypi"

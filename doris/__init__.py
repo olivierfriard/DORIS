@@ -2,7 +2,7 @@
 DORIS
 
 
-Copyright 2017-2020 Olivier Friard
+Copyright 2017-2025 Olivier Friard
 
 This file is part of Behatrix.
 
