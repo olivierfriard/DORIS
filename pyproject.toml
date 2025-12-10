@@ -1,0 +1,41 @@
+[project]
+name = "doris-tracker"
+version = "2025.12.10"
+description="DORIS"
+authors = [{ name="Olivier Friard", email="olivier.friard@unito.it" }]
+readme = "README.rst"
+requires-python = ">=3.13"
+license = "GPL-3.0-only"
+classifiers=[
+        "Topic :: Scientific/Engineering",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Education",
+        "Programming Language :: Python :: 3.13",        
+        "Operating System :: OS Independent",
+        "Topic :: Scientific/Engineering",
+    ]
+dependencies = [
+    "matplotlib>=3.10.7",
+    "opencv-python-headless>=4.12.0.88",
+    "pandas>=2.3.3",
+    "pyqt5>=5.15.11",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.16.3",
+]
+
+[project.urls]
+Homepage = "http://www.boris.unito.it/doris"
+Documentation = "https://boris.readthedocs.io/en/latest/"
+Change_log = "https://github.com/olivierfriard/DORIS/wiki/Revision-history"
+Source_code = "https://github.com/olivierfriard/DORIS"
+Issues = "https://github.com/olivierfriard/DORIS/issues"
+
+[project.scripts]
+doris-tracker = "doris:main"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+publish-url = "https://upload.pypi.org/legacy/"
+explicit = true
+

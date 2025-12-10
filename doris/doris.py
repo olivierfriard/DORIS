@@ -24,7 +24,9 @@ opencv
 pandas
 numpy
 matplotlib
-sklearn
+scikit-learn
+scipy
+
 
 optional:
 mpl_scatter_density (pip3 install mpl_scatter_density)
