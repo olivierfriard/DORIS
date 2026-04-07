@@ -45,26 +45,16 @@ Requirements
 
 
 
-User guide
-========================================================================================
 
-https://doris.readthedocs.io/en/latest/
 
 A video tutorial is available at https://www.youtube.com/watch?v=toSXiqsWRzY (no audio)
 
 
-Download binaries (executable versions for Linux, Windows and Mac OS)
-========================================================================================
-
-See the `Releases page <https://github.com/olivierfriard/DORIS/releases>`_
 
 
-
-Install DORIS
+Installation
 ============================================================================================================================================
 
-
-.. install and launch DORIS
 
 
 
