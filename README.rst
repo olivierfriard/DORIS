@@ -9,7 +9,9 @@ DORIS is an easy-to-use interactive object detection and tracking software with 
 
 DORIS is a free and open-source software available for GNU/Linux, Windows and Mac OS.
 
-This project is at an early stage of development. Please report any bugs and suggestions using the GitHub issues tracker.
+This project is no more developed.
+If you need a more powerfull tracking software you can use `idtracker.ai <https://idtracker.ai>`_
+or `TRex <https://www.trex.run>`_ for example.
 
 DORIS web page: `http://www.boris.unito.it/doris <http://www.boris.unito.it/doris>`_
 
